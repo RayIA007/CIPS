@@ -1,0 +1,37 @@
+general:
+
+  framework: CIPS
+
+  version: 0.1.0
+
+  language: es
+
+  encoding: utf-8
+
+  timezone: America/Mexico_City
+
+  save_logs: true
+
+  save_history: true
+
+  autosave: true
+
+directories:
+
+  documentation: 00_DOCUMENTACION
+
+  config: 01_CONFIG
+
+  prompts: 02_PROMPTS
+
+  templates: 03_PLANTILLAS
+
+  projects: 04_PROYECTOS
+
+  outputs: 05_OUTPUTS
+
+  memory: 06_MEMORIA
+
+  logs: 07_LOGS
+
+  scripts: 08_SCRIPTS

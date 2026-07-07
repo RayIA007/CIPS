@@ -1,0 +1,31 @@
+investigacion:
+
+  model: gemini
+
+ideas:
+
+  model: chatgpt
+
+guion:
+
+  model: chatgpt
+
+storyboard:
+
+  model: chatgpt
+
+prompts_imagen:
+
+  model: chatgpt
+
+prompts_video:
+
+  model: chatgpt
+
+seo:
+
+  model: gemini
+
+publicacion:
+
+  model: claude

@@ -1,0 +1,19 @@
+pipeline:
+
+  - investigacion
+
+  - ideas
+
+  - guion
+
+  - storyboard
+
+  - prompts_imagen
+
+  - prompts_video
+
+  - seo
+
+  - publicacion
+
+  - final

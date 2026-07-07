@@ -1,0 +1,28 @@
+framework:
+  name: CIPS
+  full_name: Content Intelligence Production System
+  version: 0.1.0
+  stage: BUILD_001
+  status: DEVELOPMENT
+
+project:
+  name: ConsejoIA_V5
+  author: Raymundo Montiel
+  language: es
+  country: MX
+
+engine:
+  language: python
+  minimum_version: "3.11"
+
+pipeline:
+  enabled: true
+
+memory:
+  enabled: true
+
+logs:
+  enabled: true
+
+production:
+  ready: false
