@@ -1,3 +1,0 @@
-# Publicación
-
-Pendiente

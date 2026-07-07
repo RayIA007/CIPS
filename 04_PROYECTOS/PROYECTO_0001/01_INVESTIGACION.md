@@ -1,3 +1,0 @@
-# Investigación
-
-Pendiente

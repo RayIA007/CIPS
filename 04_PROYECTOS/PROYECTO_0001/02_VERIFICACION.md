@@ -1,3 +1,0 @@
-# Verificación Científica
-
-Pendiente

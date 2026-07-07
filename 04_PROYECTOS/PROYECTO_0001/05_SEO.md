@@ -1,3 +1,0 @@
-# SEO
-
-Pendiente
