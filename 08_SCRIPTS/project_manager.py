@@ -1,103 +1,95 @@
 """
-=====================================================
-CIPS
-Project Manager
-=====================================================
+CIPS - Project Manager
+Crea y administra proyectos de producción de contenido.
 """
 
 from pathlib import Path
 from datetime import datetime
 import uuid
-import yaml
 
-
-PROYECTOS_DIR = Path("04_PROYECTOS")
+from utils import ROOT, PROJECTS_DIR, ensure_directory, write_text, write_yaml
+from templates import (
+    tema_md,
+    contexto_md,
+    proyecto_yaml,
+    memoria_yaml,
+    MARKDOWN_FILES,
+)
 
 
 class ProjectManager:
-
     def __init__(self):
+        ensure_directory(PROJECTS_DIR)
 
-        PROYECTOS_DIR.mkdir(exist_ok=True)
-
-    # ----------------------------------------
-
-    def obtener_siguiente_id(self):
-
-        proyectos = sorted(PROYECTOS_DIR.glob("PROYECTO_*"))
-
-        if not proyectos:
-
-            return 1
-
-        ultimo = proyectos[-1].name
-
-        numero = int(ultimo.split("_")[1])
-
-        return numero + 1
-
-    # ----------------------------------------
-
-    def crear_proyecto(self, tema):
-
-        numero = self.obtener_siguiente_id()
-
-        nombre = f"PROYECTO_{numero:04d}"
-
-        carpeta = PROYECTOS_DIR / nombre
-
-        carpeta.mkdir()
-
-        (carpeta / "prompts").mkdir()
-
-        (carpeta / "recursos").mkdir()
-
-        (carpeta / "outputs").mkdir()
-
-        archivos = [
-
-            "tema.md",
-
-            "investigacion.md",
-
-            "verificacion.md",
-
-            "guion.md",
-
-            "storyboard.md",
-
-            "seo.md",
-
-            "publicacion.md"
-
+    def get_next_project_number(self) -> int:
+        projects = [
+            folder.name
+            for folder in PROJECTS_DIR.iterdir()
+            if folder.is_dir() and folder.name.startswith("PROYECTO_")
         ]
 
-        for archivo in archivos:
+        if not projects:
+            return 1
 
-            (carpeta / archivo).touch()
+        numbers = []
 
-        with open(carpeta / "tema.md", "w", encoding="utf-8") as f:
+        for project in projects:
+            try:
+                numbers.append(int(project.split("_")[1]))
+            except (IndexError, ValueError):
+                continue
 
-            f.write(f"# Tema\n\n{tema}\n")
+        if not numbers:
+            return 1
 
-        metadata = {
+        return max(numbers) + 1
 
-            "id": nombre,
+    def create_project(self, tema: str) -> dict:
+        tema = tema.strip()
 
-            "uuid": str(uuid.uuid4()),
+        if not tema:
+            raise ValueError("El tema no puede estar vacío.")
 
+        number = self.get_next_project_number()
+        project_id = f"PROYECTO_{number:04d}"
+        project_uuid = str(uuid.uuid4())
+
+        project_path = PROJECTS_DIR / project_id
+        ensure_directory(project_path)
+
+        folders = [
+            "01_FUENTES",
+            "02_PROMPTS",
+            "03_RESPUESTAS",
+            "04_CONTENIDO",
+            "05_RECURSOS",
+            "06_EXPORTACIONES",
+        ]
+
+        for folder in folders:
+            ensure_directory(project_path / folder)
+
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        write_yaml(
+            project_path / "proyecto.yaml",
+            proyecto_yaml(project_id, project_uuid, tema, fecha),
+        )
+
+        write_yaml(
+            project_path / "memoria.yaml",
+            memoria_yaml(),
+        )
+
+        write_text(project_path / "00_TEMA.md", tema_md(tema))
+        write_text(project_path / "CONTEXTO.md", contexto_md(tema))
+
+        for filename, content in MARKDOWN_FILES.items():
+            write_text(project_path / filename, content)
+
+        return {
+            "id": project_id,
+            "uuid": project_uuid,
             "tema": tema,
-
-            "estado": "investigacion",
-
-            "fecha_creacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-
-            "version": 1
-
+            "path": str(project_path),
         }
-
-        with open(carpeta / "proyecto.yaml", "w", encoding="utf-8") as f:
-
-            yaml.dump(metadata, f, allow_unicode=True, sort_keys=False)
-
-        return nombre

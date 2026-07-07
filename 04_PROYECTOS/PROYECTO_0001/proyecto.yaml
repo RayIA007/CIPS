@@ -1,0 +1,17 @@
+id: PROYECTO_0001
+uuid: 34d7a850-b7a1-4200-83d3-e4048960a4df
+tema: Beneficios de caminar 30 minutos diarios
+nicho: alimentacion_ejercicio_salud
+estado: investigacion
+fecha_creacion: '2026-07-07 13:31:45'
+ultima_modificacion: '2026-07-07 13:31:45'
+version: 1
+pipeline:
+  00_tema: completado
+  01_investigacion: pendiente
+  02_verificacion: pendiente
+  03_guion: pendiente
+  04_storyboard: pendiente
+  05_seo: pendiente
+  06_publicacion: pendiente
+  07_final: pendiente
