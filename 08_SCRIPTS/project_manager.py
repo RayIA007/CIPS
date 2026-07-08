@@ -7,7 +7,8 @@ from pathlib import Path
 from datetime import datetime
 import uuid
 
-from utils import ROOT, PROJECTS_DIR, ensure_directory, write_text, write_yaml
+from runtime_models import Project
+from utils import ROOT, PROJECTS_DIR, ensure_directory, write_text, write_yaml, read_yaml
 from templates import (
     tema_md,
     contexto_md,
@@ -39,10 +40,20 @@ class ProjectManager:
             except (IndexError, ValueError):
                 continue
 
-        if not numbers:
-            return 1
+        return max(numbers) + 1 if numbers else 1
 
-        return max(numbers) + 1
+    def get_latest_project_path(self) -> Path:
+        projects = sorted(
+            [
+                folder for folder in PROJECTS_DIR.iterdir()
+                if folder.is_dir() and folder.name.startswith("PROYECTO_")
+            ]
+        )
+
+        if not projects:
+            raise FileNotFoundError("No existe ningún proyecto creado.")
+
+        return projects[-1]
 
     def create_project(self, tema: str) -> dict:
         tema = tema.strip()
@@ -93,3 +104,38 @@ class ProjectManager:
             "tema": tema,
             "path": str(project_path),
         }
+
+    def load_project(self, project_path: Path | None = None) -> Project:
+        project_path = project_path or self.get_latest_project_path()
+
+        proyecto_data = read_yaml(project_path / "proyecto.yaml")
+        memoria_data = read_yaml(project_path / "memoria.yaml")
+
+        stage_actual = (
+            proyecto_data.get("stage_actual")
+            or proyecto_data.get("estado")
+            or "investigacion"
+        )
+
+        return Project(
+            project_id=proyecto_data.get("id", project_path.name),
+            path=project_path,
+            tema=proyecto_data.get("tema", ""),
+            estado=proyecto_data.get("estado", "READY"),
+            stage_actual=stage_actual,
+            ultimo_stage_validado=proyecto_data.get("ultimo_stage_validado", ""),
+            config={},
+            memory=memoria_data if isinstance(memoria_data, dict) else {},
+            metadata=proyecto_data,
+        )
+
+    def update_project_stage(self, project: Project, next_stage: str) -> None:
+        yaml_path = project.path / "proyecto.yaml"
+        data = read_yaml(yaml_path)
+
+        data["ultimo_stage_validado"] = project.stage_actual
+        data["stage_actual"] = next_stage
+        data["estado"] = next_stage
+        data["fecha_actualizacion"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        write_yaml(yaml_path, data)

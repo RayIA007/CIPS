@@ -17,11 +17,12 @@ from logger import Logger
 from config import ConfigManager
 from project_manager import ProjectManager
 from prompt_builder import PromptBuilder
-from pipeline import Pipeline
-from validator import Validator
+from pipeline_engine import PipelineEngine
+from validator_engine import Validator
+
 
 console = Console()
-VERSION = "0.1.0"
+VERSION = "0.3.0"
 
 
 def banner():
@@ -72,7 +73,7 @@ def new_project():
     pause()
 
 
-def generate_prompt():
+def generate_prompt_legacy():
     try:
         builder = PromptBuilder()
         result = builder.create_next_prompt()
@@ -89,40 +90,44 @@ def generate_prompt():
     pause()
 
 
-def continue_project():
+def continue_project_runtime():
     try:
-        pipeline = Pipeline()
-        result = pipeline.continue_project()
+        engine = PipelineEngine()
+        result = engine.execute()
 
-        if not result.get("ok"):
-            console.print("\n[red]No se puede continuar el proyecto.[/red]")
-            for error in result.get("errors", []):
+        if not result.success:
+            console.print("\n[red]No se pudo ejecutar el Runtime.[/red]")
+            console.print(result.message)
+
+            for error in result.errors:
                 console.print(f"- {error}")
+
             pause()
             return
 
-        if result.get("finished"):
-            console.print(f"\n[green]{result['message']}[/green]")
-            pause()
-            return
+        console.print("\n[bold green]Runtime ejecutado correctamente.[/bold green]")
+        console.print(result.message)
 
-        if result.get("advanced"):
-            console.print("\n[bold green]Proyecto avanzado correctamente.[/bold green]")
-            console.print(result["message"])
-            console.print(f"Nuevo estado: [cyan]{result['new_state']}[/cyan]")
-            pause()
-            return
+        prompt_path = result.metadata.get("prompt_path")
 
-        console.print("\n[bold green]Siguiente prompt generado.[/bold green]")
-        console.print(f"Proyecto: [cyan]{result['project']}[/cyan]")
-        console.print(f"Etapa: [cyan]{result['state']}[/cyan]")
-        console.print(f"IA recomendada: [cyan]{result['ia']}[/cyan]")
-        console.print(f"Prompt: [cyan]{result['prompt_path']}[/cyan]")
-        console.print(f"Guarda la respuesta en: [cyan]{result['output_file']}[/cyan]")
+        if prompt_path:
+            console.print(f"\nPrompt generado: [cyan]{prompt_path}[/cyan]")
+
+        data = result.data
+
+        if isinstance(data, dict):
+            completed_stage = data.get("completed_stage")
+            next_stage = data.get("next_stage")
+
+            if completed_stage:
+                console.print(f"Stage completado: [cyan]{completed_stage}[/cyan]")
+
+            if next_stage:
+                console.print(f"Siguiente Stage: [cyan]{next_stage}[/cyan]")
 
     except Exception as error:
-        Logger.error(f"Error en pipeline: {error}")
-        console.print(f"\n[red]Error en pipeline:[/red] {error}")
+        Logger.error(f"Error en Runtime: {error}")
+        console.print(f"\n[red]Error en Runtime:[/red] {error}")
 
     pause()
 
@@ -144,8 +149,8 @@ def validate_system():
 def system_status():
     console.print("\n[bold cyan]Estado del Sistema[/bold cyan]\n")
     console.print(f"Versión: {VERSION}")
-    console.print("Estado: Desarrollo")
-    console.print("Módulo activo: Pipeline + Validator")
+    console.print("Estado: Runtime 0.3 operativo")
+    console.print("Módulo activo: Pipeline Engine + Runtime Engines")
     pause()
 
 
@@ -156,8 +161,8 @@ def main():
     while True:
         banner()
         console.print(build_menu())
-        console.print("\n5. Generar Prompt de Investigación")
-        console.print("6. Continuar Proyecto automáticamente")
+        console.print("\n5. Generar Prompt Legacy")
+        console.print("6. Continuar Proyecto con Runtime 0.3")
         console.print("7. Ejecutar pruebas automáticas")
 
         option = input("\nSelecciona una opción: ").strip()
@@ -166,16 +171,16 @@ def main():
         if option == "1":
             new_project()
         elif option == "2":
-            continue_project()
+            continue_project_runtime()
         elif option == "3":
             console.print("\n[yellow]Configuración estará disponible más adelante.[/yellow]")
             pause()
         elif option == "4":
             system_status()
         elif option == "5":
-            generate_prompt()
+            generate_prompt_legacy()
         elif option == "6":
-            continue_project()
+            continue_project_runtime()
         elif option == "7":
             validate_system()
         elif option == "0":
