@@ -1,0 +1,23 @@
+module_id: KM-000
+name: CIPS Identity
+category: CORE
+version: "2.0"
+status: Approved
+author: Raymundo Montiel
+created_at: "2026-07-09"
+updated_at: "2026-07-09"
+confidence: HIGH
+priority: HIGH
+
+tags:
+  - cips
+  - identity
+  - core
+  - foundation
+
+keywords:
+  - identidad
+  - misión
+  - visión
+  - valores
+  - principios
