@@ -1,0 +1,97 @@
+# =========================================================
+# CIPS
+# Knowledge Selection Rules
+# Runtime Release 0.3
+# =========================================================
+
+version: "1.0"
+
+default_stage: investigacion
+
+stages:
+
+  investigacion:
+
+    description: >
+      Cargar todos los módulos necesarios para construir
+      una investigación completa.
+
+    required:
+      - KM-000
+      - KM-001
+      - KM-002
+      - KM-003
+      - KM-004
+      - KM-005
+      - KM-006
+      - KM-007
+      - KM-008
+
+  verificacion:
+
+    description: >
+      Priorizar módulos relacionados con evidencia,
+      credibilidad y verificación.
+
+    required:
+      - KM-000
+      - KM-002
+      - KM-003
+      - KM-005
+      - KM-006
+      - KM-007
+      - KM-008
+
+  guion:
+
+    description: >
+      Seleccionar únicamente el conocimiento necesario
+      para construir el guion.
+
+    required:
+      - KM-000
+      - KM-002
+      - KM-003
+      - KM-004
+      - KM-006
+      - KM-007
+      - KM-008
+
+  storyboard:
+
+    description: >
+      Priorizar estructura visual.
+
+    required:
+      - KM-000
+      - KM-002
+      - KM-004
+      - KM-006
+      - KM-007
+      - KM-008
+
+  seo:
+
+    description: >
+      Priorizar descubrimiento y posicionamiento.
+
+    required:
+      - KM-000
+      - KM-002
+      - KM-004
+      - KM-006
+      - KM-007
+      - KM-008
+
+  publicacion:
+
+    description: >
+      Preparar contenido para publicación.
+
+    required:
+      - KM-000
+      - KM-002
+      - KM-004
+      - KM-006
+      - KM-007
+      - KM-008

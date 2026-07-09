@@ -13,6 +13,7 @@ from pathlib import Path
 from runtime_models import EngineResult, Project, LLMResponse
 from project_manager import ProjectManager
 from knowledge_engine import KnowledgeEngine
+from knowledge_resolver import KnowledgeResolver
 from context_engine import ContextEngine
 from prompt_engine import PromptEngine
 from validator_engine import ValidatorEngine
@@ -28,6 +29,7 @@ class PipelineEngine:
     def __init__(self):
         self.project_manager = ProjectManager()
         self.knowledge_engine = KnowledgeEngine()
+        self.knowledge_resolver = KnowledgeResolver()
         self.context_engine = ContextEngine()
         self.prompt_engine = PromptEngine()
         self.validator_engine = ValidatorEngine()
@@ -63,14 +65,22 @@ class PipelineEngine:
         if not knowledge_result.success:
             return knowledge_result
 
-        context_result = self.context_engine.execute(
+        resolver_result = self.knowledge_resolver.execute(
             project,
             knowledge_result.data,
         )
 
+        if not resolver_result.success:
+            return resolver_result
+
+        context_result = self.context_engine.execute(
+            project,
+            resolver_result.data,
+        )
+
         if not context_result.success:
             return context_result
-
+        
         prompt_result = self.prompt_engine.execute(
             project,
             context_result.data,
@@ -79,6 +89,11 @@ class PipelineEngine:
         if not prompt_result.success:
             return prompt_result
 
+        return EngineResult.ok(
+            data=prompt_result.data,
+            message="Prompt generado. Copia el prompt en la IA y guarda la respuesta en el archivo del Stage actual.",
+            metadata=prompt_result.metadata,
+        )
         return EngineResult.ok(
             data=prompt_result.data,
             message="Prompt generado. Copia el prompt en la IA y guarda la respuesta en el archivo del Stage actual.",
