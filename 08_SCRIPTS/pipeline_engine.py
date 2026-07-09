@@ -17,32 +17,13 @@ from context_engine import ContextEngine
 from prompt_engine import PromptEngine
 from validator_engine import ValidatorEngine
 from memory_engine import MemoryEngine
-
+from runtime_constants import STAGES, STAGE_FILES, FINAL_STAGE
 
 class PipelineEngine:
     """
     Orquesta el Runtime básico de CIPS.
     """
 
-    STAGES = [
-        "investigacion",
-        "verificacion",
-        "guion",
-        "storyboard",
-        "seo",
-        "publicacion",
-        "final",
-    ]
-
-    STAGE_FILES = {
-        "investigacion": "01_INVESTIGACION.md",
-        "verificacion": "02_VERIFICACION.md",
-        "guion": "03_GUION.md",
-        "storyboard": "04_STORYBOARD.md",
-        "seo": "05_SEO.md",
-        "publicacion": "06_PUBLICACION.md",
-        "final": "07_FINAL.md",
-    }
 
     def __init__(self):
         self.project_manager = ProjectManager()
@@ -56,13 +37,13 @@ class PipelineEngine:
         try:
             project = self.project_manager.load_project(project_path)
 
-            if project.stage_actual == "final":
+            if project.stage_actual == FINAL_STAGE:
                 return EngineResult.ok(
                     message="El proyecto ya se encuentra en etapa final.",
                     data=project,
                 )
 
-            response_path = project.path / self.STAGE_FILES[project.stage_actual]
+            response_path = project.path / STAGE_FILES[project.stage_actual]
             response_content = self._read_response(response_path)
 
             if not response_content:
@@ -173,12 +154,12 @@ class PipelineEngine:
         return content
 
     def _get_next_stage(self, current_stage: str) -> str:
-        if current_stage not in self.STAGES:
-            return "final"
+        if current_stage not in STAGES:
+            return FINAL_STAGE
 
-        index = self.STAGES.index(current_stage)
+        index = STAGES.index(current_stage)
 
-        if index + 1 >= len(self.STAGES):
-            return "final"
+        if index + 1 >= len(STAGES):
+            return FINAL_STAGE
 
-        return self.STAGES[index + 1]
+        return STAGES[index + 1]

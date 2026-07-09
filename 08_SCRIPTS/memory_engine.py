@@ -10,7 +10,7 @@ Estado   : RELEASE
 
 from runtime_models import EngineResult, MemoryRecord, Project, ValidationResult
 from utils import write_yaml, read_yaml, current_datetime
-
+from runtime_constants import STAGES, FINAL_STAGE
 
 class MemoryEngine:
     """
@@ -91,22 +91,12 @@ class MemoryEngine:
             )
 
     def _get_next_stage(self, current_stage: str) -> str:
-        stages = [
-            "investigacion",
-            "verificacion",
-            "guion",
-            "storyboard",
-            "seo",
-            "publicacion",
-            "final",
-        ]
+            if current_stage not in STAGES:
+                return FINAL_STAGE
 
-        if current_stage not in stages:
-            return "final"
+            index = STAGES.index(current_stage)
 
-        index = stages.index(current_stage)
+            if index + 1 >= len(STAGES):
+                return FINAL_STAGE
 
-        if index + 1 >= len(stages):
-            return "final"
-
-        return stages[index + 1]
+            return STAGES[index + 1]
