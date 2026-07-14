@@ -10,20 +10,61 @@ from rich.table import Table
 
 def build_menu():
 
-    tabla = Table(show_header=True)
+    table = Table(
+        show_header=True,
+        header_style="bold cyan"
+    )
 
-    tabla.add_column("Opción", justify="center")
+    table.add_column("Opción", justify="center", width=8)
+    table.add_column("Descripción")
 
-    tabla.add_column("Descripción")
+    # -----------------------------
+    # PROYECTOS
+    # -----------------------------
 
-    tabla.add_row("1", "Nuevo Proyecto")
+    table.add_section()
 
-    tabla.add_row("2", "Continuar Proyecto")
+    table.add_row(
+        "[bold yellow]PROYECTOS[/bold yellow]",
+        ""
+    )
 
-    tabla.add_row("3", "Configuración")
+    table.add_row("1", "Nuevo Proyecto")
+    table.add_row("2", "Continuar Proyecto")
 
-    tabla.add_row("4", "Estado del Sistema")
+    # -----------------------------
+    # KNOWLEDGE
+    # -----------------------------
 
-    tabla.add_row("0", "Salir")
+    table.add_section()
 
-    return tabla
+    table.add_row(
+        "[bold yellow]KNOWLEDGE[/bold yellow]",
+        ""
+    )
+
+    table.add_row(
+        "5",
+        "Crear Knowledge Module v2"
+    )
+
+    # -----------------------------
+    # SISTEMA
+    # -----------------------------
+
+    table.add_section()
+
+    table.add_row(
+        "[bold yellow]SISTEMA[/bold yellow]",
+        ""
+    )
+
+    table.add_row("3", "Configuración")
+    table.add_row("4", "Estado del Sistema")
+    table.add_row("7", "Pruebas del Runtime")
+
+    table.add_section()
+
+    table.add_row("0", "Salir")
+
+    return table

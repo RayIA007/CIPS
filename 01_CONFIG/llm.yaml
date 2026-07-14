@@ -1,31 +1,148 @@
-investigacion:
+# =========================================================
+# CIPS
+# LLM Provider Framework
+# Release 0.5
+# =========================================================
 
-  model: gemini
+version: "1.1"
 
-ideas:
+# ---------------------------------------------------------
+# CONFIGURACIÓN ACTIVA DEL RUNTIME
+# ---------------------------------------------------------
 
-  model: chatgpt
+runtime:
 
-guion:
+  # Gemini queda seleccionado, pero desactivado durante
+  # la preparación inicial. Mientras enabled sea false,
+  # CIPS seguirá utilizando el proveedor manual.
 
-  model: chatgpt
+  mode: automatic
+  provider: gemini
+  model: gemini-3.5-flash
+  enabled: true
 
-storyboard:
+  timeout_seconds: 120
+  temperature: 0.2
+  max_output_tokens: 8192
 
-  model: chatgpt
+  provider_options: {}
 
-prompts_imagen:
 
-  model: chatgpt
+# ---------------------------------------------------------
+# PROVEEDORES DISPONIBLES
+# ---------------------------------------------------------
 
-prompts_video:
+providers:
 
-  model: chatgpt
+  manual:
 
-seo:
+    enabled: true
 
-  model: gemini
+    description: >
+      CIPS genera el prompt y espera que el usuario obtenga
+      la respuesta mediante una herramienta externa de IA.
 
-publicacion:
+    options: {}
 
-  model: claude
+
+  gemini:
+
+    enabled: true
+
+    description: >
+      Proveedor automático Google Gemini mediante el SDK
+      oficial google-genai.
+
+    options:
+
+      model: gemini-3.5-flash
+
+      # La credencial se obtiene desde una variable de entorno.
+      # Nunca escribir la clave directamente en este archivo.
+
+      api_key_env: GOOGLE_API_KEY
+
+      temperature: 0.2
+      max_output_tokens: 8192
+      timeout_seconds: 120
+      thinking_level: low
+
+
+  openai:
+
+    enabled: false
+
+    description: >
+      Proveedor OpenAI pendiente de implementación.
+
+    options: {}
+
+
+  claude:
+
+    enabled: false
+
+    description: >
+      Proveedor Anthropic Claude pendiente de implementación.
+
+    options: {}
+
+
+# ---------------------------------------------------------
+# PREFERENCIAS POR STAGE
+# ---------------------------------------------------------
+
+stage_preferences:
+
+  investigacion:
+    provider: gemini
+    model: gemini-3.5-flash
+
+  verificacion:
+    provider: gemini
+    model: gemini-3.5-flash
+
+  ideas:
+    provider: openai
+    model: chatgpt
+
+  guion:
+    provider: openai
+    model: chatgpt
+
+  storyboard:
+    provider: openai
+    model: chatgpt
+
+  prompts_imagen:
+    provider: openai
+    model: chatgpt
+
+  prompts_video:
+    provider: openai
+    model: chatgpt
+
+  seo:
+    provider: gemini
+    model: gemini-3.5-flash
+
+  publicacion:
+    provider: claude
+    model: claude
+
+
+# ---------------------------------------------------------
+# POLÍTICA DE RESPALDO
+# ---------------------------------------------------------
+
+fallback:
+
+  provider: manual
+
+  use_manual_when:
+
+    - automatic_mode_disabled
+    - provider_not_registered
+    - provider_disabled
+    - missing_credentials
+    - provider_error

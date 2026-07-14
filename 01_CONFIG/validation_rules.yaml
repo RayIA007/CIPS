@@ -1,0 +1,222 @@
+# =========================================================
+# CIPS
+# Validation Rules
+# Release 0.6
+# =========================================================
+
+version: "1.0"
+
+# ---------------------------------------------------------
+# POLÍTICA GENERAL
+# ---------------------------------------------------------
+
+general:
+
+  passing_score: 70
+  minimum_characters: 300
+  minimum_words: 50
+
+  reject_empty_response: true
+  reject_truncated_response: true
+  reject_prompt_leakage: true
+
+  warning_on_model_refusal: true
+  warning_on_generic_model_text: true
+
+
+# ---------------------------------------------------------
+# PONDERACIÓN
+# ---------------------------------------------------------
+
+weights:
+
+  length: 15
+  structure: 25
+  completeness: 25
+  restrictions: 20
+  quality: 15
+
+
+# ---------------------------------------------------------
+# MARCADORES DE RESPUESTA TRUNCADA
+# ---------------------------------------------------------
+
+truncation:
+
+  suspicious_endings:
+
+    - ":"
+    - "-"
+    - "—"
+    - ","
+    - ";"
+    - "("
+    - "["
+    - "{"
+    - "/"
+
+  incomplete_markers:
+
+    - "continuará"
+    - "continúa..."
+    - "por completar"
+    - "contenido pendiente"
+    - "respuesta incompleta"
+    - "etc..."
+
+
+# ---------------------------------------------------------
+# TEXTO GENÉRICO O NEGATIVAS
+# ---------------------------------------------------------
+
+model_text:
+
+  refusal_markers:
+
+    - "no puedo"
+    - "no soy capaz"
+    - "no me es posible"
+    - "no puedo ayudar con eso"
+
+  generic_markers:
+
+    - "como modelo de lenguaje"
+    - "como inteligencia artificial"
+    - "como ia"
+
+  prompt_leakage_markers:
+
+    - "no saludes"
+    - "no expliques el prompt"
+    - "entrega únicamente el resultado solicitado"
+    - "stage actual"
+    - "contexto del sistema"
+
+
+# ---------------------------------------------------------
+# REQUISITOS POR STAGE
+# ---------------------------------------------------------
+
+stages:
+
+  investigacion:
+
+    minimum_characters: 800
+    minimum_words: 120
+
+    required_headings:
+
+      - "RESUMEN"
+      - "EVIDENCIA"
+      - "RIESGOS"
+      - "FUENTES"
+
+    recommended_headings:
+
+      - "APLICACIÓN PRÁCTICA"
+      - "CONCLUSIÓN"
+
+
+  verificacion:
+
+    minimum_characters: 700
+    minimum_words: 100
+
+    required_headings:
+
+      - "VERIFICACIÓN"
+      - "EVIDENCIA"
+      - "LIMITACIONES"
+      - "CONCLUSIÓN"
+
+    recommended_headings:
+
+      - "FUENTES"
+      - "NIVEL DE CONFIANZA"
+
+
+  guion:
+
+    minimum_characters: 600
+    minimum_words: 90
+
+    required_headings:
+
+      - "GUION"
+
+    recommended_headings:
+
+      - "GANCHO"
+      - "DESARROLLO"
+      - "CIERRE"
+      - "LLAMADA A LA ACCIÓN"
+
+
+  storyboard:
+
+    minimum_characters: 500
+    minimum_words: 70
+
+    required_headings:
+
+      - "STORYBOARD"
+
+    recommended_headings:
+
+      - "ESCENA"
+      - "VISUAL"
+      - "AUDIO"
+
+
+  seo:
+
+    minimum_characters: 300
+    minimum_words: 40
+
+    required_headings:
+
+      - "TÍTULO"
+      - "DESCRIPCIÓN"
+      - "PALABRAS CLAVE"
+
+    recommended_headings:
+
+      - "HASHTAGS"
+      - "ETIQUETAS"
+
+
+  publicacion:
+
+    minimum_characters: 300
+    minimum_words: 40
+
+    required_headings:
+
+      - "PUBLICACIÓN"
+
+    recommended_headings:
+
+      - "PLATAFORMA"
+      - "FORMATO"
+      - "COPY"
+      - "HASHTAGS"
+
+
+# ---------------------------------------------------------
+# CALIDAD BÁSICA
+# ---------------------------------------------------------
+
+quality:
+
+  excessive_repetition_threshold: 0.35
+  minimum_sentence_count: 3
+  maximum_warning_count_for_approval: 5
+
+  sensationalism_markers:
+
+    - "milagroso"
+    - "garantizado"
+    - "cura definitiva"
+    - "resultado inmediato"
+    - "100% efectivo"
+    - "sin ningún riesgo"
