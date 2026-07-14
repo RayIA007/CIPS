@@ -117,6 +117,21 @@ class FullStageExecution:
     model: str = ""
     finish_reason: str = ""
 
+    retry_enabled: bool = False
+
+    retry_attempts: int = 0
+
+    retry_count: int = 0
+
+    retry_exhausted: bool = False
+
+    succeeded_after_retry: bool = False
+
+    retry_total_duration: float | None = None
+
+    retry_attempt_history: list[dict[str, Any]] = field(
+        default_factory=list
+    )
     warnings: list[str] = field(
         default_factory=list
     )
@@ -402,43 +417,79 @@ def extract_llm_metrics(
     result,
 ) -> dict[str, Any]:
     """
-    Extrae métricas de LLMResponse del resultado del Pipeline.
+    Extrae métricas del LLM tanto en ejecuciones exitosas
+    como en fallos del proveedor.
     """
 
-    if not isinstance(
-        result.data,
-        dict,
-    ):
-        return {}
-
-    llm_response = result.data.get(
-        "llm_response"
-    )
-
-    if llm_response is None:
-        return {}
-
-    metadata = getattr(
-        llm_response,
+    result_metadata = getattr(
+        result,
         "metadata",
         {},
     )
 
     if not isinstance(
-        metadata,
+        result_metadata,
         dict,
     ):
-        metadata = {}
+        result_metadata = {}
+
+    llm_response = None
+
+    if isinstance(
+        result.data,
+        dict,
+    ):
+        llm_response = result.data.get(
+            "llm_response"
+        )
+
+    response_metadata: dict[str, Any] = {}
+
+    if llm_response is not None:
+        raw_metadata = getattr(
+            llm_response,
+            "metadata",
+            {},
+        )
+
+        if isinstance(
+            raw_metadata,
+            dict,
+        ):
+            response_metadata = raw_metadata
+
+    metadata = {
+        **result_metadata,
+        **response_metadata,
+    }
+
+    retry = metadata.get(
+        "retry",
+        {},
+    )
+
+    if not isinstance(
+        retry,
+        dict,
+    ):
+        retry = {}
 
     return {
         "provider": metadata.get(
             "provider",
             "",
         ),
-        "model": getattr(
-            llm_response,
-            "model",
-            "",
+        "model": (
+            getattr(
+                llm_response,
+                "model",
+                "",
+            )
+            if llm_response is not None
+            else metadata.get(
+                "model",
+                "",
+            )
         ),
         "prompt_tokens": metadata.get(
             "prompt_tokens"
@@ -458,8 +509,60 @@ def extract_llm_metrics(
                 "",
             )
         ),
+        "retry_enabled": bool(
+            metadata.get(
+                "retry_enabled",
+                bool(retry),
+            )
+        ),
+        "retry_attempts": int(
+            metadata.get(
+                "retry_attempts",
+                retry.get(
+                    "attempts_count",
+                    0,
+                ),
+            )
+            or 0
+        ),
+        "retry_count": int(
+            metadata.get(
+                "retry_count",
+                retry.get(
+                    "retries_count",
+                    0,
+                ),
+            )
+            or 0
+        ),
+        "retry_exhausted": bool(
+            metadata.get(
+                "retry_exhausted",
+                retry.get(
+                    "exhausted",
+                    False,
+                ),
+            )
+        ),
+        "succeeded_after_retry": bool(
+            metadata.get(
+                "succeeded_after_retry",
+                retry.get(
+                    "succeeded_after_retry",
+                    False,
+                ),
+            )
+        ),
+        "retry_total_duration": retry.get(
+            "total_duration_seconds"
+        ),
+        "retry_attempt_history": list(
+            retry.get(
+                "attempts",
+                [],
+            )
+        ),
     }
-
 
 def execute_stage(
     pipeline: PipelineEngine,
@@ -655,6 +758,52 @@ def execute_stage(
                 "",
             )
         ),
+        retry_enabled=bool(
+            llm_metrics.get(
+                "retry_enabled",
+                False,
+            )
+        ),
+
+        retry_attempts=int(
+            llm_metrics.get(
+                "retry_attempts",
+                0,
+            )
+        ),
+
+        retry_count=int(
+            llm_metrics.get(
+                "retry_count",
+                0,
+            )
+        ),
+
+        retry_exhausted=bool(
+            llm_metrics.get(
+                "retry_exhausted",
+                False,
+            )
+        ),
+
+        succeeded_after_retry=bool(
+            llm_metrics.get(
+                "succeeded_after_retry",
+                False,
+            )
+        ),
+
+        retry_total_duration=llm_metrics.get(
+            "retry_total_duration"
+        ),
+
+        retry_attempt_history=list(
+            llm_metrics.get(
+                "retry_attempt_history",
+                [],
+            )
+        ),
+        
         warnings=warnings,
         errors=errors,
         added_files=changes["added"],
@@ -750,7 +899,84 @@ def print_stage_result(
             f"Finish reason: "
             f"{execution.finish_reason}"
         )
+        
+    if (
+        execution.retry_enabled
+        or execution.retry_attempts > 0
+    ):
 
+        print()
+        print("Retry:")
+
+        print(
+            f"  Habilitado: "
+            f"{execution.retry_enabled}"
+        )
+
+        print(
+            f"  Intentos: "
+            f"{execution.retry_attempts}"
+        )
+
+        print(
+            f"  Reintentos: "
+            f"{execution.retry_count}"
+        )
+
+        print(
+            f"  Agotado: "
+            f"{execution.retry_exhausted}"
+        )
+
+        print(
+            "  Éxito después de reintento: "
+            f"{execution.succeeded_after_retry}"
+        )
+
+        if execution.retry_total_duration is not None:
+
+            print(
+                "  Duración Retry: "
+                f"{execution.retry_total_duration} s"
+            )
+
+        if execution.retry_attempt_history:
+
+            print()
+
+            print("  Historial:")
+
+            for attempt in execution.retry_attempt_history:
+
+                print(
+                    f"    Intento "
+                    f"{attempt.get('attempt_number')}:"
+                )
+
+                print(
+                    "      éxito="
+                    f"{attempt.get('success')}"
+                )
+
+                print(
+                    "      código="
+                    f"{attempt.get('status_code')}"
+                )
+                
+                print(
+                    "      duración="
+                    f"{attempt.get('duration_seconds')} s"
+                )
+                
+                print(
+                    "      espera="
+                    f"{attempt.get('delay_seconds')} s"
+                )
+
+                print(
+                    "      regla="
+                    f"{attempt.get('matched_rule')}"
+                )
     print()
     print("Tokens:")
 
