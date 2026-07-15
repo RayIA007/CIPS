@@ -101,7 +101,7 @@ class LLMAdapter(RuntimeComponent):
             )
 
             if not prompt:
-                return EngineResult.fail(
+                engine_result = EngineResult.fail(
                     message=(
                         "No existe un prompt disponible "
                         "para enviar al proveedor LLM."
@@ -114,6 +114,13 @@ class LLMAdapter(RuntimeComponent):
                     ),
                 )
 
+                runtime_context.register_result(
+                    "llm_adapter",
+                    engine_result,
+                )
+
+                return engine_result
+
             provider_metadata = (
                 self._build_provider_metadata(
                     runtime_context
@@ -125,14 +132,21 @@ class LLMAdapter(RuntimeComponent):
                 metadata=provider_metadata,
             )
 
-            return self._process_provider_result(
+            engine_result = self._process_provider_result(
                 runtime_context=runtime_context,
                 provider_result=provider_result,
                 prompt=prompt,
             )
 
+            runtime_context.register_result(
+                "llm_adapter",
+                engine_result,
+            )
+
+            return engine_result
+
         except Exception as error:
-            return EngineResult.fail(
+            engine_result = EngineResult.fail(
                 message="Error inesperado en LLMAdapter.",
                 errors=[str(error)],
                 metadata={
@@ -140,6 +154,13 @@ class LLMAdapter(RuntimeComponent):
                     **self.provider.get_provider_info(),
                 },
             )
+
+            runtime_context.register_result(
+                "llm_adapter",
+                engine_result,
+            )
+
+            return engine_result
 
     def reload_configuration(self) -> LLMSettings:
         """

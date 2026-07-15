@@ -1,8 +1,8 @@
 """
 =========================================================
 Proyecto : CIPS
-Release  : 0.7
-Build    : 055
+Release  : 0.8
+Build    : 062
 Archivo  : pipeline_engine.py
 Estado   : RELEASE
 =========================================================
@@ -24,6 +24,8 @@ Responsabilidades:
 """
 
 from pathlib import Path
+import time
+from unittest import result
 
 from context_compressor import ContextCompressor
 from export_engine import ExportEngine
@@ -42,6 +44,8 @@ from prompt_engine import PromptEngine
 from runtime_constants import FINAL_STAGE, STAGES, STAGE_FILES
 from runtime_context import RuntimeContext
 from runtime_models import EngineResult, LLMResponse, Project
+from telemetry_engine import TelemetryEngine
+from telemetry_models import TelemetryAttempt, TelemetryEvent
 from validator_engine import ValidatorEngine
 
 
@@ -70,6 +74,7 @@ class PipelineEngine:
         self.manifest_engine = ManifestEngine()
         self.metrics_engine = MetricsEngine()
         self.export_engine = ExportEngine()
+        self.telemetry_engine = TelemetryEngine()
 
         self.pre_llm_runner = PipelineRunner(
             components=[
@@ -95,24 +100,22 @@ class PipelineEngine:
         """
         Ejecuta la acción requerida por el proyecto activo.
 
-        Flujo:
-
-        1. Si el proyecto está en FINAL, informa su cierre.
-        2. Si existe una respuesta manual, la valida y avanza.
-        3. Si no existe respuesta, genera el prompt.
-        4. Ejecuta LLMAdapter.
-        5. Si el proveedor es manual, espera intervención.
-        6. Si el proveedor responde automáticamente:
-           - guarda la respuesta en el archivo del Stage;
-           - valida;
-           - actualiza memoria;
-           - avanza el Stage.
+        Además registra un TelemetryEvent para cada Stage
+        ejecutado, tanto en éxito como en fallo. Un problema
+        de telemetría nunca invalida el resultado operativo
+        del Pipeline.
         """
+
+        started_at = time.perf_counter()
+        project: Project | None = None
+        executed_stage = ""
 
         try:
             project = self.project_manager.load_project(
                 project_path
             )
+
+            executed_stage = project.stage_actual
 
             if project.stage_actual == FINAL_STAGE:
                 return EngineResult.ok(
@@ -138,18 +141,18 @@ class PipelineEngine:
             )
 
             if response_content:
-                return self._process_manual_response(
+                result = self._process_manual_response(
                     project=project,
                     response_content=response_content,
                     response_path=response_path,
                 )
-
-            return self._generate_and_request_response(
-                project
-            )
+            else:
+                result = self._generate_and_request_response(
+                    project
+                )
 
         except Exception as error:
-            return EngineResult.fail(
+            result = EngineResult.fail(
                 message=(
                     "Error inesperado en PipelineEngine."
                 ),
@@ -158,6 +161,24 @@ class PipelineEngine:
                     "component": self.component_name,
                 },
             )
+
+        if (
+            project is None
+            or executed_stage == FINAL_STAGE
+        ):
+            return result
+
+        duration_seconds = round(
+            time.perf_counter() - started_at,
+            6,
+        )
+
+        return self._attach_telemetry(
+            project=project,
+            stage=executed_stage,
+            result=result,
+            duration_seconds=duration_seconds,
+        )
 
     def _generate_and_request_response(
         self,
@@ -440,6 +461,12 @@ class PipelineEngine:
             validation_result is None
             or not validation_result.approved
         ):
+            validation_metadata = (
+                dict(validation_result.metadata)
+                if validation_result
+                else {}
+            )
+
             return EngineResult.fail(
                 message=(
                     "La respuesta no fue aprobada. "
@@ -458,9 +485,20 @@ class PipelineEngine:
                     if validation_result
                     else []
                 ),
-                metadata=self._base_metadata(
-                    project
-                ),
+                metadata={
+                    **self._base_metadata(project),
+                    "validation_score": (
+                        validation_metadata.get(
+                            "score"
+                        )
+                    ),
+                    "validation_passing_score": (
+                        validation_metadata.get(
+                            "passing_score"
+                        )
+                    ),
+                    "validation_approved": False,
+                },
             )
 
         completed_stage = project.stage_actual
@@ -516,6 +554,7 @@ class PipelineEngine:
             "next_stage": next_stage,
             "memory_data": runtime_context.memory_data,
             "llm_response": runtime_context.llm_response,
+            "runtime_context": runtime_context,
             "response_path": str(response_path),
         }
 
@@ -544,6 +583,17 @@ class PipelineEngine:
                     [],
                 )
             ),
+            "validation_score": (
+                validation_result.metadata.get(
+                    "score"
+                )
+            ),
+            "validation_passing_score": (
+                validation_result.metadata.get(
+                    "passing_score"
+                )
+            ),
+            "validation_approved": True,
         }
 
         if finalization_result is not None:
@@ -743,6 +793,457 @@ class PipelineEngine:
             },
         )
 
+    def _attach_telemetry(
+        self,
+        project: Project,
+        stage: str,
+        result: EngineResult,
+        duration_seconds: float,
+    ) -> EngineResult:
+        """
+        Registra telemetría sin alterar el éxito operativo.
+
+        Si TelemetryEngine falla, el resultado original se
+        conserva y recibe una advertencia diagnóstica.
+        """
+
+        telemetry_result = self._record_telemetry(
+            project=project,
+            stage=stage,
+            result=result,
+            duration_seconds=duration_seconds,
+        )
+
+        result.metadata[
+            "telemetry"
+        ] = dict(
+            telemetry_result.metadata
+        )
+
+        if telemetry_result.success:
+            result.metadata[
+                "telemetry_recorded"
+            ] = True
+            return result
+
+        result.metadata[
+            "telemetry_recorded"
+        ] = False
+
+        telemetry_warning = (
+            "El Pipeline terminó, pero no fue posible "
+            "registrar su telemetría: "
+            + telemetry_result.message
+        )
+
+        result.warnings.append(
+            telemetry_warning
+        )
+
+        return result
+
+    def _record_telemetry(
+        self,
+        project: Project,
+        stage: str,
+        result: EngineResult,
+        duration_seconds: float,
+    ) -> EngineResult:
+        """
+        Convierte EngineResult, RuntimeContext, LLMAdapter y
+        LLMResponse en un TelemetryEvent consolidado.
+        """
+
+        result_metadata = (
+            dict(result.metadata)
+            if isinstance(
+                result.metadata,
+                dict,
+            )
+            else {}
+        )
+
+        runtime_context = None
+        llm_response = None
+
+        if isinstance(
+            result.data,
+            dict,
+        ):
+            runtime_context = result.data.get(
+                "runtime_context"
+            )
+
+            llm_response = result.data.get(
+                "llm_response"
+            )
+
+        # --------------------------------------------------
+        # Metadata de LLMResponse
+        # --------------------------------------------------
+
+        response_metadata: dict = {}
+
+        if llm_response is not None:
+            raw_response_metadata = getattr(
+                llm_response,
+                "metadata",
+                {},
+            )
+
+            if isinstance(
+                raw_response_metadata,
+                dict,
+            ):
+                response_metadata = dict(
+                    raw_response_metadata
+                )
+
+        # --------------------------------------------------
+        # Metadata de LLMAdapter registrada en RuntimeContext
+        # --------------------------------------------------
+
+        adapter_metadata: dict = {}
+
+        if isinstance(
+            runtime_context,
+            RuntimeContext,
+        ):
+            adapter_result = None
+
+            get_result = getattr(
+                runtime_context,
+                "get_result",
+                None,
+            )
+
+            if callable(
+                get_result
+            ):
+                adapter_result = get_result(
+                    "llm_adapter"
+                )
+
+            else:
+                component_results = getattr(
+                    runtime_context,
+                    "component_results",
+                    {},
+                )
+
+                if isinstance(
+                    component_results,
+                    dict,
+                ):
+                    adapter_result = component_results.get(
+                        "llm_adapter"
+                    )
+
+            if (
+                adapter_result is not None
+                and isinstance(
+                    getattr(
+                        adapter_result,
+                        "metadata",
+                        None,
+                    ),
+                    dict,
+                )
+            ):
+                adapter_metadata = dict(
+                    adapter_result.metadata
+                )
+
+        # El resultado final del Pipeline tiene mayor prioridad.
+        metadata = {
+            **response_metadata,
+            **adapter_metadata,
+            **result_metadata,
+        }
+
+        # --------------------------------------------------
+        # Retry
+        # --------------------------------------------------
+
+        retry_metadata = metadata.get(
+            "retry",
+            {},
+        )
+
+        if not isinstance(
+            retry_metadata,
+            dict,
+        ):
+            retry_metadata = {}
+
+        raw_attempts = retry_metadata.get(
+            "attempts",
+            [],
+        )
+
+        if not isinstance(
+            raw_attempts,
+            list,
+        ):
+            raw_attempts = []
+
+        attempts = [
+            TelemetryAttempt(
+                attempt_number=attempt.get(
+                    "attempt_number",
+                    1,
+                ),
+                success=attempt.get(
+                    "success",
+                    False,
+                ),
+                duration_seconds=attempt.get(
+                    "duration_seconds",
+                    0.0,
+                ),
+                delay_seconds=attempt.get(
+                    "delay_seconds",
+                    0.0,
+                ),
+                retryable=attempt.get(
+                    "retryable",
+                    False,
+                ),
+                status_code=attempt.get(
+                    "status_code"
+                ),
+                exception_type=attempt.get(
+                    "exception_type",
+                    "",
+                ),
+                matched_rule=attempt.get(
+                    "matched_rule",
+                    "",
+                ),
+                message=attempt.get(
+                    "message",
+                    "",
+                ),
+                metadata=attempt.get(
+                    "metadata",
+                    {},
+                ),
+            )
+            for attempt in raw_attempts
+            if isinstance(
+                attempt,
+                dict,
+            )
+        ]
+
+        response_content = ""
+
+        if llm_response is not None:
+            response_content = str(
+                getattr(
+                    llm_response,
+                    "content",
+                    "",
+                )
+                or ""
+            )
+
+        retry_attempts = int(
+            metadata.get(
+                "retry_attempts",
+                retry_metadata.get(
+                    "attempts_count",
+                    len(attempts),
+                ),
+            )
+            or 0
+        )
+
+        retry_count = int(
+            metadata.get(
+                "retry_count",
+                retry_metadata.get(
+                    "retries_count",
+                    max(
+                        retry_attempts - 1,
+                        0,
+                    ),
+                ),
+            )
+            or 0
+        )
+
+        # --------------------------------------------------
+        # Evento
+        # --------------------------------------------------
+
+        event = TelemetryEvent(
+            event_id="",
+            timestamp="",
+            project_id=project.project_id,
+            component=self.component_name,
+            operation="execute_stage",
+            stage=stage,
+            event_type="stage_execution",
+            success=result.success,
+            message=result.message,
+            provider=str(
+                metadata.get(
+                    "provider",
+                    "",
+                )
+            ),
+            model=str(
+                metadata.get(
+                    "model",
+                    (
+                        getattr(
+                            llm_response,
+                            "model",
+                            "",
+                        )
+                        if llm_response is not None
+                        else ""
+                    ),
+                )
+            ),
+            thinking_level=str(
+                metadata.get(
+                    "thinking_level",
+                    "",
+                )
+            ),
+            duration_seconds=duration_seconds,
+            prompt_characters=int(
+                metadata.get(
+                    "prompt_characters",
+                    0,
+                )
+                or 0
+            ),
+            response_characters=int(
+                metadata.get(
+                    "response_characters",
+                    len(
+                        response_content
+                    ),
+                )
+                or 0
+            ),
+            prompt_tokens=int(
+                metadata.get(
+                    "prompt_tokens",
+                    0,
+                )
+                or 0
+            ),
+            response_tokens=int(
+                metadata.get(
+                    "response_tokens",
+                    0,
+                )
+                or 0
+            ),
+            thinking_tokens=int(
+                metadata.get(
+                    "thinking_tokens",
+                    0,
+                )
+                or 0
+            ),
+            total_tokens=int(
+                metadata.get(
+                    "total_tokens",
+                    0,
+                )
+                or 0
+            ),
+            retry_enabled=bool(
+                metadata.get(
+                    "retry_enabled",
+                    bool(
+                        retry_metadata
+                    ),
+                )
+            ),
+            retry_attempts=retry_attempts,
+            retry_count=retry_count,
+            retry_exhausted=bool(
+                metadata.get(
+                    "retry_exhausted",
+                    retry_metadata.get(
+                        "exhausted",
+                        False,
+                    ),
+                )
+            ),
+            succeeded_after_retry=bool(
+                metadata.get(
+                    "succeeded_after_retry",
+                    retry_metadata.get(
+                        "succeeded_after_retry",
+                        False,
+                    ),
+                )
+            ),
+            status_code=metadata.get(
+                "status_code"
+            ),
+            exception_type=str(
+                metadata.get(
+                    "exception_type",
+                    "",
+                )
+            ),
+            validation_score=metadata.get(
+                "validation_score"
+            ),
+            validation_passing_score=metadata.get(
+                "validation_passing_score"
+            ),
+            validation_approved=metadata.get(
+                "validation_approved"
+            ),
+            attempts=attempts,
+            warnings=list(
+                result.warnings
+            ),
+            errors=list(
+                result.errors
+            ),
+            metadata={
+                "next_stage": metadata.get(
+                    "next_stage",
+                    stage,
+                ),
+                "response_path": metadata.get(
+                    "response_path",
+                    "",
+                ),
+                "prompt_path": metadata.get(
+                    "prompt_path",
+                    "",
+                ),
+                "retry_total_duration_seconds": (
+                    retry_metadata.get(
+                        "total_duration_seconds"
+                    )
+                ),
+                "finished": metadata.get(
+                    "finished",
+                    False,
+                ),
+                "adapter_metadata_available": bool(
+                    adapter_metadata
+                ),
+            },
+        )
+
+        return self.telemetry_engine.execute(
+            event=event,
+            project_path=project.path,
+            update_summary=True,
+        )
     def _build_manual_pending_result(
         self,
         runtime_context: RuntimeContext,
