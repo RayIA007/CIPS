@@ -1,0 +1,218 @@
+# =========================================================
+# Proyecto : CIPS
+# Release  : 0.9
+# Build    : 071
+# Archivo  : provider_pricing.yaml
+# Estado   : RELEASE
+# =========================================================
+#
+# Tarifas estimadas para Cost & Token Analytics.
+# Todas las tarifas de tokens se expresan en USD por
+# 1,000,000 de tokens, salvo que se indique otra unidad.
+#
+# IMPORTANTE:
+# - Los proveedores pueden cambiar precios sin previo aviso.
+# - CIPS debe tratar estos cálculos como estimaciones.
+# - Revisar last_verified antes de usar en producción.
+# =========================================================
+
+schema:
+  name: CIPS Provider Pricing
+  version: "1.0"
+  currency: USD
+  token_unit: 1000000
+  last_verified: "2026-07-15"
+  pricing_is_estimate: true
+  requires_periodic_review: true
+
+defaults:
+  provider: gemini
+  model: gemini-3.5-flash
+  billing_tier: paid
+  billing_mode: standard
+  currency: USD
+  unknown_model_policy: warn_and_zero
+  rounding_decimal_places: 8
+  thinking_tokens_policy: provider_defined
+
+providers:
+  gemini:
+    enabled: true
+    display_name: Google Gemini Developer API
+    pricing_source: official
+    pricing_url: https://ai.google.dev/gemini-api/docs/pricing
+
+    models:
+      gemini-3.5-flash:
+        enabled: true
+        aliases: []
+        billing_basis: per_1m_tokens
+
+        free_tier:
+          input: 0.0
+          output: 0.0
+          thinking: 0.0
+          cached_input: 0.0
+
+        paid:
+          standard:
+            input: 2.70
+            output: 16.20
+            thinking: 16.20
+            cached_input: 0.27
+            cache_storage_per_1m_tokens_hour: 1.00
+
+        notes:
+          - Output pricing includes thinking tokens.
+          - Free-tier input and output tokens are free, subject to quota limits.
+          - Grounding and other tools may add separate usage charges.
+
+      gemini-3.1-flash-lite:
+        enabled: false
+        aliases: []
+        billing_basis: per_1m_tokens
+
+        free_tier:
+          input: 0.0
+          output: 0.0
+          thinking: 0.0
+
+        paid:
+          standard:
+            input: 0.25
+            output: 1.50
+            thinking: 1.50
+            cached_input: 0.025
+            cache_storage_per_1m_tokens_hour: 1.00
+
+          batch:
+            input: 0.125
+            output: 0.75
+            thinking: 0.75
+            cached_input: 0.0125
+            cache_storage_per_1m_tokens_hour: 0.50
+
+          flex:
+            input: 0.125
+            output: 0.75
+            thinking: 0.75
+            cached_input: 0.0125
+            cache_storage_per_1m_tokens_hour: 0.50
+
+          priority:
+            input: 0.45
+            output: 2.70
+            thinking: 2.70
+            cached_input: 0.045
+            cache_storage_per_1m_tokens_hour: 1.80
+
+        notes:
+          - Disabled until CIPS adds this model to its provider configuration.
+          - Text, image and video input share the listed standard input rate.
+
+  openai:
+    enabled: false
+    display_name: OpenAI API
+    pricing_source: official
+    pricing_url: https://developers.openai.com/api/docs/pricing
+
+    models:
+      gpt-5.6-luna:
+        enabled: false
+        aliases: []
+        billing_basis: per_1m_tokens
+
+        paid:
+          standard_short_context:
+            input: 1.00
+            cached_input: 0.10
+            cache_write: 1.25
+            output: 6.00
+
+          standard_long_context:
+            input: 2.00
+            cached_input: 0.20
+            cache_write: 2.50
+            output: 9.00
+
+        notes:
+          - Future-ready entry; OpenAI provider is not yet enabled in CIPS.
+          - Context-band selection must be supplied by the future provider adapter.
+
+      gpt-5.4-mini:
+        enabled: false
+        aliases: []
+        billing_basis: per_1m_tokens
+
+        paid:
+          standard_short_context:
+            input: 0.75
+            cached_input: 0.075
+            output: 4.50
+
+        notes:
+          - Future-ready entry; OpenAI provider is not yet enabled in CIPS.
+
+  anthropic:
+    enabled: false
+    display_name: Claude API
+    pricing_source: official
+    pricing_url: https://platform.claude.com/docs/en/about-claude/pricing
+
+    models:
+      claude-sonnet-5:
+        enabled: false
+        aliases: []
+        billing_basis: per_1m_tokens
+
+        paid:
+          standard:
+            - effective_from: "2026-01-01"
+              effective_until: "2026-08-31"
+              input: 2.00
+              output: 10.00
+              cache_write_5m: 2.50
+              cache_write_1h: 4.00
+              cache_read: 0.20
+
+            - effective_from: "2026-09-01"
+              effective_until:
+              input: 3.00
+              output: 15.00
+              cache_write_5m: 3.75
+              cache_write_1h: 6.00
+              cache_read: 0.30
+
+        notes:
+          - Future-ready entry; Anthropic provider is not yet enabled in CIPS.
+          - Introductory pricing applies through 2026-08-31.
+
+      claude-haiku-4.5:
+        enabled: false
+        aliases: []
+        billing_basis: per_1m_tokens
+
+        paid:
+          standard:
+            input: 1.00
+            output: 5.00
+            cache_write_5m: 1.25
+            cache_write_1h: 2.00
+            cache_read: 0.10
+
+        notes:
+          - Future-ready entry; Anthropic provider is not yet enabled in CIPS.
+
+calculation:
+  formula:
+    input_cost: "(prompt_tokens / token_unit) * input_rate"
+    output_cost: "(response_tokens / token_unit) * output_rate"
+    thinking_cost: "(thinking_tokens / token_unit) * thinking_rate"
+    total_cost: "input_cost + output_cost + thinking_cost + cache_cost + tool_cost"
+
+  rules:
+    - Never infer a paid-tier charge when billing_tier is free.
+    - For Gemini 3.5 Flash, thinking tokens use the output-token rate.
+    - Unknown providers or models return zero cost plus a warning.
+    - Pricing values are estimates and must be periodically reverified.
+    - Tool, grounding, image, audio, video and storage charges are separate unless explicitly configured.
