@@ -25,13 +25,13 @@ Responsabilidades:
 
 from pathlib import Path
 import time
-from unittest import result
 
 from context_compressor import ContextCompressor
+from context_engine import ContextEngine
 from export_engine import ExportEngine
 from final_project_builder import FinalProjectBuilder
 from finalization_engine import FinalizationEngine
-from context_engine import ContextEngine
+from intelligence_pipeline import IntelligencePipeline
 from knowledge_engine import KnowledgeEngine
 from knowledge_resolver import KnowledgeResolver
 from llm_adapter import LLMAdapter
@@ -41,11 +41,22 @@ from metrics_engine import MetricsEngine
 from pipeline_runner import PipelineRunner
 from project_manager import ProjectManager
 from prompt_engine import PromptEngine
-from runtime_constants import FINAL_STAGE, STAGES, STAGE_FILES
+from runtime_constants import (
+    FINAL_STAGE,
+    STAGES,
+    STAGE_FILES,
+)
 from runtime_context import RuntimeContext
-from runtime_models import EngineResult, LLMResponse, Project
+from runtime_models import (
+    EngineResult,
+    LLMResponse,
+    Project,
+)
 from telemetry_engine import TelemetryEngine
-from telemetry_models import TelemetryAttempt, TelemetryEvent
+from telemetry_models import (
+    TelemetryAttempt,
+    TelemetryEvent,
+)
 from validator_engine import ValidatorEngine
 
 
@@ -75,7 +86,15 @@ class PipelineEngine:
         self.metrics_engine = MetricsEngine()
         self.export_engine = ExportEngine()
         self.telemetry_engine = TelemetryEngine()
-
+                
+        # --------------------------------------------------
+        # Intelligence Framework
+        # --------------------------------------------------
+        
+        self.intelligence_pipeline = IntelligencePipeline(
+            telemetry_engine=self.telemetry_engine
+        )
+                
         self.pre_llm_runner = PipelineRunner(
             components=[
                 KnowledgeEngine(),
@@ -85,7 +104,7 @@ class PipelineEngine:
                 PromptEngine(),
             ]
         )
-
+        
         self.post_llm_runner = PipelineRunner(
             components=[
                 ValidatorEngine(),
@@ -173,12 +192,25 @@ class PipelineEngine:
             6,
         )
 
-        return self._attach_telemetry(
+        result = self._attach_telemetry(
             project=project,
             stage=executed_stage,
             result=result,
             duration_seconds=duration_seconds,
         )
+        if (
+            result.success
+            and executed_stage == "publicacion"
+            and result.metadata.get(
+                "next_stage"
+            ) == FINAL_STAGE
+        ):
+            result = self._attach_intelligence_package(
+                project=project,
+                result=result,
+            )
+        return result
+
 
     def _generate_and_request_response(
         self,
@@ -841,6 +873,80 @@ class PipelineEngine:
         )
 
         return result
+
+
+    def _attach_intelligence_package(
+        self,
+        project: Project,
+        result: EngineResult,
+    ) -> EngineResult:
+        """
+        Genera el paquete de inteligencia del proyecto finalizado.
+
+        La inteligencia es una operación posterior al Pipeline.
+        Un fallo en este componente no invalida una ejecución
+        operativa que ya terminó correctamente.
+        """
+
+        intelligence_result = (
+            self.intelligence_pipeline.execute(
+                project_path=project.path,
+                project_id=project.project_id,
+                persist=True,
+            )
+        )
+
+        result.metadata[
+            "intelligence"
+        ] = dict(
+            intelligence_result.metadata
+        )
+
+        if intelligence_result.success:
+            result.metadata[
+                "intelligence_package_generated"
+            ] = True
+
+            if isinstance(
+                result.data,
+                dict,
+            ):
+                result.data[
+                    "intelligence_package"
+                ] = intelligence_result.data
+
+            return result
+
+        result.metadata[
+            "intelligence_package_generated"
+        ] = False
+
+        result.metadata[
+            "intelligence_failed_component"
+        ] = intelligence_result.metadata.get(
+            "failed_component",
+            "",
+        )
+
+        intelligence_warning = (
+            "El proyecto terminó correctamente, "
+            "pero no fue posible generar el paquete "
+            "de inteligencia: "
+            f"{intelligence_result.message}"
+        )
+
+        result.warnings.append(
+            intelligence_warning
+        )
+
+        for warning in intelligence_result.warnings:
+            if warning not in result.warnings:
+                result.warnings.append(
+                    warning
+                )
+
+        return result
+
 
     def _record_telemetry(
         self,
