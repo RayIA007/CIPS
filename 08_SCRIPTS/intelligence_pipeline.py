@@ -2,7 +2,7 @@
 =========================================================
 Proyecto : CIPS
 Release  : 0.9
-Build    : 081
+Build    : 087
 Archivo  : intelligence_pipeline.py
 Estado   : RELEASE
 =========================================================
@@ -17,10 +17,14 @@ from pathlib import Path
 from typing import Any
 
 from cost_analyzer import CostAnalyzer
+from dashboard_exporter import DashboardExporter
+from dashboard_generator import DashboardGenerator
+from dashboard_models import ExecutiveDashboard
 from cost_models import ProjectCostReport
 from health_models import RuntimeHealthReport
 from optimization_models import OptimizationPlan
 from project_intelligence_engine import ProjectIntelligenceEngine
+from project_intelligence_models import ProjectIntelligenceReport
 from prompt_intelligence_analyzer import PromptIntelligenceAnalyzer
 from prompt_intelligence_models import PromptIntelligenceReport
 from runtime_health_monitor import RuntimeHealthMonitor
@@ -52,6 +56,8 @@ class IntelligencePipeline:
         cost_analyzer: CostAnalyzer | None = None,
         runtime_optimizer: RuntimeOptimizer | None = None,
         project_intelligence_engine: ProjectIntelligenceEngine | None = None,
+        dashboard_generator: DashboardGenerator | None = None,
+        dashboard_exporter: DashboardExporter | None = None,
     ) -> None:
         self.telemetry_engine = telemetry_engine or TelemetryEngine()
         self.runtime_health_monitor = (
@@ -69,6 +75,14 @@ class IntelligencePipeline:
         self.project_intelligence_engine = (
             project_intelligence_engine
             or ProjectIntelligenceEngine()
+        )
+        self.dashboard_generator = (
+            dashboard_generator
+            or DashboardGenerator()
+        )
+        self.dashboard_exporter = (
+            dashboard_exporter
+            or DashboardExporter()
         )
 
     def execute(
@@ -226,6 +240,101 @@ class IntelligencePipeline:
                 else None
             )
 
+            if not isinstance(
+                project_report,
+                ProjectIntelligenceReport,
+            ):
+                return EngineResult.fail(
+                    message=(
+                        "ProjectIntelligenceEngine no devolvió "
+                        "ProjectIntelligenceReport."
+                    ),
+                    errors=[
+                        "Tipo de Project Intelligence incompatible."
+                    ],
+                    metadata={
+                        **self._base_metadata(
+                            resolved_project_path,
+                            resolved_project_id,
+                        ),
+                        "failed_component": (
+                            "project_intelligence_engine"
+                        ),
+                        "intelligence_package_failed": True,
+                    },
+                )
+
+            dashboard: ExecutiveDashboard | None = None
+            dashboard_paths = {
+                "executive_dashboard_json": "",
+                "executive_dashboard_markdown": "",
+                "executive_dashboard_html": "",
+            }
+            dashboard_warnings: list[str] = []
+            dashboard_exported = False
+
+            try:
+                dashboard = self.dashboard_generator.generate(
+                    project_intelligence=project_report,
+                    health_report=health_report,
+                    prompt_report=prompt_report,
+                    cost_report=cost_report,
+                    optimization_plan=optimization_plan,
+                )
+
+                if persist:
+                    dashboard_result = (
+                        self.dashboard_exporter.execute(
+                            dashboard=dashboard,
+                            project_path=resolved_project_path,
+                            output_directory=telemetry_directory,
+                            export_json=True,
+                            export_markdown=True,
+                            export_html=True,
+                        )
+                    )
+
+                    if dashboard_result.success:
+                        dashboard_exported = True
+                        dashboard_paths = {
+                            "executive_dashboard_json": (
+                                dashboard_result.metadata.get(
+                                    "json_path",
+                                    "",
+                                )
+                            ),
+                            "executive_dashboard_markdown": (
+                                dashboard_result.metadata.get(
+                                    "markdown_path",
+                                    "",
+                                )
+                            ),
+                            "executive_dashboard_html": (
+                                dashboard_result.metadata.get(
+                                    "html_path",
+                                    "",
+                                )
+                            ),
+                        }
+                    else:
+                        dashboard_warnings.append(
+                            "El Dashboard fue generado en memoria, "
+                            "pero no pudo exportarse: "
+                            f"{dashboard_result.message}"
+                        )
+                        dashboard_warnings.extend(
+                            dashboard_result.warnings
+                        )
+                        dashboard_warnings.extend(
+                            dashboard_result.errors
+                        )
+
+            except Exception as error:
+                dashboard_warnings.append(
+                    "No fue posible generar el Executive "
+                    f"Dashboard: {error}"
+                )
+
             warnings = self._unique_strings(
                 [
                     *events_result.warnings,
@@ -234,6 +343,7 @@ class IntelligencePipeline:
                     *cost_report.warnings,
                     *optimization_plan.warnings,
                     *project_result.warnings,
+                    *dashboard_warnings,
                 ]
             )
 
@@ -247,6 +357,7 @@ class IntelligencePipeline:
                     "cost_report": cost_report,
                     "optimization_plan": optimization_plan,
                     "project_intelligence": project_report,
+                    "executive_dashboard": dashboard,
                     "paths": {
                         **intermediate_paths,
                         "runtime_health_json": (
@@ -269,6 +380,7 @@ class IntelligencePipeline:
                                 "markdown_path", ""
                             )
                         ),
+                        **dashboard_paths,
                     },
                 },
                 message=(
@@ -290,7 +402,14 @@ class IntelligencePipeline:
                     ),
                     "project_intelligence_status": (
                         project_report.status.value
-                        if project_report is not None
+                    ),
+                    "dashboard_generated": (
+                        dashboard is not None
+                    ),
+                    "dashboard_exported": dashboard_exported,
+                    "dashboard_status": (
+                        dashboard.status.value
+                        if dashboard is not None
                         else ""
                     ),
                     "persisted": bool(persist),
@@ -661,8 +780,14 @@ class IntelligencePipeline:
                 self.OPTIMIZATION_MARKDOWN_FILENAME,
                 "PROJECT_INTELLIGENCE.json",
                 "PROJECT_INTELLIGENCE.md",
+                "EXECUTIVE_DASHBOARD.json",
+                "EXECUTIVE_DASHBOARD.md",
+                "EXECUTIVE_DASHBOARD.html",
             ],
+            "uses_dashboard_generator": True,
+            "uses_dashboard_exporter": True,
+            "dashboard_fault_tolerant": True,
             "next_component": (
-                "pipeline_intelligence_smoke_test"
+                "dashboard_pipeline_integration_smoke_test"
             ),
         }
