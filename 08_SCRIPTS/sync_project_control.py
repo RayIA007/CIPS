@@ -1,0 +1,4499 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+===============================================================================
+CIPS Project Control Synchronizer
+===============================================================================
+
+File
+    sync_project_control.py
+
+Deliverable
+    CTRL-016
+
+Version
+    1.0.0
+
+Purpose
+    Synchronize every derived Project Control document from the official
+    execution state without modifying constitutional information.
+
+Authoritative Sources
+    1. CIPS_DEPENDENCY_MAP.yaml
+    2. CIPS_FILE_MANIFEST.yaml
+
+Derived Targets
+    1. CIPS_CURRENT_STATE.yaml
+    2. CIPS_BASELINE_MANIFEST.yaml
+
+Execution Modes
+    • Dry Run (default)
+    • Apply
+    • Apply + Validate
+
+The synchronizer NEVER modifies:
+
+    • Architecture
+    • Technical Specifications
+    • Roadmap
+    • Decision Log
+    • Protected Files
+    • Constitutional documents
+
+===============================================================================
+"""
+
+from __future__ import annotations
+
+import argparse
+import copy
+import hashlib
+import json
+import shutil
+import re
+import sys
+import tempfile
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
+
+# =============================================================================
+# VERSION
+# =============================================================================
+
+VERSION = "1.0.0"
+
+DELIVERABLE = "CTRL-016"
+
+# =============================================================================
+# REPOSITORY ROOT
+# =============================================================================
+
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+
+PROJECT_ROOT = SCRIPT_DIRECTORY.parent
+
+PRODUCTION_SYSTEM_ROOT = PROJECT_ROOT / "12_PRODUCTION_SYSTEM"
+
+PROJECT_CONTROL_DIRECTORY = (
+    PRODUCTION_SYSTEM_ROOT /
+    "99_PROJECT_CONTROL"
+)
+
+# =============================================================================
+# AUTHORITATIVE DOCUMENTS
+# =============================================================================
+
+DEPENDENCY_MAP = (
+    PROJECT_CONTROL_DIRECTORY /
+    "CIPS_DEPENDENCY_MAP.yaml"
+)
+
+FILE_MANIFEST = (
+    PROJECT_CONTROL_DIRECTORY /
+    "CIPS_FILE_MANIFEST.yaml"
+)
+
+# =============================================================================
+# DERIVED DOCUMENTS
+# =============================================================================
+
+CURRENT_STATE = (
+    PROJECT_CONTROL_DIRECTORY /
+    "CIPS_CURRENT_STATE.yaml"
+)
+
+BASELINE_MANIFEST = (
+    PROJECT_CONTROL_DIRECTORY /
+    "CIPS_BASELINE_MANIFEST.yaml"
+)
+
+# =============================================================================
+# VALIDATOR
+# =============================================================================
+
+VALIDATOR_SCRIPT = (
+    PROJECT_ROOT /
+    "08_SCRIPTS" /
+    "validate_project_control.py"
+)
+
+# =============================================================================
+# EXECUTION MODES
+# =============================================================================
+
+class ExecutionMode(Enum):
+
+    DRY_RUN = "dry-run"
+
+    APPLY = "apply"
+
+    APPLY_AND_VALIDATE = "apply+validate"
+
+
+# =============================================================================
+# SYNCHRONIZATION AUTHORITY
+# =============================================================================
+
+class Authority(Enum):
+
+    DEPENDENCY_MAP = "dependency_map"
+
+    FILE_MANIFEST = "file_manifest"
+
+    CURRENT_STATE = "current_state"
+
+    BASELINE_MANIFEST = "baseline_manifest"
+
+
+# =============================================================================
+# SYNCHRONIZATION RESULT
+# =============================================================================
+
+@dataclass
+class SynchronizationResult:
+
+    changed: bool = False
+
+    files_modified: List[Path] = None
+
+    warnings: List[str] = None
+
+    errors: List[str] = None
+
+    applied_operations: List[str] = None
+
+    proposed_operations: List[str] = None
+
+    def __post_init__(self):
+
+        self.files_modified = self.files_modified or []
+
+        self.warnings = self.warnings or []
+
+        self.errors = self.errors or []
+
+        self.applied_operations = self.applied_operations or []
+
+        self.proposed_operations = self.proposed_operations or []
+
+
+# =============================================================================
+# YAML LOADER
+# =============================================================================
+
+class SafeYaml:
+
+    @staticmethod
+    def load(path: Path) -> Dict[str, Any]:
+
+        with path.open(
+            "r",
+            encoding="utf-8"
+        ) as stream:
+
+            return yaml.safe_load(stream)
+
+    @staticmethod
+    def save(
+        path: Path,
+        data: Dict[str, Any]
+    ) -> None:
+
+        temporary = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".yaml",
+            dir=str(path.parent)
+        )
+
+        try:
+
+            with open(
+                temporary.name,
+                "w",
+                encoding="utf-8"
+            ) as stream:
+
+                yaml.safe_dump(
+                    data,
+                    stream,
+                    allow_unicode=True,
+                    sort_keys=False,
+                    indent=2
+                )
+
+            shutil.move(
+                temporary.name,
+                path
+            )
+
+        finally:
+
+            if Path(
+                temporary.name
+            ).exists():
+
+                Path(
+                    temporary.name
+                ).unlink(missing_ok=True)
+
+
+# =============================================================================
+# PROJECT STATE MODEL
+# =============================================================================
+
+@dataclass
+class CanonicalExecutionState:
+
+    current_phase: str
+
+    current_deliverable: str
+
+    last_accepted: str
+
+    next_deliverable: str
+
+    ready_flags: Dict[str, bool]
+
+    manifest_status: Dict[str, str]
+
+
+# =============================================================================
+# CANONICAL STATE RESOLVER
+# =============================================================================
+
+class CanonicalStateResolver:
+
+    """
+    Computes the official execution state
+    using only authoritative sources.
+    """
+
+    def __init__(self):
+
+        self.dependency_map = SafeYaml.load(
+            DEPENDENCY_MAP
+        )
+
+        self.file_manifest = SafeYaml.load(
+            FILE_MANIFEST
+        )
+
+    def resolve(
+        self
+    ) -> CanonicalExecutionState:
+
+        """
+        PART I
+
+        In the next section this method will:
+
+        • Read execution state
+        • Locate accepted deliverables
+        • Determine current deliverable
+        • Determine next deliverable
+        • Compute ready flags
+        • Read manifest status
+
+        Returns
+        -------
+        CanonicalExecutionState
+        """
+
+        raise NotImplementedError(
+            "Implemented in Part II"
+        )
+
+
+# =============================================================================
+# ARGUMENT PARSER
+# =============================================================================
+
+def build_parser():
+
+    parser = argparse.ArgumentParser(
+        description="CIPS Project Control Synchronizer"
+    )
+
+    parser.add_argument(
+        "--apply",
+        action="store_true"
+    )
+
+    parser.add_argument(
+        "--validate",
+        action="store_true"
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true"
+    )
+
+    return parser
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+def main() -> int:
+
+    parser = build_parser()
+
+    args = parser.parse_args()
+
+    print("=" * 72)
+
+    print("CIPS Project Control Synchronizer")
+
+    print("=" * 72)
+
+    print(f"Version      : {VERSION}")
+
+    print(f"Deliverable  : {DELIVERABLE}")
+
+    print()
+
+    if not args.apply:
+
+        print("Execution mode : DRY RUN")
+
+    elif args.validate:
+
+        print("Execution mode : APPLY + VALIDATE")
+
+    else:
+
+        print("Execution mode : APPLY")
+
+    print()
+
+    print("Loading authoritative state...")
+
+    print()
+
+    exit_code = run_part_seven(args)
+
+    return exit_code
+
+
+
+    
+# =============================================================================
+# NORMALIZATION HELPERS
+# =============================================================================
+
+ACCEPTED_STATES = {
+    "ACCEPTED",
+    "COMPLETED",
+    "CERTIFIED",
+    "RELEASED",
+}
+
+ACTIVE_STATES = {
+    "IN_PROGRESS",
+    "IMPLEMENTED",
+    "VALIDATING",
+    "TESTED",
+    "READY_FOR_REVIEW",
+    "UNDER_REVIEW",
+}
+
+PENDING_STATES = {
+    "NOT_STARTED",
+    "PLANNED",
+    "PENDING",
+    "READY",
+    "RESERVED",
+}
+
+
+def normalize_state(value: Any) -> str:
+    """
+    Normalize a state without discarding valid falsy values such as 0.
+    """
+
+    if value is None:
+        return ""
+
+    return (
+        str(value)
+        .strip()
+        .upper()
+        .replace(" ", "_")
+        .replace("-", "_")
+    )
+
+
+def normalize_identifier(value: Any) -> str:
+    """
+    Normalize an identifier without discarding valid falsy values such as 0.
+    """
+
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
+def ensure_string_list(value: Any) -> List[str]:
+    """
+    Normalize a scalar, tuple or list into a list of non-empty strings.
+    """
+
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+
+        normalized = value.strip()
+
+        return [normalized] if normalized else []
+
+    if isinstance(value, (list, tuple, set)):
+
+        return [
+            str(item).strip()
+            for item in value
+            if str(item).strip()
+        ]
+
+    normalized = str(value).strip()
+
+    return [normalized] if normalized else []
+
+
+def nested_get(
+    data: Dict[str, Any],
+    path: Tuple[str, ...],
+    default: Any = None
+) -> Any:
+    """
+    Read a nested mapping value without raising KeyError.
+    """
+
+    current: Any = data
+
+    for key in path:
+
+        if not isinstance(current, dict):
+
+            return default
+
+        if key not in current:
+
+            return default
+
+        current = current[key]
+
+    return current
+
+
+def normalize_phase_identifier(value: Any) -> str:
+    """
+    Normalize phase identifiers.
+
+    Examples
+    --------
+    0        -> PHASE-0
+    "0"      -> PHASE-0
+    "PHASE-0" -> PHASE-0
+    """
+
+    normalized = normalize_identifier(value)
+
+    if not normalized:
+
+        return ""
+
+    if normalized.isdigit():
+
+        return f"PHASE-{normalized}"
+
+    return normalized.upper()
+
+
+# =============================================================================
+# DEPENDENCY MODEL
+# =============================================================================
+
+@dataclass(frozen=True)
+class DeliverableRecord:
+
+    deliverable_id: str
+
+    name: str
+
+    status: str
+
+    dependencies: Tuple[str, ...]
+
+    phase: str
+
+    source_order: int
+
+
+@dataclass(frozen=True)
+class ManifestRecord:
+
+    file_id: str
+
+    filename: str
+
+    relative_path: str
+
+    deliverable_id: str
+
+    status: str
+
+
+# =============================================================================
+# DEPENDENCY EXTRACTION
+# =============================================================================
+
+def collect_deliverables(
+    dependency_map: Dict[str, Any]
+) -> Dict[str, DeliverableRecord]:
+    """
+    Extract deliverables from CIPS_DEPENDENCY_MAP.yaml.
+
+    The declaration order is preserved and used as a deterministic
+    tie-breaker when multiple nodes are simultaneously available.
+    """
+
+    raw_deliverables = dependency_map.get(
+        "deliverables",
+        {}
+    )
+
+    if not isinstance(
+        raw_deliverables,
+        dict
+    ):
+
+        raise ValueError(
+            "CIPS_DEPENDENCY_MAP.yaml: "
+            "'deliverables' must be a mapping."
+        )
+
+    deliverables: Dict[str, DeliverableRecord] = {}
+
+    for index, (
+        raw_id,
+        raw_record
+    ) in enumerate(
+        raw_deliverables.items()
+    ):
+
+        deliverable_id = normalize_identifier(
+            raw_id
+        )
+
+        if not deliverable_id:
+
+            raise ValueError(
+                "Dependency Map contains an empty deliverable identifier."
+            )
+
+        if not isinstance(
+            raw_record,
+            dict
+        ):
+
+            raise ValueError(
+                f"Deliverable {deliverable_id!r} "
+                "must be represented by a mapping."
+            )
+
+        if deliverable_id in deliverables:
+
+            raise ValueError(
+                f"Duplicate deliverable identifier: "
+                f"{deliverable_id}"
+            )
+
+        deliverables[deliverable_id] = DeliverableRecord(
+            deliverable_id=deliverable_id,
+            name=normalize_identifier(
+                raw_record.get(
+                    "name"
+                )
+            ),
+            status=normalize_state(
+                raw_record.get(
+                    "status"
+                )
+            ),
+            dependencies=tuple(
+                ensure_string_list(
+                    raw_record.get(
+                        "dependencies",
+                        []
+                    )
+                )
+            ),
+            phase=normalize_phase_identifier(
+                raw_record.get(
+                    "phase",
+                    ""
+                )
+            ),
+            source_order=index
+        )
+
+    if not deliverables:
+
+        raise ValueError(
+            "Dependency Map contains no deliverables."
+        )
+
+    return deliverables
+
+
+# =============================================================================
+# MANIFEST EXTRACTION
+# =============================================================================
+
+def collect_manifest_records(
+    file_manifest: Dict[str, Any]
+) -> Dict[str, ManifestRecord]:
+    """
+    Extract registered files from all supported File Manifest sections.
+    """
+
+    records: Dict[str, ManifestRecord] = {}
+
+    supported_sections = (
+        "files",
+        "reserved_project_control_files"
+    )
+
+    for section_name in supported_sections:
+
+        raw_section = file_manifest.get(
+            section_name,
+            {}
+        )
+
+        if raw_section is None:
+
+            continue
+
+        if not isinstance(
+            raw_section,
+            dict
+        ):
+
+            raise ValueError(
+                f"CIPS_FILE_MANIFEST.yaml: "
+                f"{section_name!r} must be a mapping."
+            )
+
+        for raw_file_id, raw_record in raw_section.items():
+
+            file_id = normalize_identifier(
+                raw_file_id
+            )
+
+            if not isinstance(
+                raw_record,
+                dict
+            ):
+
+                raise ValueError(
+                    f"Manifest entry {file_id!r} "
+                    "must be represented by a mapping."
+                )
+
+            if file_id in records:
+
+                raise ValueError(
+                    f"Duplicate File Manifest identifier: "
+                    f"{file_id}"
+                )
+
+            records[file_id] = ManifestRecord(
+                file_id=file_id,
+                filename=normalize_identifier(
+                    raw_record.get(
+                        "filename"
+                    )
+                ),
+                relative_path=normalize_identifier(
+                    raw_record.get(
+                        "relative_path"
+                    )
+                ),
+                deliverable_id=normalize_identifier(
+                    raw_record.get(
+                        "deliverable_id"
+                    )
+                ),
+                status=normalize_state(
+                    raw_record.get(
+                        "status"
+                    )
+                )
+            )
+
+    if not records:
+
+        raise ValueError(
+            "File Manifest contains no registered entries."
+        )
+
+    return records
+
+
+def build_manifest_status_index(
+    records: Dict[str, ManifestRecord]
+) -> Dict[str, str]:
+    """
+    Build a deliverable_id -> manifest status index.
+
+    When several files belong to one deliverable, the least advanced status
+    is selected to prevent the synchronizer from reporting readiness too early.
+    """
+
+    status_priority = {
+        "NOT_STARTED": 0,
+        "PLANNED": 1,
+        "PENDING": 2,
+        "RESERVED": 3,
+        "READY": 4,
+        "IN_PROGRESS": 5,
+        "IMPLEMENTED": 6,
+        "VALIDATING": 7,
+        "TESTED": 8,
+        "READY_FOR_REVIEW": 9,
+        "UNDER_REVIEW": 10,
+        "ACCEPTED": 11,
+        "COMPLETED": 12,
+        "CERTIFIED": 13,
+        "RELEASED": 14,
+        "SUPERSEDED": 15,
+        "ARCHIVED": 16
+    }
+
+    grouped: Dict[str, List[str]] = {}
+
+    for record in records.values():
+
+        if not record.deliverable_id:
+
+            continue
+
+        grouped.setdefault(
+            record.deliverable_id,
+            []
+        ).append(
+            record.status
+        )
+
+    resolved: Dict[str, str] = {}
+
+    for deliverable_id, statuses in grouped.items():
+
+        normalized_statuses = [
+            normalize_state(status)
+            for status in statuses
+            if normalize_state(status)
+        ]
+
+        if not normalized_statuses:
+
+            continue
+
+        resolved[deliverable_id] = min(
+            normalized_statuses,
+            key=lambda status: status_priority.get(
+                status,
+                -1
+            )
+        )
+
+    return resolved
+
+
+# =============================================================================
+# GRAPH VALIDATION
+# =============================================================================
+
+def validate_dependency_references(
+    deliverables: Dict[str, DeliverableRecord]
+) -> None:
+    """
+    Ensure all dependency references resolve to registered deliverables.
+    """
+
+    known_ids = set(
+        deliverables
+    )
+
+    errors: List[str] = []
+
+    for deliverable in deliverables.values():
+
+        for dependency_id in deliverable.dependencies:
+
+            if dependency_id == deliverable.deliverable_id:
+
+                errors.append(
+                    f"{deliverable.deliverable_id} "
+                    "depends on itself."
+                )
+
+                continue
+
+            if dependency_id not in known_ids:
+
+                errors.append(
+                    f"{deliverable.deliverable_id} "
+                    f"references unknown dependency "
+                    f"{dependency_id}."
+                )
+
+    if errors:
+
+        raise ValueError(
+            "Invalid dependency references:\n- "
+            + "\n- ".join(
+                errors
+            )
+        )
+
+
+def topological_sort(
+    deliverables: Dict[str, DeliverableRecord]
+) -> List[str]:
+    """
+    Return dependency-first deterministic topological order.
+    """
+
+    validate_dependency_references(
+        deliverables
+    )
+
+    dependency_count: Dict[str, int] = {
+        deliverable_id: len(
+            deliverable.dependencies
+        )
+        for deliverable_id, deliverable
+        in deliverables.items()
+    }
+
+    dependents: Dict[str, List[str]] = {
+        deliverable_id: []
+        for deliverable_id in deliverables
+    }
+
+    for deliverable_id, deliverable in deliverables.items():
+
+        for dependency_id in deliverable.dependencies:
+
+            dependents[
+                dependency_id
+            ].append(
+                deliverable_id
+            )
+
+    def sort_key(
+        deliverable_id: str
+    ) -> Tuple[int, str]:
+
+        record = deliverables[
+            deliverable_id
+        ]
+
+        return (
+            record.source_order,
+            deliverable_id
+        )
+
+    ready = sorted(
+        [
+            deliverable_id
+            for deliverable_id, count
+            in dependency_count.items()
+            if count == 0
+        ],
+        key=sort_key
+    )
+
+    ordered: List[str] = []
+
+    while ready:
+
+        current = ready.pop(
+            0
+        )
+
+        ordered.append(
+            current
+        )
+
+        for dependent_id in sorted(
+            dependents[current],
+            key=sort_key
+        ):
+
+            dependency_count[
+                dependent_id
+            ] -= 1
+
+            if dependency_count[
+                dependent_id
+            ] == 0:
+
+                ready.append(
+                    dependent_id
+                )
+
+                ready.sort(
+                    key=sort_key
+                )
+
+    if len(
+        ordered
+    ) != len(
+        deliverables
+    ):
+
+        unresolved = [
+            deliverable_id
+            for deliverable_id
+            in deliverables
+            if deliverable_id not in ordered
+        ]
+
+        raise ValueError(
+            "Dependency graph contains a cycle or unresolved nodes: "
+            + ", ".join(
+                unresolved
+            )
+        )
+
+    return ordered
+
+
+# =============================================================================
+# EXECUTION STATE RESOLUTION
+# =============================================================================
+
+def resolve_graph_state(
+    dependency_map: Dict[str, Any],
+    deliverables: Dict[str, DeliverableRecord],
+    ordered_deliverables: List[str]
+) -> Tuple[str, str, str, str]:
+    """
+    Resolve phase, current deliverable, last accepted and next deliverable.
+
+    The declared current_graph_state is preferred when valid. Missing or stale
+    values are derived from the deliverable graph.
+    """
+
+    raw_graph_state = dependency_map.get(
+        "current_graph_state",
+        {}
+    )
+
+    if raw_graph_state is None:
+
+        raw_graph_state = {}
+
+    if not isinstance(
+        raw_graph_state,
+        dict
+    ):
+
+        raise ValueError(
+            "Dependency Map 'current_graph_state' must be a mapping."
+        )
+
+    declared_phase = normalize_phase_identifier(
+        raw_graph_state.get(
+            "current_phase"
+        )
+    )
+
+    declared_current = normalize_identifier(
+        raw_graph_state.get(
+            "current_deliverable"
+        )
+    )
+
+    declared_last_accepted = normalize_identifier(
+        raw_graph_state.get(
+            "last_accepted_deliverable"
+        )
+    )
+
+    declared_next = normalize_identifier(
+        raw_graph_state.get(
+            "next_deliverable"
+        )
+    )
+
+    accepted_ids = [
+        deliverable_id
+        for deliverable_id in ordered_deliverables
+        if deliverables[
+            deliverable_id
+        ].status in ACCEPTED_STATES
+    ]
+
+    active_ids = [
+        deliverable_id
+        for deliverable_id in ordered_deliverables
+        if deliverables[
+            deliverable_id
+        ].status in ACTIVE_STATES
+    ]
+
+    pending_ids = [
+        deliverable_id
+        for deliverable_id in ordered_deliverables
+        if deliverables[
+            deliverable_id
+        ].status in PENDING_STATES
+    ]
+
+    if (
+        declared_current
+        and declared_current in deliverables
+    ):
+
+        current_deliverable = declared_current
+
+    elif active_ids:
+
+        current_deliverable = active_ids[
+            0
+        ]
+
+    elif pending_ids:
+
+        current_deliverable = pending_ids[
+            0
+        ]
+
+    else:
+
+        current_deliverable = ordered_deliverables[
+            -1
+        ]
+
+    current_index = ordered_deliverables.index(
+        current_deliverable
+    )
+
+    accepted_before_current = [
+        deliverable_id
+        for deliverable_id
+        in ordered_deliverables[
+            :current_index
+        ]
+        if deliverables[
+            deliverable_id
+        ].status in ACCEPTED_STATES
+    ]
+
+    if (
+        declared_last_accepted
+        and declared_last_accepted in accepted_before_current
+    ):
+
+        last_accepted = declared_last_accepted
+
+    elif accepted_before_current:
+
+        last_accepted = accepted_before_current[
+            -1
+        ]
+
+    elif accepted_ids:
+
+        last_accepted = accepted_ids[
+            -1
+        ]
+
+    else:
+
+        last_accepted = ""
+
+    deliverables_after_current = ordered_deliverables[
+        current_index + 1:
+    ]
+
+    if (
+        declared_next
+        and declared_next in deliverables_after_current
+    ):
+
+        next_deliverable = declared_next
+
+    elif deliverables_after_current:
+
+        next_deliverable = deliverables_after_current[
+            0
+        ]
+
+    else:
+
+        next_deliverable = ""
+
+    current_phase = declared_phase
+
+    if not current_phase:
+
+        current_phase = deliverables[
+            current_deliverable
+        ].phase
+
+    if not current_phase:
+
+        current_phase = "PHASE-0"
+
+    return (
+        current_phase,
+        current_deliverable,
+        last_accepted,
+        next_deliverable
+    )
+
+
+# =============================================================================
+# READINESS FLAG RESOLUTION
+# =============================================================================
+
+READY_FLAG_BY_DELIVERABLE = {
+    "CTRL-003": "current_state_ready",
+    "CTRL-004": "delivery_ledger_ready",
+    "CTRL-005": "decision_log_ready",
+    "CTRL-006": "dependency_map_ready",
+    "CTRL-007": "file_manifest_ready",
+    "CTRL-008": "session_handoff_ready",
+    "CTRL-009": "acceptance_matrix_ready",
+    "CTRL-010": "change_control_ready",
+    "CTRL-011": "baseline_manifest_ready",
+    "CTRL-012": "protected_files_ready",
+    "CTRL-013": "risk_register_ready",
+    "CTRL-014": "checkpoints_ready",
+    "CTRL-015": "project_control_validator_ready"
+}
+
+
+def resolve_ready_flags(
+    deliverables: Dict[str, DeliverableRecord],
+    manifest_status: Dict[str, str]
+) -> Dict[str, bool]:
+    """
+    Resolve Project Control readiness flags.
+
+    A deliverable is ready when the Dependency Map declares it accepted.
+    Manifest status is used as corroborating evidence when available.
+    """
+
+    flags: Dict[str, bool] = {}
+
+    for (
+        deliverable_id,
+        flag_name
+    ) in READY_FLAG_BY_DELIVERABLE.items():
+
+        dependency_record = deliverables.get(
+            deliverable_id
+        )
+
+        dependency_ready = (
+            dependency_record is not None
+            and dependency_record.status in ACCEPTED_STATES
+        )
+
+        manifest_value = manifest_status.get(
+            deliverable_id
+        )
+
+        manifest_ready = (
+            manifest_value is None
+            or manifest_value in ACCEPTED_STATES
+        )
+
+        flags[
+            flag_name
+        ] = (
+            dependency_ready
+            and manifest_ready
+        )
+
+    return flags
+
+
+# =============================================================================
+# CANONICAL STATE RESOLVER IMPLEMENTATION
+# =============================================================================
+
+def resolve_canonical_state(
+    dependency_map: Dict[str, Any],
+    file_manifest: Dict[str, Any]
+) -> CanonicalExecutionState:
+    """
+    Compute the complete canonical state from authoritative documents.
+    """
+
+    deliverables = collect_deliverables(
+        dependency_map
+    )
+
+    ordered_deliverables = topological_sort(
+        deliverables
+    )
+
+    manifest_records = collect_manifest_records(
+        file_manifest
+    )
+
+    manifest_status = build_manifest_status_index(
+        manifest_records
+    )
+
+    (
+        current_phase,
+        current_deliverable,
+        last_accepted,
+        next_deliverable
+    ) = resolve_graph_state(
+        dependency_map,
+        deliverables,
+        ordered_deliverables
+    )
+
+    ready_flags = resolve_ready_flags(
+        deliverables,
+        manifest_status
+    )
+
+    return CanonicalExecutionState(
+        current_phase=current_phase,
+        current_deliverable=current_deliverable,
+        last_accepted=last_accepted,
+        next_deliverable=next_deliverable,
+        ready_flags=ready_flags,
+        manifest_status=manifest_status
+    )
+
+
+# =============================================================================
+# REPLACE CanonicalStateResolver.resolve()
+# =============================================================================
+
+def canonical_state_resolver_resolve(
+    self: CanonicalStateResolver
+) -> CanonicalExecutionState:
+    """
+    Resolve and return the authoritative Project Control execution state.
+    """
+
+    state = resolve_canonical_state(
+        dependency_map=self.dependency_map,
+        file_manifest=self.file_manifest
+    )
+
+    print(
+        f"Current phase       : "
+        f"{state.current_phase}"
+    )
+
+    print(
+        f"Current deliverable : "
+        f"{state.current_deliverable}"
+    )
+
+    print(
+        f"Last accepted       : "
+        f"{state.last_accepted or 'NONE'}"
+    )
+
+    print(
+        f"Next deliverable    : "
+        f"{state.next_deliverable or 'NONE'}"
+    )
+
+    print()
+
+    print(
+        "Canonical state resolved successfully."
+    )
+
+    return state
+
+
+CanonicalStateResolver.resolve = (
+    canonical_state_resolver_resolve
+)
+
+
+# =============================================================================
+# END OF PART II
+# =============================================================================
+# =============================================================================
+# SYNCHRONIZATION CHANGE MODEL
+# =============================================================================
+
+@dataclass(frozen=True)
+class FieldChange:
+    """
+    Represents one proposed synchronization change.
+    """
+
+    document: str
+
+    field_path: str
+
+    previous_value: Any
+
+    new_value: Any
+
+    authority: Authority
+
+    reason: str
+
+    def describe(self) -> str:
+        """
+        Return a human-readable representation of the change.
+        """
+
+        return (
+            f"{self.document}: "
+            f"{self.field_path}: "
+            f"{self.previous_value!r} -> {self.new_value!r} "
+            f"[authority={self.authority.value}]"
+        )
+
+
+# =============================================================================
+# NESTED MAPPING SUPPORT
+# =============================================================================
+
+def nested_set(
+    data: Dict[str, Any],
+    path: Tuple[str, ...],
+    value: Any
+) -> None:
+    """
+    Set a value inside a nested mapping.
+
+    Intermediate mappings are created only when missing.
+
+    Existing non-mapping values in the path are rejected to prevent
+    accidental structural corruption.
+    """
+
+    if not path:
+
+        raise ValueError(
+            "nested_set requires a non-empty path."
+        )
+
+    current: Dict[str, Any] = data
+
+    for key in path[:-1]:
+
+        existing = current.get(
+            key
+        )
+
+        if existing is None:
+
+            current[
+                key
+            ] = {}
+
+            existing = current[
+                key
+            ]
+
+        if not isinstance(
+            existing,
+            dict
+        ):
+
+            raise ValueError(
+                "Cannot set nested field "
+                f"{'.'.join(path)} because "
+                f"{key!r} is not a mapping."
+            )
+
+        current = existing
+
+    current[
+        path[-1]
+    ] = value
+
+
+def compare_field(
+    *,
+    document_name: str,
+    source_document: Dict[str, Any],
+    field_path: Tuple[str, ...],
+    expected_value: Any,
+    authority: Authority,
+    reason: str
+) -> Optional[FieldChange]:
+    """
+    Compare one nested field with its canonical value.
+    """
+
+    current_value = nested_get(
+        source_document,
+        field_path,
+        default=None
+    )
+
+    if current_value == expected_value:
+
+        return None
+
+    return FieldChange(
+        document=document_name,
+        field_path=".".join(
+            field_path
+        ),
+        previous_value=current_value,
+        new_value=expected_value,
+        authority=authority,
+        reason=reason
+    )
+
+
+# =============================================================================
+# CURRENT STATE STRUCTURE RESOLUTION
+# =============================================================================
+
+def resolve_current_state_phase_value(
+    current_state: Dict[str, Any],
+    canonical_phase: str
+) -> Any:
+    """
+    Preserve the existing Current State phase representation.
+
+    Current State may use either:
+
+        execution.current_phase.id: 0
+
+    or:
+
+        execution.current_phase.id: PHASE-0
+
+    The synchronizer preserves the current data type when possible.
+    """
+
+    existing_value = nested_get(
+        current_state,
+        (
+            "execution",
+            "current_phase",
+            "id"
+        ),
+        default=None
+    )
+
+    normalized_phase = normalize_phase_identifier(
+        canonical_phase
+    )
+
+    if (
+        isinstance(
+            existing_value,
+            int
+        )
+        and normalized_phase.startswith(
+            "PHASE-"
+        )
+    ):
+
+        phase_number = normalized_phase.removeprefix(
+            "PHASE-"
+        )
+
+        if phase_number.isdigit():
+
+            return int(
+                phase_number
+            )
+
+    if (
+        isinstance(
+            existing_value,
+            str
+        )
+        and existing_value.strip().isdigit()
+        and normalized_phase.startswith(
+            "PHASE-"
+        )
+    ):
+
+        return normalized_phase.removeprefix(
+            "PHASE-"
+        )
+
+    return normalized_phase
+
+
+def locate_project_control_flags(
+    current_state: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Return the authoritative project_control mapping.
+
+    The function does not create the section. Creation is performed only
+    during explicit synchronization application.
+    """
+
+    raw_flags = current_state.get(
+        "project_control"
+    )
+
+    if raw_flags is None:
+
+        return {}
+
+    if not isinstance(
+        raw_flags,
+        dict
+    ):
+
+        raise ValueError(
+            "CIPS_CURRENT_STATE.yaml: "
+            "'project_control' must be a mapping."
+        )
+
+    return raw_flags
+
+
+# =============================================================================
+# CURRENT STATE CHANGE PLANNER
+# =============================================================================
+
+class CurrentStateSynchronizer:
+    """
+    Plans and applies derived updates to CIPS_CURRENT_STATE.yaml.
+
+    Authority:
+        CIPS_DEPENDENCY_MAP.yaml
+
+    The synchronizer does not infer or overwrite descriptive, strategic,
+    constitutional or manually owned fields.
+    """
+
+    DOCUMENT_NAME = "CIPS_CURRENT_STATE.yaml"
+
+    def __init__(
+        self,
+        canonical_state: CanonicalExecutionState
+    ):
+
+        self.canonical_state = canonical_state
+
+        loaded = SafeYaml.load(
+            CURRENT_STATE
+        )
+
+        if not isinstance(
+            loaded,
+            dict
+        ):
+
+            raise ValueError(
+                "CIPS_CURRENT_STATE.yaml "
+                "must contain a mapping at its root."
+            )
+
+        self.original_document: Dict[str, Any] = loaded
+
+        self.updated_document: Dict[str, Any] = copy.deepcopy(
+            loaded
+        )
+
+    def plan_changes(
+        self
+    ) -> List[FieldChange]:
+        """
+        Determine every required Current State synchronization change.
+        """
+
+        changes: List[FieldChange] = []
+
+        phase_value = resolve_current_state_phase_value(
+            self.original_document,
+            self.canonical_state.current_phase
+        )
+
+        field_specs: Tuple[
+            Tuple[
+                Tuple[str, ...],
+                Any,
+                str
+            ],
+            ...
+        ] = (
+            (
+                (
+                    "execution",
+                    "current_phase",
+                    "id"
+                ),
+                phase_value,
+                (
+                    "Current phase is derived from the authoritative "
+                    "Dependency Map execution state."
+                )
+            ),
+            (
+                (
+                    "execution",
+                    "current_deliverable",
+                    "id"
+                ),
+                self.canonical_state.current_deliverable,
+                (
+                    "Current deliverable is derived from "
+                    "current_graph_state and the dependency graph."
+                )
+            ),
+            (
+                (
+                    "execution",
+                    "last_accepted",
+                    "id"
+                ),
+                self.canonical_state.last_accepted,
+                (
+                    "Last accepted deliverable is derived from accepted "
+                    "nodes preceding the current deliverable."
+                )
+            ),
+            (
+                (
+                    "execution",
+                    "next_deliverable",
+                    "id"
+                ),
+                self.canonical_state.next_deliverable,
+                (
+                    "Next deliverable is derived from the deterministic "
+                    "topological execution order."
+                )
+            )
+        )
+
+        for (
+            field_path,
+            expected_value,
+            reason
+        ) in field_specs:
+
+            change = compare_field(
+                document_name=self.DOCUMENT_NAME,
+                source_document=self.original_document,
+                field_path=field_path,
+                expected_value=expected_value,
+                authority=Authority.DEPENDENCY_MAP,
+                reason=reason
+            )
+
+            if change is not None:
+
+                changes.append(
+                    change
+                )
+
+        current_flags = locate_project_control_flags(
+            self.original_document
+        )
+
+        for (
+            flag_name,
+            expected_value
+        ) in self.canonical_state.ready_flags.items():
+
+            current_value = current_flags.get(
+                flag_name
+            )
+
+            if current_value == expected_value:
+
+                continue
+
+            changes.append(
+                FieldChange(
+                    document=self.DOCUMENT_NAME,
+                    field_path=(
+                        f"project_control.{flag_name}"
+                    ),
+                    previous_value=current_value,
+                    new_value=expected_value,
+                    authority=Authority.DEPENDENCY_MAP,
+                    reason=(
+                        "Readiness is derived from the accepted state "
+                        "of the corresponding Project Control deliverable."
+                    )
+                )
+            )
+
+        return changes
+
+    def apply_changes(
+        self,
+        changes: List[FieldChange]
+    ) -> Dict[str, Any]:
+        """
+        Apply planned changes to an in-memory copy.
+
+        No repository file is written by this method.
+        """
+
+        for change in changes:
+
+            if (
+                change.document
+                != self.DOCUMENT_NAME
+            ):
+
+                raise ValueError(
+                    "CurrentStateSynchronizer received a change "
+                    f"for another document: {change.document}"
+                )
+
+            nested_set(
+                self.updated_document,
+                tuple(
+                    change.field_path.split(
+                        "."
+                    )
+                ),
+                change.new_value
+            )
+
+        return self.updated_document
+
+    def synchronize(
+        self
+    ) -> Tuple[
+        Dict[str, Any],
+        List[FieldChange]
+    ]:
+        """
+        Plan and apply changes in memory.
+        """
+
+        changes = self.plan_changes()
+
+        updated_document = self.apply_changes(
+            changes
+        )
+
+        return (
+            updated_document,
+            changes
+        )
+
+
+# =============================================================================
+# CURRENT STATE SEMANTIC VALIDATION
+# =============================================================================
+
+def validate_current_state_result(
+    document: Dict[str, Any],
+    canonical_state: CanonicalExecutionState
+) -> None:
+    """
+    Validate that the synchronized Current State matches the canonical state.
+    """
+
+    actual_phase = normalize_phase_identifier(
+        nested_get(
+            document,
+            (
+                "execution",
+                "current_phase",
+                "id"
+            ),
+            default=""
+        )
+    )
+
+    actual_current = normalize_identifier(
+        nested_get(
+            document,
+            (
+                "execution",
+                "current_deliverable",
+                "id"
+            ),
+            default=""
+        )
+    )
+
+    actual_last = normalize_identifier(
+        nested_get(
+            document,
+            (
+                "execution",
+                "last_accepted",
+                "id"
+            ),
+            default=""
+        )
+    )
+
+    actual_next = normalize_identifier(
+        nested_get(
+            document,
+            (
+                "execution",
+                "next_deliverable",
+                "id"
+            ),
+            default=""
+        )
+    )
+
+    expected_values = {
+        "execution.current_phase.id": (
+            actual_phase,
+            normalize_phase_identifier(
+                canonical_state.current_phase
+            )
+        ),
+        "execution.current_deliverable.id": (
+            actual_current,
+            canonical_state.current_deliverable
+        ),
+        "execution.last_accepted.id": (
+            actual_last,
+            canonical_state.last_accepted
+        ),
+        "execution.next_deliverable.id": (
+            actual_next,
+            canonical_state.next_deliverable
+        )
+    }
+
+    errors: List[str] = []
+
+    for (
+        field_path,
+        (
+            actual,
+            expected
+        )
+    ) in expected_values.items():
+
+        if actual != expected:
+
+            errors.append(
+                f"{field_path}: "
+                f"expected {expected!r}, "
+                f"received {actual!r}"
+            )
+
+    project_control = document.get(
+        "project_control",
+        {}
+    )
+
+    if not isinstance(
+        project_control,
+        dict
+    ):
+
+        errors.append(
+            "project_control must be a mapping."
+        )
+
+    else:
+
+        for (
+            flag_name,
+            expected_value
+        ) in canonical_state.ready_flags.items():
+
+            actual_value = project_control.get(
+                flag_name
+            )
+
+            if actual_value is not expected_value:
+
+                errors.append(
+                    f"project_control.{flag_name}: "
+                    f"expected {expected_value!r}, "
+                    f"received {actual_value!r}"
+                )
+
+    if errors:
+
+        raise ValueError(
+            "Synchronized Current State failed semantic validation:\n- "
+            + "\n- ".join(
+                errors
+            )
+        )
+
+
+# =============================================================================
+# CHANGE PRESENTATION
+# =============================================================================
+
+def print_change_plan(
+    changes: List[FieldChange],
+    *,
+    title: str
+) -> None:
+    """
+    Print a deterministic synchronization change plan.
+    """
+
+    print(
+        title
+    )
+
+    print(
+        "-" * 72
+    )
+
+    if not changes:
+
+        print(
+            "No changes required."
+        )
+
+        print()
+
+        return
+
+    for index, change in enumerate(
+        changes,
+        start=1
+    ):
+
+        print(
+            f"{index:02d}. "
+            f"{change.field_path}"
+        )
+
+        print(
+            f"    Previous  : "
+            f"{change.previous_value!r}"
+        )
+
+        print(
+            f"    Canonical : "
+            f"{change.new_value!r}"
+        )
+
+        print(
+            f"    Authority : "
+            f"{change.authority.value}"
+        )
+
+        print(
+            f"    Reason    : "
+            f"{change.reason}"
+        )
+
+    print()
+
+
+# =============================================================================
+# SYNCHRONIZATION COORDINATOR — CURRENT STATE
+# =============================================================================
+
+def synchronize_current_state(
+    canonical_state: CanonicalExecutionState,
+    result: SynchronizationResult
+) -> Tuple[
+    Dict[str, Any],
+    List[FieldChange]
+]:
+    """
+    Build the Current State synchronization plan.
+
+    The function performs no disk writes.
+    """
+
+    synchronizer = CurrentStateSynchronizer(
+        canonical_state
+    )
+
+    (
+        updated_document,
+        changes
+    ) = synchronizer.synchronize()
+
+    validate_current_state_result(
+        updated_document,
+        canonical_state
+    )
+
+    for change in changes:
+
+        result.proposed_operations.append(
+            change.describe()
+        )
+
+    if changes:
+
+        result.changed = True
+
+    return (
+        updated_document,
+        changes
+    )
+
+
+# =============================================================================
+# DRY-RUN INTEGRATION
+# =============================================================================
+
+def execute_current_state_dry_run(
+    canonical_state: CanonicalExecutionState
+) -> SynchronizationResult:
+    """
+    Execute a read-only Current State synchronization preview.
+    """
+
+    result = SynchronizationResult()
+
+    (
+        _updated_document,
+        changes
+    ) = synchronize_current_state(
+        canonical_state,
+        result
+    )
+
+    print_change_plan(
+        changes,
+        title=(
+            "CIPS_CURRENT_STATE.yaml "
+            "Synchronization Plan"
+        )
+    )
+
+    if changes:
+
+        print(
+            f"Proposed changes: "
+            f"{len(changes)}"
+        )
+
+    else:
+
+        print(
+            "CIPS_CURRENT_STATE.yaml is already synchronized."
+        )
+
+    print()
+
+    return result
+
+
+# =============================================================================
+# TEMPORARY MAIN INTEGRATION
+#
+# Replace the final resolver.resolve() call in main() with this temporary
+# integration until Parts IV and V add Baseline synchronization and disk writes.
+# =============================================================================
+
+def run_part_three_preview() -> int:
+    """
+    Resolve canonical state and preview Current State synchronization.
+    """
+
+    resolver = CanonicalStateResolver()
+
+    canonical_state = resolver.resolve()
+
+    result = execute_current_state_dry_run(
+        canonical_state
+    )
+
+    if result.errors:
+
+        for error in result.errors:
+
+            print(
+                f"ERROR: {error}",
+                file=sys.stderr
+            )
+
+        return 2
+
+    return 0
+# =============================================================================
+# END OF PART III
+# =============================================================================
+
+# =============================================================================
+# BASELINE MANIFEST SYNCHRONIZATION
+# =============================================================================
+
+class BaselineManifestSynchronizer:
+
+    DOCUMENT_NAME = "CIPS_BASELINE_MANIFEST.yaml"
+
+    def __init__(self, canonical_state: CanonicalExecutionState):
+
+        self.canonical_state = canonical_state
+
+        loaded = SafeYaml.load(BASELINE_MANIFEST)
+
+        if not isinstance(loaded, dict):
+
+            raise ValueError(
+                "CIPS_BASELINE_MANIFEST.yaml must contain a mapping at its root."
+            )
+
+        self.original_document: Dict[str, Any] = loaded
+        self.updated_document: Dict[str, Any] = copy.deepcopy(loaded)
+
+        file_manifest = SafeYaml.load(FILE_MANIFEST)
+
+        if not isinstance(file_manifest, dict):
+
+            raise ValueError(
+                "CIPS_FILE_MANIFEST.yaml must contain a mapping at its root."
+            )
+
+        self.manifest_status_by_file_id: Dict[str, str] = {}
+
+        for section_name in ("files", "reserved_project_control_files"):
+
+            section = file_manifest.get(section_name, {})
+
+            if not isinstance(section, dict):
+
+                continue
+
+            for file_id, record in section.items():
+
+                if not isinstance(record, dict):
+
+                    continue
+
+                self.manifest_status_by_file_id[
+                    normalize_identifier(file_id)
+                ] = normalize_state(record.get("status"))
+
+    def _resolve_phase_value(self) -> Any:
+
+        existing = nested_get(
+            self.original_document,
+            ("current_baseline", "phase"),
+            default=None
+        )
+
+        canonical = normalize_phase_identifier(
+            self.canonical_state.current_phase
+        )
+
+        if isinstance(existing, int) and canonical.startswith("PHASE-"):
+
+            raw_number = canonical.removeprefix("PHASE-")
+
+            if raw_number.isdigit():
+
+                return int(raw_number)
+
+        if (
+            isinstance(existing, str)
+            and existing.strip().isdigit()
+            and canonical.startswith("PHASE-")
+        ):
+
+            return canonical.removeprefix("PHASE-")
+
+        return canonical
+
+    def plan_changes(self) -> List[FieldChange]:
+
+        changes: List[FieldChange] = []
+
+        phase_change = compare_field(
+            document_name=self.DOCUMENT_NAME,
+            source_document=self.original_document,
+            field_path=("current_baseline", "phase"),
+            expected_value=self._resolve_phase_value(),
+            authority=Authority.DEPENDENCY_MAP,
+            reason=(
+                "Current baseline phase is derived from the authoritative "
+                "Dependency Map execution state."
+            )
+        )
+
+        if phase_change is not None:
+
+            changes.append(phase_change)
+
+        deliverable_change = compare_field(
+            document_name=self.DOCUMENT_NAME,
+            source_document=self.original_document,
+            field_path=("current_baseline", "active_deliverable"),
+            expected_value=self.canonical_state.current_deliverable,
+            authority=Authority.DEPENDENCY_MAP,
+            reason=(
+                "Current baseline active deliverable is derived from "
+                "current_graph_state."
+            )
+        )
+
+        if deliverable_change is not None:
+
+            changes.append(deliverable_change)
+
+        artifacts = self.original_document.get("baseline_artifacts", {})
+
+        if not isinstance(artifacts, dict):
+
+            raise ValueError(
+                "CIPS_BASELINE_MANIFEST.yaml: "
+                "'baseline_artifacts' must be a mapping."
+            )
+
+        for baseline_id, baseline_record in artifacts.items():
+
+            if not isinstance(baseline_record, dict):
+
+                continue
+
+            for group_name, group in baseline_record.items():
+
+                if not isinstance(group, list):
+
+                    continue
+
+                for index, artifact in enumerate(group):
+
+                    if not isinstance(artifact, dict):
+
+                        continue
+
+                    file_id = normalize_identifier(
+                        artifact.get("file_id")
+                    )
+
+                    if not file_id:
+
+                        continue
+
+                    canonical_status = self.manifest_status_by_file_id.get(
+                        file_id
+                    )
+
+                    if canonical_status is None:
+
+                        continue
+
+                    previous_status = normalize_state(
+                        artifact.get("expected_status")
+                    )
+
+                    if previous_status == canonical_status:
+
+                        continue
+
+                    changes.append(
+                        FieldChange(
+                            document=self.DOCUMENT_NAME,
+                            field_path=(
+                                "baseline_artifacts."
+                                f"{baseline_id}."
+                                f"{group_name}."
+                                f"{index}."
+                                "expected_status"
+                            ),
+                            previous_value=previous_status,
+                            new_value=canonical_status,
+                            authority=Authority.FILE_MANIFEST,
+                            reason=(
+                                "Baseline artifact expected status is derived "
+                                "from the official File Manifest."
+                            )
+                        )
+                    )
+
+        return changes
+
+    def apply_changes(
+        self,
+        changes: List[FieldChange]
+    ) -> Dict[str, Any]:
+
+        for change in changes:
+
+            path_parts = change.field_path.split(".")
+
+            if path_parts[0] == "baseline_artifacts":
+
+                if len(path_parts) != 5:
+
+                    raise ValueError(
+                        "Unexpected Baseline artifact field path: "
+                        f"{change.field_path}"
+                    )
+
+                baseline_id = path_parts[1]
+                group_name = path_parts[2]
+                item_index = int(path_parts[3])
+                field_name = path_parts[4]
+
+                self.updated_document[
+                    "baseline_artifacts"
+                ][
+                    baseline_id
+                ][
+                    group_name
+                ][
+                    item_index
+                ][
+                    field_name
+                ] = change.new_value
+
+                continue
+
+            nested_set(
+                self.updated_document,
+                tuple(path_parts),
+                change.new_value
+            )
+
+        return self.updated_document
+
+    def synchronize(
+        self
+    ) -> Tuple[Dict[str, Any], List[FieldChange]]:
+
+        changes = self.plan_changes()
+        updated_document = self.apply_changes(changes)
+
+        return updated_document, changes
+
+
+def validate_baseline_manifest_result(
+    document: Dict[str, Any],
+    canonical_state: CanonicalExecutionState
+) -> None:
+
+    errors: List[str] = []
+
+    actual_phase = normalize_phase_identifier(
+        nested_get(
+            document,
+            ("current_baseline", "phase"),
+            default=""
+        )
+    )
+
+    expected_phase = normalize_phase_identifier(
+        canonical_state.current_phase
+    )
+
+    if actual_phase != expected_phase:
+
+        errors.append(
+            "current_baseline.phase: "
+            f"expected {expected_phase!r}, received {actual_phase!r}"
+        )
+
+    actual_deliverable = normalize_identifier(
+        nested_get(
+            document,
+            ("current_baseline", "active_deliverable"),
+            default=""
+        )
+    )
+
+    if actual_deliverable != canonical_state.current_deliverable:
+
+        errors.append(
+            "current_baseline.active_deliverable: "
+            f"expected {canonical_state.current_deliverable!r}, "
+            f"received {actual_deliverable!r}"
+        )
+
+    file_manifest = SafeYaml.load(FILE_MANIFEST)
+
+    manifest_status_by_file_id: Dict[str, str] = {}
+
+    if isinstance(file_manifest, dict):
+
+        for section_name in ("files", "reserved_project_control_files"):
+
+            section = file_manifest.get(section_name, {})
+
+            if not isinstance(section, dict):
+
+                continue
+
+            for file_id, record in section.items():
+
+                if isinstance(record, dict):
+
+                    manifest_status_by_file_id[
+                        normalize_identifier(file_id)
+                    ] = normalize_state(record.get("status"))
+
+    artifacts = document.get("baseline_artifacts", {})
+
+    if not isinstance(artifacts, dict):
+
+        errors.append("baseline_artifacts must be a mapping.")
+
+    else:
+
+        for baseline_id, baseline_record in artifacts.items():
+
+            if not isinstance(baseline_record, dict):
+
+                continue
+
+            for group_name, group in baseline_record.items():
+
+                if not isinstance(group, list):
+
+                    continue
+
+                for index, artifact in enumerate(group):
+
+                    if not isinstance(artifact, dict):
+
+                        continue
+
+                    file_id = normalize_identifier(
+                        artifact.get("file_id")
+                    )
+
+                    if not file_id:
+
+                        continue
+
+                    expected = manifest_status_by_file_id.get(file_id)
+
+                    if expected is None:
+
+                        continue
+
+                    actual = normalize_state(
+                        artifact.get("expected_status")
+                    )
+
+                    if actual != expected:
+
+                        errors.append(
+                            "baseline_artifacts."
+                            f"{baseline_id}."
+                            f"{group_name}."
+                            f"{index}.expected_status: "
+                            f"expected {expected!r}, received {actual!r}"
+                        )
+
+    if errors:
+
+        raise ValueError(
+            "Synchronized Baseline Manifest failed semantic validation:\n- "
+            + "\n- ".join(errors)
+        )
+
+
+def synchronize_baseline_manifest(
+    canonical_state: CanonicalExecutionState,
+    result: SynchronizationResult
+) -> Tuple[Dict[str, Any], List[FieldChange]]:
+
+    synchronizer = BaselineManifestSynchronizer(
+        canonical_state
+    )
+
+    updated_document, changes = synchronizer.synchronize()
+
+    validate_baseline_manifest_result(
+        updated_document,
+        canonical_state
+    )
+
+    for change in changes:
+
+        result.proposed_operations.append(
+            change.describe()
+        )
+
+    if changes:
+
+        result.changed = True
+
+    return updated_document, changes
+
+
+def run_part_four_preview() -> int:
+
+    resolver = CanonicalStateResolver()
+    canonical_state = resolver.resolve()
+    result = SynchronizationResult()
+
+    _, current_state_changes = synchronize_current_state(
+        canonical_state,
+        result
+    )
+
+    _, baseline_changes = synchronize_baseline_manifest(
+        canonical_state,
+        result
+    )
+
+    print_change_plan(
+        current_state_changes,
+        title="CIPS_CURRENT_STATE.yaml Synchronization Plan"
+    )
+
+    print_change_plan(
+        baseline_changes,
+        title="CIPS_BASELINE_MANIFEST.yaml Synchronization Plan"
+    )
+
+    total_changes = (
+        len(current_state_changes)
+        + len(baseline_changes)
+    )
+
+    print(f"Total proposed changes: {total_changes}")
+    print()
+    print("DRY RUN completed. No repository files were modified.")
+
+    return 0
+
+
+# =============================================================================
+# END OF PART IV
+# =============================================================================
+
+
+# =============================================================================
+# SCRIPT ENTRY POINT
+# =============================================================================
+
+# =============================================================================
+# TEXT-PRESERVING YAML UPDATE SUPPORT
+# =============================================================================
+
+def format_yaml_scalar(value: Any) -> str:
+    """Format a simple YAML scalar deterministically."""
+
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+
+    text = str(value)
+    if text == "":
+        return '""'
+    if re.fullmatch(r"[A-Za-z0-9_.:/+-]+", text):
+        return text
+    return json.dumps(text, ensure_ascii=False)
+
+
+def line_indentation(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def find_yaml_key_line(
+    lines: List[str],
+    *,
+    key: str,
+    indentation: int,
+    start: int,
+    end: int
+) -> int:
+    pattern = re.compile(
+        rf"^{' ' * indentation}{re.escape(key)}:\s*(?:.*?)\s*$"
+    )
+    matches = [
+        index
+        for index in range(start, end)
+        if pattern.match(lines[index].rstrip("\r\n"))
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"Expected exactly one YAML key {key!r} at indentation "
+            f"{indentation}; found {len(matches)}."
+        )
+    return matches[0]
+
+
+def find_yaml_block_end(
+    lines: List[str],
+    *,
+    key_line: int,
+    indentation: int,
+    limit: Optional[int] = None
+) -> int:
+    upper_limit = len(lines) if limit is None else limit
+
+    for index in range(key_line + 1, upper_limit):
+        raw = lines[index].rstrip("\r\n")
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if line_indentation(raw) <= indentation:
+            return index
+
+    return upper_limit
+
+
+def replace_yaml_scalar_path(
+    text: str,
+    path: Tuple[str, ...],
+    value: Any
+) -> str:
+    if not path:
+        raise ValueError("YAML path cannot be empty.")
+
+    lines = text.splitlines(keepends=True)
+    start = 0
+    end = len(lines)
+    indentation = 0
+    target_line = -1
+
+    for position, key in enumerate(path):
+        target_line = find_yaml_key_line(
+            lines,
+            key=key,
+            indentation=indentation,
+            start=start,
+            end=end
+        )
+
+        if position == len(path) - 1:
+            break
+
+        end = find_yaml_block_end(
+            lines,
+            key_line=target_line,
+            indentation=indentation,
+            limit=end
+        )
+        start = target_line + 1
+        indentation += 2
+
+    newline = "\r\n" if lines[target_line].endswith("\r\n") else "\n"
+    lines[target_line] = (
+        f"{' ' * indentation}{path[-1]}: "
+        f"{format_yaml_scalar(value)}{newline}"
+    )
+    return "".join(lines)
+
+
+def insert_or_replace_yaml_scalar_path(
+    text: str,
+    path: Tuple[str, ...],
+    value: Any
+) -> str:
+    try:
+        return replace_yaml_scalar_path(text, path, value)
+    except ValueError:
+        if len(path) < 2:
+            raise
+
+    lines = text.splitlines(keepends=True)
+    parent_path = path[:-1]
+    start = 0
+    end = len(lines)
+    indentation = 0
+    parent_line = -1
+
+    for key in parent_path:
+        parent_line = find_yaml_key_line(
+            lines,
+            key=key,
+            indentation=indentation,
+            start=start,
+            end=end
+        )
+        end = find_yaml_block_end(
+            lines,
+            key_line=parent_line,
+            indentation=indentation,
+            limit=end
+        )
+        start = parent_line + 1
+        indentation += 2
+
+    newline = "\r\n" if lines[parent_line].endswith("\r\n") else "\n"
+    insertion = (
+        f"{' ' * indentation}{path[-1]}: "
+        f"{format_yaml_scalar(value)}{newline}"
+    )
+
+    insert_at = end
+    while insert_at > parent_line + 1 and not lines[insert_at - 1].strip():
+        insert_at -= 1
+
+    lines.insert(insert_at, insertion)
+    return "".join(lines)
+
+
+def replace_baseline_artifact_status(
+    text: str,
+    *,
+    file_id: str,
+    expected_status: str
+) -> str:
+    lines = text.splitlines(keepends=True)
+    file_pattern = re.compile(
+        rf"^(\s*)-\s+file_id:\s*{re.escape(file_id)}\s*$"
+    )
+    matches = [
+        index
+        for index, line in enumerate(lines)
+        if file_pattern.match(line.rstrip("\r\n"))
+    ]
+
+    if len(matches) != 1:
+        raise ValueError(
+            f"Expected exactly one baseline artifact {file_id!r}; "
+            f"found {len(matches)}."
+        )
+
+    start = matches[0]
+    match = file_pattern.match(lines[start].rstrip("\r\n"))
+    if match is None:
+        raise ValueError(f"Unable to inspect baseline artifact {file_id!r}.")
+
+    item_indentation = len(match.group(1))
+    end = len(lines)
+
+    for index in range(start + 1, len(lines)):
+        raw = lines[index].rstrip("\r\n")
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+
+        indentation = line_indentation(raw)
+        if indentation == item_indentation and raw.lstrip().startswith("- "):
+            end = index
+            break
+        if indentation < item_indentation:
+            end = index
+            break
+
+    status_pattern = re.compile(
+        rf"^{' ' * (item_indentation + 2)}expected_status:\s*(.*?)\s*$"
+    )
+    status_matches = [
+        index
+        for index in range(start + 1, end)
+        if status_pattern.match(lines[index].rstrip("\r\n"))
+    ]
+
+    if len(status_matches) != 1:
+        raise ValueError(
+            f"Expected exactly one expected_status for {file_id!r}; "
+            f"found {len(status_matches)}."
+        )
+
+    target = status_matches[0]
+    newline = "\r\n" if lines[target].endswith("\r\n") else "\n"
+    lines[target] = (
+        f"{' ' * (item_indentation + 2)}expected_status: "
+        f"{format_yaml_scalar(expected_status)}{newline}"
+    )
+    return "".join(lines)
+
+
+# =============================================================================
+# TEXT-PRESERVING DOCUMENT BUILDERS
+# =============================================================================
+
+def build_current_state_text(
+    canonical_state: CanonicalExecutionState
+) -> str:
+    text = CURRENT_STATE.read_text(encoding="utf-8")
+    current_document = SafeYaml.load(CURRENT_STATE)
+
+    if not isinstance(current_document, dict):
+        raise ValueError(
+            "CIPS_CURRENT_STATE.yaml must contain a mapping root."
+        )
+
+    phase_value = resolve_current_state_phase_value(
+        current_document,
+        canonical_state.current_phase
+    )
+
+    updates = (
+        (("execution", "current_phase", "id"), phase_value),
+        (
+            ("execution", "current_deliverable", "id"),
+            canonical_state.current_deliverable
+        ),
+        (
+            ("execution", "last_accepted", "id"),
+            canonical_state.last_accepted
+        ),
+        (
+            ("execution", "next_deliverable", "id"),
+            canonical_state.next_deliverable
+        )
+    )
+
+    for path, value in updates:
+        text = replace_yaml_scalar_path(text, path, value)
+
+    for flag_name, value in canonical_state.ready_flags.items():
+        text = insert_or_replace_yaml_scalar_path(
+            text,
+            ("project_control", flag_name),
+            value
+        )
+
+    return text
+
+
+def build_baseline_manifest_text(
+    canonical_state: CanonicalExecutionState
+) -> str:
+    text = BASELINE_MANIFEST.read_text(encoding="utf-8")
+    baseline_document = SafeYaml.load(BASELINE_MANIFEST)
+
+    if not isinstance(baseline_document, dict):
+        raise ValueError(
+            "CIPS_BASELINE_MANIFEST.yaml must contain a mapping root."
+        )
+
+    synchronizer = BaselineManifestSynchronizer(canonical_state)
+    phase_value = synchronizer._resolve_phase_value()
+
+    text = replace_yaml_scalar_path(
+        text,
+        ("current_baseline", "phase"),
+        phase_value
+    )
+    text = replace_yaml_scalar_path(
+        text,
+        ("current_baseline", "active_deliverable"),
+        canonical_state.current_deliverable
+    )
+
+    artifacts = baseline_document.get("baseline_artifacts", {})
+    if not isinstance(artifacts, dict):
+        raise ValueError("baseline_artifacts must be a mapping.")
+
+    for baseline_record in artifacts.values():
+        if not isinstance(baseline_record, dict):
+            continue
+
+        for group in baseline_record.values():
+            if not isinstance(group, list):
+                continue
+
+            for artifact in group:
+                if not isinstance(artifact, dict):
+                    continue
+
+                file_id = normalize_identifier(artifact.get("file_id"))
+                if not file_id:
+                    continue
+
+                canonical_status = (
+                    synchronizer.manifest_status_by_file_id.get(file_id)
+                )
+                if canonical_status is None:
+                    continue
+
+                text = replace_baseline_artifact_status(
+                    text,
+                    file_id=file_id,
+                    expected_status=canonical_status
+                )
+
+    return text
+
+
+# =============================================================================
+# TRANSACTION SUPPORT
+# =============================================================================
+
+@dataclass(frozen=True)
+class TransactionFile:
+    target: Path
+    backup: Path
+    temporary: Path
+    content: str
+
+
+def create_transaction_file(
+    *,
+    target: Path,
+    content: str,
+    timestamp: str
+) -> TransactionFile:
+    return TransactionFile(
+        target=target,
+        backup=target.with_name(f"{target.name}.bak_sync_{timestamp}"),
+        temporary=target.with_name(f"{target.name}.tmp_sync_{timestamp}"),
+        content=content
+    )
+
+
+def validate_temporary_documents(
+    current_transaction: TransactionFile,
+    baseline_transaction: TransactionFile,
+    canonical_state: CanonicalExecutionState
+) -> None:
+    current_transaction.temporary.write_text(
+        current_transaction.content,
+        encoding="utf-8"
+    )
+    baseline_transaction.temporary.write_text(
+        baseline_transaction.content,
+        encoding="utf-8"
+    )
+
+    current_document = SafeYaml.load(current_transaction.temporary)
+    baseline_document = SafeYaml.load(baseline_transaction.temporary)
+
+    if not isinstance(current_document, dict):
+        raise ValueError(
+            "Temporary Current State does not contain a mapping root."
+        )
+    if not isinstance(baseline_document, dict):
+        raise ValueError(
+            "Temporary Baseline Manifest does not contain a mapping root."
+        )
+
+    validate_current_state_result(current_document, canonical_state)
+    validate_baseline_manifest_result(baseline_document, canonical_state)
+
+
+def restore_transactions(
+    transactions: Tuple[TransactionFile, ...]
+) -> None:
+    for transaction in transactions:
+        if transaction.backup.is_file():
+            shutil.copy2(transaction.backup, transaction.target)
+
+
+def cleanup_transaction_temporary_files(
+    transactions: Tuple[TransactionFile, ...]
+) -> None:
+    for transaction in transactions:
+        if transaction.temporary.exists():
+            transaction.temporary.unlink()
+
+
+def execute_validator_process() -> int:
+    import subprocess
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(VALIDATOR_SCRIPT),
+            "--verbose"
+        ],
+        cwd=str(SCRIPT_DIRECTORY),
+        check=False
+    )
+    return int(completed.returncode)
+
+
+# =============================================================================
+# PRODUCTION SYNCHRONIZATION
+# =============================================================================
+
+def apply_project_control_synchronization(
+    canonical_state: CanonicalExecutionState,
+    *,
+    run_validator: bool
+) -> int:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    current_transaction = create_transaction_file(
+        target=CURRENT_STATE,
+        content=build_current_state_text(canonical_state),
+        timestamp=timestamp
+    )
+    baseline_transaction = create_transaction_file(
+        target=BASELINE_MANIFEST,
+        content=build_baseline_manifest_text(canonical_state),
+        timestamp=timestamp
+    )
+    transactions = (current_transaction, baseline_transaction)
+
+    try:
+        validate_temporary_documents(
+            current_transaction,
+            baseline_transaction,
+            canonical_state
+        )
+
+        for transaction in transactions:
+            shutil.copy2(transaction.target, transaction.backup)
+
+        for transaction in transactions:
+            transaction.temporary.replace(transaction.target)
+
+        current_loaded = SafeYaml.load(CURRENT_STATE)
+        baseline_loaded = SafeYaml.load(BASELINE_MANIFEST)
+
+        if not isinstance(current_loaded, dict):
+            raise ValueError("Written Current State is invalid.")
+        if not isinstance(baseline_loaded, dict):
+            raise ValueError("Written Baseline Manifest is invalid.")
+
+        validate_current_state_result(current_loaded, canonical_state)
+        validate_baseline_manifest_result(baseline_loaded, canonical_state)
+
+        if run_validator:
+            validator_code = execute_validator_process()
+            if validator_code != 0:
+                raise RuntimeError(
+                    "Project Control Validator returned "
+                    f"exit code {validator_code}."
+                )
+
+    except Exception as error:
+        restore_transactions(transactions)
+        cleanup_transaction_temporary_files(transactions)
+
+        print("\nSYNCHRONIZATION ROLLED BACK", file=sys.stderr)
+        print(f"Reason: {error}", file=sys.stderr)
+        print(
+            "Both target files were restored from backup.",
+            file=sys.stderr
+        )
+        return 2
+
+    cleanup_transaction_temporary_files(transactions)
+
+    print("\nSYNCHRONIZATION APPLIED")
+    print(f"Updated : {CURRENT_STATE}")
+    print(f"Backup  : {current_transaction.backup}")
+    print(f"Updated : {BASELINE_MANIFEST}")
+    print(f"Backup  : {baseline_transaction.backup}")
+
+    if run_validator:
+        print("\nProject Control Validator: PASS")
+
+    return 0
+
+
+# =============================================================================
+# COMPLETE CTRL-016 EXECUTION
+# =============================================================================
+
+def run_part_five(args: argparse.Namespace) -> int:
+    resolver = CanonicalStateResolver()
+    canonical_state = resolver.resolve()
+    result = SynchronizationResult()
+
+    _, current_state_changes = synchronize_current_state(
+        canonical_state,
+        result
+    )
+    _, baseline_changes = synchronize_baseline_manifest(
+        canonical_state,
+        result
+    )
+
+    print_change_plan(
+        current_state_changes,
+        title="CIPS_CURRENT_STATE.yaml Synchronization Plan"
+    )
+    print_change_plan(
+        baseline_changes,
+        title="CIPS_BASELINE_MANIFEST.yaml Synchronization Plan"
+    )
+
+    total_changes = len(current_state_changes) + len(baseline_changes)
+    print(f"Total proposed changes: {total_changes}\n")
+
+    if not args.apply:
+        print("DRY RUN completed. No repository files were modified.")
+        return 0
+
+    if total_changes == 0:
+        print("No synchronization changes are required.")
+
+        if args.validate:
+            validator_code = execute_validator_process()
+            if validator_code != 0:
+                return 2
+            print("Project Control Validator: PASS")
+
+        return 0
+
+    return apply_project_control_synchronization(
+        canonical_state,
+        run_validator=bool(args.validate)
+    )
+
+
+# =============================================================================
+# END OF PART V
+# =============================================================================
+
+
+# =============================================================================
+# SCRIPT ENTRY POINT
+# =============================================================================
+
+# =============================================================================
+# FILE MANIFEST SYNCHRONIZATION — PART VI
+# =============================================================================
+
+@dataclass(frozen=True)
+class ManifestEntryChange:
+    file_id: str
+    filename: str
+    previous_status: str
+    new_status: str
+    reason: str
+
+
+class FileManifestSynchronizer:
+
+    def __init__(self):
+
+        dependency_map = SafeYaml.load(DEPENDENCY_MAP)
+        file_manifest = SafeYaml.load(FILE_MANIFEST)
+
+        if not isinstance(dependency_map, dict):
+            raise ValueError(
+                "CIPS_DEPENDENCY_MAP.yaml must contain a mapping root."
+            )
+
+        if not isinstance(file_manifest, dict):
+            raise ValueError(
+                "CIPS_FILE_MANIFEST.yaml must contain a mapping root."
+            )
+
+        self.dependency_map = dependency_map
+        self.original_document = file_manifest
+        self.updated_document = copy.deepcopy(file_manifest)
+        self.deliverables = collect_deliverables(dependency_map)
+
+    def _iter_records(self, document):
+
+        for section_name in (
+            "files",
+            "reserved_project_control_files"
+        ):
+
+            section = document.get(section_name, {})
+
+            if not isinstance(section, dict):
+                continue
+
+            for file_id, record in section.items():
+
+                if isinstance(record, dict):
+                    yield section_name, str(file_id), record
+
+    def _find_sync_entry(self, document):
+
+        for section_name, file_id, record in self._iter_records(document):
+
+            filename = normalize_identifier(record.get("filename"))
+            deliverable_id = normalize_identifier(
+                record.get("deliverable_id")
+            )
+
+            if (
+                filename == "sync_project_control.py"
+                or deliverable_id == "CTRL-016"
+            ):
+                return section_name, file_id, record
+
+        return None
+
+    def _next_file_id(self):
+
+        numbers = []
+
+        for _section_name, file_id, _record in self._iter_records(
+            self.original_document
+        ):
+
+            match = re.fullmatch(r"FILE-(\d+)", file_id)
+
+            if match:
+                numbers.append(int(match.group(1)))
+
+        next_number = max(numbers) + 1 if numbers else 1
+
+        return f"FILE-{next_number:05d}"
+
+    def plan_changes(self):
+
+        changes = []
+
+        for _section_name, file_id, record in self._iter_records(
+            self.original_document
+        ):
+
+            deliverable_id = normalize_identifier(
+                record.get("deliverable_id")
+            )
+
+            if not deliverable_id:
+                continue
+
+            dependency_record = self.deliverables.get(deliverable_id)
+
+            if dependency_record is None:
+                continue
+
+            previous_status = normalize_state(record.get("status"))
+            new_status = dependency_record.status
+
+            if previous_status == new_status:
+                continue
+
+            changes.append(
+                ManifestEntryChange(
+                    file_id=file_id,
+                    filename=normalize_identifier(
+                        record.get("filename")
+                    ),
+                    previous_status=previous_status,
+                    new_status=new_status,
+                    reason=(
+                        "File status is derived from the official "
+                        "Dependency Map deliverable status."
+                    )
+                )
+            )
+
+        new_entry = None
+
+        if self._find_sync_entry(self.original_document) is None:
+
+            new_entry = (
+                self._next_file_id(),
+                {
+                    "filename": "sync_project_control.py",
+                    "relative_path": (
+                        "08_SCRIPTS/sync_project_control.py"
+                    ),
+                    "extension": "py",
+                    "type": "SOURCE_CODE",
+                    "subsystem": "PROJECT_CONTROL",
+                    "owner": "Project Control System",
+                    "lifecycle": "IN_PROGRESS",
+                    "status": "IN_PROGRESS",
+                    "phase": "PHASE-0",
+                    "version": "1.0.0",
+                    "deliverable_id": "CTRL-016"
+                }
+            )
+
+        return changes, new_entry
+
+    def synchronize(self):
+
+        changes, new_entry = self.plan_changes()
+
+        record_index = {
+            file_id: record
+            for _section_name, file_id, record
+            in self._iter_records(self.updated_document)
+        }
+
+        for change in changes:
+
+            record = record_index.get(change.file_id)
+
+            if record is None:
+                raise ValueError(
+                    f"Manifest entry {change.file_id} was not found."
+                )
+
+            record["status"] = change.new_status
+
+        if new_entry is not None:
+
+            file_id, record = new_entry
+
+            files_section = self.updated_document.get("files")
+
+            if not isinstance(files_section, dict):
+                raise ValueError(
+                    "CIPS_FILE_MANIFEST.yaml: 'files' must be a mapping."
+                )
+
+            files_section[file_id] = copy.deepcopy(record)
+
+        return self.updated_document, changes, new_entry
+
+
+def validate_file_manifest_result(document, dependency_map):
+
+    deliverables = collect_deliverables(dependency_map)
+    errors = []
+    sync_found = False
+
+    for section_name in (
+        "files",
+        "reserved_project_control_files"
+    ):
+
+        section = document.get(section_name, {})
+
+        if not isinstance(section, dict):
+            continue
+
+        for file_id, record in section.items():
+
+            if not isinstance(record, dict):
+                continue
+
+            filename = normalize_identifier(record.get("filename"))
+            deliverable_id = normalize_identifier(
+                record.get("deliverable_id")
+            )
+            status = normalize_state(record.get("status"))
+
+            if (
+                filename == "sync_project_control.py"
+                or deliverable_id == "CTRL-016"
+            ):
+
+                sync_found = True
+                actual_path = normalize_identifier(
+                    record.get("relative_path")
+                ).replace("\\", "/")
+
+                if actual_path != "08_SCRIPTS/sync_project_control.py":
+                    errors.append(
+                        f"{file_id}.relative_path is invalid: "
+                        f"{actual_path!r}"
+                    )
+
+            if not deliverable_id:
+                continue
+
+            dependency_record = deliverables.get(deliverable_id)
+
+            if dependency_record is None:
+                continue
+
+            if status != dependency_record.status:
+                errors.append(
+                    f"{file_id}.status: expected "
+                    f"{dependency_record.status!r}, "
+                    f"received {status!r}"
+                )
+
+    if not sync_found:
+        errors.append(
+            "sync_project_control.py is not registered for CTRL-016."
+        )
+
+    if errors:
+        raise ValueError(
+            "Synchronized File Manifest failed semantic validation:\n- "
+            + "\n- ".join(errors)
+        )
+
+
+def print_manifest_change_plan(changes, new_entry):
+
+    print("CIPS_FILE_MANIFEST.yaml Synchronization Plan")
+    print("-" * 72)
+
+    sequence = 1
+
+    for change in changes:
+
+        print(f"{sequence:02d}. {change.file_id}.status")
+        print(f"    File      : {change.filename}")
+        print(f"    Previous  : {change.previous_status!r}")
+        print(f"    Canonical : {change.new_status!r}")
+        print("    Authority : dependency_map")
+        print(f"    Reason    : {change.reason}")
+
+        sequence += 1
+
+    if new_entry is not None:
+
+        file_id, record = new_entry
+
+        print(f"{sequence:02d}. Register {file_id}")
+        print("    File      : sync_project_control.py")
+        print(f"    Path      : {record['relative_path']}")
+        print("    Deliverable: CTRL-016")
+        print("    Status    : IN_PROGRESS")
+
+        sequence += 1
+
+    if sequence == 1:
+        print("No changes required.")
+
+    print()
+
+
+def build_manifest_status_index_from_document(document):
+
+    result = {}
+
+    for section_name in (
+        "files",
+        "reserved_project_control_files"
+    ):
+
+        section = document.get(section_name, {})
+
+        if not isinstance(section, dict):
+            continue
+
+        for file_id, record in section.items():
+
+            if isinstance(record, dict):
+                result[
+                    normalize_identifier(file_id)
+                ] = normalize_state(record.get("status"))
+
+    return result
+
+
+def run_part_six(args):
+
+    if args.apply:
+
+        print(
+            "APPLY BLOCKED: Part VI validates the complete "
+            "three-document plan in DRY RUN only."
+        )
+        print(
+            "The transactional three-file writer will be enabled "
+            "after this preview is confirmed."
+        )
+
+        return 3
+
+    dependency_map = SafeYaml.load(DEPENDENCY_MAP)
+
+    if not isinstance(dependency_map, dict):
+        raise ValueError(
+            "CIPS_DEPENDENCY_MAP.yaml must contain a mapping root."
+        )
+
+    manifest_synchronizer = FileManifestSynchronizer()
+
+    (
+        updated_manifest,
+        manifest_changes,
+        new_manifest_entry
+    ) = manifest_synchronizer.synchronize()
+
+    validate_file_manifest_result(
+        updated_manifest,
+        dependency_map
+    )
+
+    canonical_state = resolve_canonical_state(
+        dependency_map,
+        updated_manifest
+    )
+
+    print(f"Current phase       : {canonical_state.current_phase}")
+    print(
+        f"Current deliverable : "
+        f"{canonical_state.current_deliverable}"
+    )
+    print(
+        f"Last accepted       : "
+        f"{canonical_state.last_accepted or 'NONE'}"
+    )
+    print(
+        f"Next deliverable    : "
+        f"{canonical_state.next_deliverable or 'NONE'}"
+    )
+    print()
+    print(
+        "Canonical state resolved from the synchronized "
+        "File Manifest."
+    )
+    print()
+
+    result = SynchronizationResult()
+
+    _, current_state_changes = synchronize_current_state(
+        canonical_state,
+        result
+    )
+
+    baseline_synchronizer = BaselineManifestSynchronizer(
+        canonical_state
+    )
+
+    baseline_synchronizer.manifest_status_by_file_id = (
+        build_manifest_status_index_from_document(
+            updated_manifest
+        )
+    )
+
+    (
+        updated_baseline,
+        baseline_changes
+    ) = baseline_synchronizer.synchronize()
+
+    original_load = SafeYaml.load
+
+    def temporary_load(path):
+
+        if Path(path).resolve() == FILE_MANIFEST.resolve():
+            return updated_manifest
+
+        return original_load(path)
+
+    SafeYaml.load = staticmethod(temporary_load)
+
+    try:
+        validate_baseline_manifest_result(
+            updated_baseline,
+            canonical_state
+        )
+    finally:
+        SafeYaml.load = staticmethod(original_load)
+
+    print_manifest_change_plan(
+        manifest_changes,
+        new_manifest_entry
+    )
+
+    print_change_plan(
+        current_state_changes,
+        title=(
+            "CIPS_CURRENT_STATE.yaml "
+            "Synchronization Plan"
+        )
+    )
+
+    print_change_plan(
+        baseline_changes,
+        title=(
+            "CIPS_BASELINE_MANIFEST.yaml "
+            "Synchronization Plan"
+        )
+    )
+
+    total_changes = (
+        len(manifest_changes)
+        + (1 if new_manifest_entry is not None else 0)
+        + len(current_state_changes)
+        + len(baseline_changes)
+    )
+
+    print(f"Total proposed changes: {total_changes}")
+    print()
+    print(
+        "DRY RUN completed. No repository files were modified."
+    )
+
+    return 0
+
+
+# =============================================================================
+# END OF PART VI
+# =============================================================================
+
+
+# =============================================================================
+# SCRIPT ENTRY POINT
+# =============================================================================
+
+# =============================================================================
+# THREE-FILE TRANSACTION — PART VII
+# =============================================================================
+
+def replace_manifest_entry_status(
+    text: str,
+    *,
+    file_id: str,
+    status: str
+) -> str:
+    """
+    Replace the status field inside one FILE-XXXXX record without
+    reserializing the complete YAML document.
+    """
+
+    lines = text.splitlines(keepends=True)
+
+    entry_pattern = re.compile(
+        rf"^  {re.escape(file_id)}:\s*$"
+    )
+
+    matches = [
+        index
+        for index, line in enumerate(lines)
+        if entry_pattern.match(line.rstrip("\r\n"))
+    ]
+
+    if len(matches) != 1:
+        raise ValueError(
+            f"Expected exactly one manifest entry {file_id!r}; "
+            f"found {len(matches)}."
+        )
+
+    start = matches[0]
+    end = len(lines)
+
+    for index in range(start + 1, len(lines)):
+
+        raw = lines[index].rstrip("\r\n")
+
+        if re.match(r"^  FILE-\d+:\s*$", raw):
+            end = index
+            break
+
+        if (
+            raw
+            and not raw.startswith(" ")
+            and not raw.startswith("#")
+        ):
+            end = index
+            break
+
+    status_pattern = re.compile(
+        r"^    status:\s*(.*?)\s*$"
+    )
+
+    status_matches = [
+        index
+        for index in range(start + 1, end)
+        if status_pattern.match(
+            lines[index].rstrip("\r\n")
+        )
+    ]
+
+    if len(status_matches) != 1:
+        raise ValueError(
+            f"Expected exactly one status field in {file_id!r}; "
+            f"found {len(status_matches)}."
+        )
+
+    target = status_matches[0]
+    newline = (
+        "\r\n"
+        if lines[target].endswith("\r\n")
+        else "\n"
+    )
+
+    lines[target] = (
+        "    status: "
+        f"{format_yaml_scalar(status)}"
+        f"{newline}"
+    )
+
+    return "".join(lines)
+
+
+def insert_manifest_entry(
+    text: str,
+    *,
+    file_id: str,
+    record: Dict[str, Any]
+) -> str:
+    """
+    Insert one FILE-XXXXX record at the end of the top-level files mapping.
+    """
+
+    lines = text.splitlines(keepends=True)
+
+    files_matches = [
+        index
+        for index, line in enumerate(lines)
+        if line.rstrip("\r\n") == "files:"
+    ]
+
+    if len(files_matches) != 1:
+        raise ValueError(
+            "Expected exactly one top-level 'files:' mapping."
+        )
+
+    files_line = files_matches[0]
+    section_end = len(lines)
+
+    for index in range(files_line + 1, len(lines)):
+
+        raw = lines[index].rstrip("\r\n")
+
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+
+        if (
+            line_indentation(raw) == 0
+            and re.match(r"^[A-Za-z0-9_]+:\s*", raw)
+        ):
+            section_end = index
+            break
+
+    newline = "\n"
+
+    if lines and any(
+        line.endswith("\r\n")
+        for line in lines[: min(len(lines), 20)]
+    ):
+        newline = "\r\n"
+
+    ordered_fields = (
+        "filename",
+        "relative_path",
+        "extension",
+        "type",
+        "subsystem",
+        "owner",
+        "lifecycle",
+        "status",
+        "phase",
+        "version",
+        "deliverable_id"
+    )
+
+    block = [
+        newline,
+        f"  {file_id}:{newline}"
+    ]
+
+    for field_name in ordered_fields:
+
+        if field_name not in record:
+            continue
+
+        block.append(
+            "    "
+            f"{field_name}: "
+            f"{format_yaml_scalar(record[field_name])}"
+            f"{newline}"
+        )
+
+    insert_at = section_end
+
+    while (
+        insert_at > files_line + 1
+        and not lines[insert_at - 1].strip()
+    ):
+        insert_at -= 1
+
+    lines[insert_at:insert_at] = block
+
+    return "".join(lines)
+
+
+def update_manifest_summary_total(
+    text: str,
+    total_entries: int
+) -> str:
+    """
+    Update manifest_summary.total_registered_entries when that field exists.
+    """
+
+    try:
+        return replace_yaml_scalar_path(
+            text,
+            (
+                "manifest_summary",
+                "total_registered_entries"
+            ),
+            total_entries
+        )
+    except ValueError:
+        return text
+
+
+def build_file_manifest_text(
+    manifest_changes: List[ManifestEntryChange],
+    new_entry: Optional[
+        Tuple[
+            str,
+            Dict[str, Any]
+        ]
+    ]
+) -> str:
+    """
+    Build the synchronized File Manifest text while preserving comments.
+    """
+
+    text = FILE_MANIFEST.read_text(
+        encoding="utf-8"
+    )
+
+    for change in manifest_changes:
+        text = replace_manifest_entry_status(
+            text,
+            file_id=change.file_id,
+            status=change.new_status
+        )
+
+    if new_entry is not None:
+
+        file_id, record = new_entry
+
+        text = insert_manifest_entry(
+            text,
+            file_id=file_id,
+            record=record
+        )
+
+    parsed = yaml.safe_load(text)
+
+    if isinstance(parsed, dict):
+
+        entries = collect_manifest_records(parsed)
+
+        text = update_manifest_summary_total(
+            text,
+            len(entries)
+        )
+
+    return text
+
+
+def load_yaml_text(
+    text: str,
+    *,
+    source_name: str
+) -> Dict[str, Any]:
+    """
+    Parse YAML text and require a mapping root.
+    """
+
+    loaded = yaml.safe_load(text)
+
+    if not isinstance(loaded, dict):
+        raise ValueError(
+            f"{source_name} must contain a mapping root."
+        )
+
+    return loaded
+
+
+def build_baseline_text_using_manifest(
+    canonical_state: CanonicalExecutionState,
+    updated_manifest: Dict[str, Any]
+) -> str:
+    """
+    Build Baseline Manifest text using the synchronized File Manifest
+    as the temporary authority.
+    """
+
+    original_load = SafeYaml.load
+
+    def temporary_load(path: Path):
+
+        if Path(path).resolve() == FILE_MANIFEST.resolve():
+            return updated_manifest
+
+        return original_load(path)
+
+    SafeYaml.load = staticmethod(temporary_load)
+
+    try:
+        return build_baseline_manifest_text(
+            canonical_state
+        )
+    finally:
+        SafeYaml.load = staticmethod(original_load)
+
+
+def validate_three_temporary_documents(
+    manifest_transaction: TransactionFile,
+    current_transaction: TransactionFile,
+    baseline_transaction: TransactionFile,
+    dependency_map: Dict[str, Any],
+    canonical_state: CanonicalExecutionState
+) -> None:
+    """
+    Validate syntax and semantics for all three temporary documents.
+    """
+
+    for transaction in (
+        manifest_transaction,
+        current_transaction,
+        baseline_transaction
+    ):
+        transaction.temporary.write_text(
+            transaction.content,
+            encoding="utf-8"
+        )
+
+    manifest_document = SafeYaml.load(
+        manifest_transaction.temporary
+    )
+
+    current_document = SafeYaml.load(
+        current_transaction.temporary
+    )
+
+    baseline_document = SafeYaml.load(
+        baseline_transaction.temporary
+    )
+
+    if not isinstance(manifest_document, dict):
+        raise ValueError(
+            "Temporary File Manifest is invalid."
+        )
+
+    if not isinstance(current_document, dict):
+        raise ValueError(
+            "Temporary Current State is invalid."
+        )
+
+    if not isinstance(baseline_document, dict):
+        raise ValueError(
+            "Temporary Baseline Manifest is invalid."
+        )
+
+    validate_file_manifest_result(
+        manifest_document,
+        dependency_map
+    )
+
+    validate_current_state_result(
+        current_document,
+        canonical_state
+    )
+
+    original_load = SafeYaml.load
+
+    def temporary_load(path: Path):
+
+        if Path(path).resolve() == FILE_MANIFEST.resolve():
+            return manifest_document
+
+        return original_load(path)
+
+    SafeYaml.load = staticmethod(temporary_load)
+
+    try:
+        validate_baseline_manifest_result(
+            baseline_document,
+            canonical_state
+        )
+    finally:
+        SafeYaml.load = staticmethod(original_load)
+
+
+def apply_three_file_synchronization(
+    *,
+    dependency_map: Dict[str, Any],
+    updated_manifest: Dict[str, Any],
+    manifest_changes: List[ManifestEntryChange],
+    new_manifest_entry: Optional[
+        Tuple[
+            str,
+            Dict[str, Any]
+        ]
+    ],
+    canonical_state: CanonicalExecutionState,
+    run_validator: bool
+) -> int:
+    """
+    Apply File Manifest, Current State and Baseline Manifest as one
+    recoverable transaction.
+    """
+
+    timestamp = datetime.now().strftime(
+        "%Y%m%d_%H%M%S"
+    )
+
+    manifest_text = build_file_manifest_text(
+        manifest_changes,
+        new_manifest_entry
+    )
+
+    current_text = build_current_state_text(
+        canonical_state
+    )
+
+    baseline_text = build_baseline_text_using_manifest(
+        canonical_state,
+        updated_manifest
+    )
+
+    manifest_transaction = create_transaction_file(
+        target=FILE_MANIFEST,
+        content=manifest_text,
+        timestamp=timestamp
+    )
+
+    current_transaction = create_transaction_file(
+        target=CURRENT_STATE,
+        content=current_text,
+        timestamp=timestamp
+    )
+
+    baseline_transaction = create_transaction_file(
+        target=BASELINE_MANIFEST,
+        content=baseline_text,
+        timestamp=timestamp
+    )
+
+    transactions = (
+        manifest_transaction,
+        current_transaction,
+        baseline_transaction
+    )
+
+    try:
+        validate_three_temporary_documents(
+            manifest_transaction,
+            current_transaction,
+            baseline_transaction,
+            dependency_map,
+            canonical_state
+        )
+
+        for transaction in transactions:
+            shutil.copy2(
+                transaction.target,
+                transaction.backup
+            )
+
+        for transaction in transactions:
+            transaction.temporary.replace(
+                transaction.target
+            )
+
+        written_manifest = SafeYaml.load(
+            FILE_MANIFEST
+        )
+
+        written_current = SafeYaml.load(
+            CURRENT_STATE
+        )
+
+        written_baseline = SafeYaml.load(
+            BASELINE_MANIFEST
+        )
+
+        if not isinstance(written_manifest, dict):
+            raise ValueError(
+                "Written File Manifest is invalid."
+            )
+
+        if not isinstance(written_current, dict):
+            raise ValueError(
+                "Written Current State is invalid."
+            )
+
+        if not isinstance(written_baseline, dict):
+            raise ValueError(
+                "Written Baseline Manifest is invalid."
+            )
+
+        validate_file_manifest_result(
+            written_manifest,
+            dependency_map
+        )
+
+        validate_current_state_result(
+            written_current,
+            canonical_state
+        )
+
+        original_load = SafeYaml.load
+
+        def written_manifest_load(path: Path):
+
+            if Path(path).resolve() == FILE_MANIFEST.resolve():
+                return written_manifest
+
+            return original_load(path)
+
+        SafeYaml.load = staticmethod(
+            written_manifest_load
+        )
+
+        try:
+            validate_baseline_manifest_result(
+                written_baseline,
+                canonical_state
+            )
+        finally:
+            SafeYaml.load = staticmethod(
+                original_load
+            )
+
+        if run_validator:
+
+            validator_code = execute_validator_process()
+
+            if validator_code != 0:
+                raise RuntimeError(
+                    "Project Control Validator returned "
+                    f"exit code {validator_code}."
+                )
+
+    except Exception as error:
+
+        restore_transactions(
+            transactions
+        )
+
+        cleanup_transaction_temporary_files(
+            transactions
+        )
+
+        print()
+        print(
+            "SYNCHRONIZATION ROLLED BACK",
+            file=sys.stderr
+        )
+
+        print(
+            f"Reason: {error}",
+            file=sys.stderr
+        )
+
+        print(
+            "The three target files were restored.",
+            file=sys.stderr
+        )
+
+        return 2
+
+    cleanup_transaction_temporary_files(
+        transactions
+    )
+
+    print()
+    print("SYNCHRONIZATION APPLIED")
+
+    for transaction in transactions:
+
+        print(
+            f"Updated : {transaction.target}"
+        )
+
+        print(
+            f"Backup  : {transaction.backup}"
+        )
+
+    if run_validator:
+
+        print()
+        print(
+            "Project Control Validator: PASS"
+        )
+
+    return 0
+
+
+def run_part_seven(
+    args: argparse.Namespace
+) -> int:
+    """
+    Execute complete three-document dry run or transactional application.
+    """
+
+    dependency_map = SafeYaml.load(
+        DEPENDENCY_MAP
+    )
+
+    if not isinstance(dependency_map, dict):
+        raise ValueError(
+            "CIPS_DEPENDENCY_MAP.yaml must contain a mapping root."
+        )
+
+    manifest_synchronizer = FileManifestSynchronizer()
+
+    (
+        updated_manifest,
+        manifest_changes,
+        new_manifest_entry
+    ) = manifest_synchronizer.synchronize()
+
+    validate_file_manifest_result(
+        updated_manifest,
+        dependency_map
+    )
+
+    canonical_state = resolve_canonical_state(
+        dependency_map,
+        updated_manifest
+    )
+
+    print(
+        f"Current phase       : "
+        f"{canonical_state.current_phase}"
+    )
+
+    print(
+        f"Current deliverable : "
+        f"{canonical_state.current_deliverable}"
+    )
+
+    print(
+        f"Last accepted       : "
+        f"{canonical_state.last_accepted or 'NONE'}"
+    )
+
+    print(
+        f"Next deliverable    : "
+        f"{canonical_state.next_deliverable or 'NONE'}"
+    )
+
+    print()
+    print(
+        "Canonical state resolved from the synchronized "
+        "File Manifest."
+    )
+    print()
+
+    result = SynchronizationResult()
+
+    (
+        _updated_current_state,
+        current_state_changes
+    ) = synchronize_current_state(
+        canonical_state,
+        result
+    )
+
+    baseline_synchronizer = BaselineManifestSynchronizer(
+        canonical_state
+    )
+
+    baseline_synchronizer.manifest_status_by_file_id = (
+        build_manifest_status_index_from_document(
+            updated_manifest
+        )
+    )
+
+    (
+        _updated_baseline,
+        baseline_changes
+    ) = baseline_synchronizer.synchronize()
+
+    print_manifest_change_plan(
+        manifest_changes,
+        new_manifest_entry
+    )
+
+    print_change_plan(
+        current_state_changes,
+        title=(
+            "CIPS_CURRENT_STATE.yaml "
+            "Synchronization Plan"
+        )
+    )
+
+    print_change_plan(
+        baseline_changes,
+        title=(
+            "CIPS_BASELINE_MANIFEST.yaml "
+            "Synchronization Plan"
+        )
+    )
+
+    total_changes = (
+        len(manifest_changes)
+        + (
+            1
+            if new_manifest_entry is not None
+            else 0
+        )
+        + len(current_state_changes)
+        + len(baseline_changes)
+    )
+
+    print(
+        f"Total proposed changes: "
+        f"{total_changes}"
+    )
+    print()
+
+    if not args.apply:
+
+        print(
+            "DRY RUN completed. "
+            "No repository files were modified."
+        )
+
+        return 0
+
+    if total_changes == 0:
+
+        print(
+            "No synchronization changes are required."
+        )
+
+        if args.validate:
+
+            validator_code = execute_validator_process()
+
+            if validator_code != 0:
+                return 2
+
+            print(
+                "Project Control Validator: PASS"
+            )
+
+        return 0
+
+    return apply_three_file_synchronization(
+        dependency_map=dependency_map,
+        updated_manifest=updated_manifest,
+        manifest_changes=manifest_changes,
+        new_manifest_entry=new_manifest_entry,
+        canonical_state=canonical_state,
+        run_validator=bool(
+            args.validate
+        )
+    )
+
+
+# =============================================================================
+# END OF PART VII
+# =============================================================================
+
+
+# =============================================================================
+# SCRIPT ENTRY POINT
+# =============================================================================
+
+
+# =============================================================================
+# PART VIII — CANONICAL END-OF-GRAPH SEMANTICS
+# =============================================================================
+
+END_OF_GRAPH_ID = "NONE"
+END_OF_GRAPH_ALIASES = {
+    "",
+    "NONE",
+    "END",
+    "END_OF_GRAPH",
+    "NOT_APPLICABLE",
+}
+
+
+_original_resolve_graph_state_part_viii = resolve_graph_state
+
+
+def resolve_graph_state(
+    dependency_map: Dict[str, Any],
+    deliverables: Dict[str, DeliverableRecord],
+    ordered_deliverables: List[str]
+) -> Tuple[str, str, str, str]:
+    """
+    Resolve execution position using an explicit terminal sentinel.
+
+    When the current deliverable is the final node, next_deliverable is
+    represented as NONE instead of an empty string.
+    """
+
+    (
+        current_phase,
+        current_deliverable,
+        last_accepted,
+        next_deliverable
+    ) = _original_resolve_graph_state_part_viii(
+        dependency_map,
+        deliverables,
+        ordered_deliverables
+    )
+
+    normalized_next = normalize_identifier(
+        next_deliverable
+    ).upper()
+
+    if normalized_next in END_OF_GRAPH_ALIASES:
+        next_deliverable = END_OF_GRAPH_ID
+
+    return (
+        current_phase,
+        current_deliverable,
+        last_accepted,
+        next_deliverable
+    )
+
+
+# =============================================================================
+# END OF PART VIII — SYNCHRONIZER
+# =============================================================================
+
+
+# =============================================================================
+# CTRL-016 FINAL ACCEPTANCE STATE
+# =============================================================================
+
+_previous_resolve_graph_state_ctrl016_final = resolve_graph_state
+
+
+def resolve_graph_state(
+    dependency_map: Dict[str, Any],
+    deliverables: Dict[str, DeliverableRecord],
+    ordered_deliverables: List[str]
+) -> Tuple[str, str, str, str]:
+    """
+    Treat the accepted final graph node as both current checkpoint and
+    last accepted deliverable when no subsequent deliverable exists.
+    """
+
+    (
+        current_phase,
+        current_deliverable,
+        last_accepted,
+        next_deliverable
+    ) = _previous_resolve_graph_state_ctrl016_final(
+        dependency_map,
+        deliverables,
+        ordered_deliverables
+    )
+
+    current_record = deliverables.get(
+        current_deliverable
+    )
+
+    terminal_next = (
+        normalize_identifier(
+            next_deliverable
+        ).upper()
+        in END_OF_GRAPH_ALIASES
+    )
+
+    if (
+        current_record is not None
+        and current_record.status in ACCEPTED_STATES
+        and terminal_next
+    ):
+        last_accepted = current_deliverable
+        next_deliverable = END_OF_GRAPH_ID
+
+    return (
+        current_phase,
+        current_deliverable,
+        last_accepted,
+        next_deliverable
+    )
+
+
+# =============================================================================
+# END CTRL-016 FINAL ACCEPTANCE STATE
+# =============================================================================
+
+if __name__ == "__main__":
+    raise SystemExit(
+        main()
+    )

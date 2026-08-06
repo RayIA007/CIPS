@@ -1,0 +1,79 @@
+{
+    "document": {
+        "name": "CLEAN_001_EXECUTION_REPORT.json",
+        "version": "1.0.0",
+        "deliverable": "CLEAN-001",
+        "status": "COMPLETED",
+        "generated_at": "2026-07-28T03:21:54.567505+00:00"
+    },
+    "scope": {
+        "root": "C:\\ConsejoIA_V5\\08_SCRIPTS",
+        "source_plan": "C:\\ConsejoIA_V5\\12_PRODUCTION_SYSTEM\\99_PROJECT_CONTROL\\CLEAN_001_08_SCRIPTS_PLAN.json",
+        "recognized_candidates": 50,
+        "keep_items_modified": 0,
+        "review_items_modified": 0
+    },
+    "result": {
+        "archived_engineering": [
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_aud001_repository_auditor.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_aud002_directory_tree.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ctrl016_finalization_compatibility_fix.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ctrl016_part8_end_of_graph_patch.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ctrl018_part1_result_architecture.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ctrl018_part2_stage_result_refactor.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ctrl018_validator_consistency_refactor.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_dependency_map_ctrl016_patch.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ras_fix001_windows_runtime.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ras_fix001_windows_runtime_v2.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ras_fix001_windows_runtime_v3.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ras_fix001_windows_runtime_v4.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_ras_windows_path_runtime_fix.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_sync_project_control_fix.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_sync_project_control_part4_patch.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_sync_project_control_part5_patch.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_sync_project_control_part6_patch.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_sync_project_control_part7_patch.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_validate_project_control_fix.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_validator_terminal_final_fix.py",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\01_PATCHES\\CLEAN_001\\apply_validator_terminal_previous_order_fix.py"
+        ],
+        "archived_backups": [
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\configuration_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\configuration_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\configuration_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\configuration_smoke_test.py.bak_ras_fix001_v4_20260727_205946",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\runtime_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\runtime_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\runtime_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak_final_acceptance_20260727_121126",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak_part4_20260727_111105",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak_part5_20260727_112224",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak_part6_20260727_112947",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak_part7_20260727_113739",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\sync_project_control.py.bak_part8_20260727_114822",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\test_inventory_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\test_inventory_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\test_inventory_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_ctrl018_integrated_20260727_162023",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_ctrl018_part1_20260727_160738",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_120725",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_121248",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_121801",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_163432",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_part8_20260727_114822",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_terminal_dependency_20260727_121126",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_terminal_fix_20260727_115616",
+            "C:\\ConsejoIA_V5\\98_ENGINEERING\\02_BACKUPS\\08_SCRIPTS\\validate_project_control.py.bak_terminal_previous_order_20260727_121636"
+        ],
+        "deleted_cache_or_temporary": [
+            "08_SCRIPTS\\__pycache__"
+        ]
+    },
+    "validation": {
+        "project_control": "PASS",
+        "ras_validator": "PASS",
+        "ras_integration": "PASS"
+    }
+}

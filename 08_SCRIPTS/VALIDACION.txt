@@ -1,0 +1,13 @@
+COMMAND: python -m tests.test_core_orchestrator_smoke
+
+STDOUT:
+OK: Core Orchestrator operativo.
+Workflow ID: workflow_0a266178df524aa2
+Run ID: run_5d928148d4ce4203
+Estado: succeeded
+Tareas completadas: 3
+Mensajes emitidos: 8
+
+STDERR:
+
+EXIT_CODE: 0

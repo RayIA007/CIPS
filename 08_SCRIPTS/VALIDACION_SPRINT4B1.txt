@@ -1,0 +1,18 @@
+VALIDACION SPRINT 4B.1
+
+OK: Content Planning Engine operativo.
+Plan ID: cplan_353e42097425427f
+Strategy Package: spkg_fixture_001
+Objetivos: 2
+Audiencias: 1
+Pilares: 3
+Canales: 3
+Horizonte: 12 semanas
+Piezas objetivo: 36
+Asignación total: 100
+Score: 10.0
+
+OK: Planning Engine rechaza StrategyPackage incompleto.
+Diagnóstico: StrategyPackage incompleto: objectives, audiences, content_pillars
+
+Compilación completa: OK

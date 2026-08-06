@@ -1,0 +1,38 @@
+CIPS Sprint 2B — Validación acumulativa
+
+$ -m tests.test_refactor_smoke
+OK: refactorización operativa.
+Package ID: ppkg_879e621f68644a93
+Score: 8.11
+Tokens estimados: 8288
+EXIT_CODE: 0
+
+$ -m tests.test_core_orchestrator_smoke
+OK: Core Orchestrator operativo.
+Workflow ID: workflow_500dc97fa4fc43ae
+Run ID: run_9ba4d1e5dfc54332
+Estado: succeeded
+Tareas completadas: 3
+Mensajes emitidos: 8
+EXIT_CODE: 0
+
+$ -m tests.test_adapter_framework_smoke
+OK: Adapter Framework operativo.
+Adaptador: EchoAdapter
+Capability: echo
+Estado: succeeded
+Result ID: ares_b210f53e8da6490f
+Duración ms: 0.007
+Adaptadores registrados: 1
+EXIT_CODE: 0
+
+$ -m tests.test_research_adapter_smoke
+OK: Research Director Adapter operativo.
+Adaptador: ResearchDirectorAdapter
+Capability: research
+Package ID: ppkg_49853a66597b479d
+Score: 8.14
+Tokens estimados: 8356
+Diagnósticos: 0
+Estado: succeeded
+EXIT_CODE: 0

@@ -1,0 +1,14 @@
+OK: Dominio del Content Director operativo.
+Package ID: cpkg_565d1981ce00400e
+Schema: 1.0.0
+Objetivos: 1
+Audiencias: 1
+Pilares: 1
+Canales: 1
+Piezas: 1
+Slots: 1
+Errores de validación: 0
+OK: Validadores del dominio detectan paquetes incompletos.
+Problemas detectados: 7
+
+Compilación completa: OK

@@ -1,22 +1,30 @@
 """
 =========================================================
 Proyecto : CIPS
-Release  : 0.4
-Build    : 015
+Release  : 0.5
+Build    : 020
 Archivo  : menu_controller.py
 Estado   : RELEASE
 =========================================================
 
-Controlador principal del menú de CIPS.
+Controlador principal del menú de CIPS (Adaptado al ENTREGABLE 001).
 """
-
+import sys
+import json
+from pathlib import Path
 from rich.console import Console
 
+# Aseguramos que CIPS pueda encontrar la carpeta de 11_MEDIA_PRODUCTION
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR / "11_MEDIA_PRODUCTION"))
+
+from media_pipeline import ejecutar_media_production
 from logger import Logger
 from project_manager import ProjectManager
 from pipeline_engine import PipelineEngine
 from validator_engine import Validator
 from knowledge_module_builder import KnowledgeModuleBuilder
+from runtime_constants import STAGES
 
 
 class MenuController:
@@ -40,18 +48,40 @@ class MenuController:
     def pause(self):
         input("\nPresiona ENTER para continuar...")
 
+    def update_production_status(self, project_path: Path, status: str):
+        """Actualiza el archivo production.json con el estado actual."""
+        prod_file = project_path / "production.json"
+        if prod_file.exists():
+            try:
+                with open(prod_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                data["status"] = status
+                with open(prod_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=4, ensure_ascii=False)
+            except Exception as e:
+                Logger.error(f"Error actualizando estado en production.json: {e}")
+
     # --------------------------------------------------
-    # PROYECTOS
+    # PROYECTOS (Flujo Automatizado ENTREGABLE 001)
     # --------------------------------------------------
 
     def new_project(self):
 
         self.console.print(
-            "\n[bold green]Nuevo Proyecto[/bold green]\n"
+            "\n[bold green]==========================================[/bold green]"
+        )
+        self.console.print(
+            "[bold green]   CIPS - Producción Automática Audiovisual   [/bold green]"
+        )
+        self.console.print(
+            "[bold green]==========================================[/bold green]\n"
         )
 
+        # --------------------------------------------------
+        # INTERACCIÓN 1: Pregunta inicial de entrada
+        # --------------------------------------------------
         tema = input(
-            "Escribe el tema del contenido:\n\n> "
+            "¿Qué vamos a publicar hoy?\n\n> "
         ).strip()
 
         if not tema:
@@ -62,40 +92,97 @@ class MenuController:
             return
 
         try:
+            # 1. Crear workspace del proyecto
+            project = self.project_manager.create_project(tema)
+            project_path = Path(project['path'])
 
-            project = self.project_manager.create_project(
-                tema
-            )
-
-            Logger.info(
-                f"Proyecto creado: {project['id']}"
-            )
+            Logger.info(f"Proyecto iniciado: {project['id']} - Tema: {project['tema']}")
 
             self.console.print(
-                "\n[bold green]Proyecto creado correctamente.[/bold green]"
+                f"\n[cyan][+] Directorio creado:[/cyan] {project_path.resolve()}"
+            )
+            self.console.print(
+                "\n[bold yellow][*] Ejecutando pipeline automático (Fase Editorial + Media Production)...[/bold yellow]\n"
             )
 
-            self.console.print(
-                f"ID: [cyan]{project['id']}[/cyan]"
-            )
+            # 2. Bucle automático pasando por todos los stages
+            pipeline_failed = False
+            stages_multimedia = {"narracion", "voz", "imagenes", "subtitulos", "ensamblado", "control_calidad"}
+
+            for stage in STAGES:
+                if stage == "final":
+                    continue
+
+                # SI ES UN STAGE EDITORIAL (Texto):
+                if stage not in stages_multimedia:
+                    self.console.print(f"  [bold white]--> Ejecutando Stage Editorial:[/bold white] [cyan]{stage.upper()}[/cyan]...")
+                    result = self.pipeline_engine.execute()
+                    if not result.success:
+                        self.console.print(
+                            f"\n[bold red][X] Error durante la ejecución del stage {stage}:[/bold red] {result.message}"
+                        )
+                        Logger.error(f"Fallo en stage {stage}: {result.message}")
+                        pipeline_failed = True
+                        break
+
+                # SI LLEGAMOS A LA FASE MULTIMEDIA:
+                else:
+                    self.console.print(f"  [bold white]--> Ejecutando Fase Multimedia (Voz, Imágenes, Ensamblado)...[/bold white]")
+                    éxito_media = ejecutar_media_production(project_path)
+                    if not éxito_media:
+                        pipeline_failed = True
+                    # Una vez ejecutada la producción multimedia completa, salimos del bucle hacia la revisión
+                    break
+                        
+            # Cambiar estado a READY_FOR_REVIEW al concluir la producción del video
+            self.update_production_status(project_path, "READY_FOR_REVIEW")
+
+            # --------------------------------------------------
+            # INTERACCIÓN 2: Revisión final única
+            # --------------------------------------------------
+            short_video_path = project_path / "final" / "short.mp4"
 
             self.console.print(
-                f"Tema: [cyan]{project['tema']}[/cyan]"
+                "\n[bold green]==========================================[/bold green]"
+            )
+            self.console.print(
+                "[bold green] Producción terminada.[/bold green]"
+            )
+            self.console.print(
+                f" [white]Video listo en:[/white] [cyan]{short_video_path.resolve()}[/cyan]"
+            )
+            self.console.print(
+                "[bold green]==========================================[/bold green]\n"
             )
 
-            self.console.print(
-                f"Ruta: [cyan]{project['path']}[/cyan]"
-            )
+            self.console.print("Seleccione una opción:")
+            self.console.print("  [bold cyan]1.[/bold cyan] Aprobar")
+            self.console.print("  [bold cyan]2.[/bold cyan] Rehacer")
+            self.console.print("  [bold cyan]3.[/bold cyan] Cancelar")
+
+            opcion_review = input("\n> ").strip()
+
+            if opcion_review == "1":
+                self.update_production_status(project_path, "APPROVED")
+                self.console.print("\n[bold green][✔] Producción APROBADA y lista para publicar.[/bold green]")
+                Logger.info(f"Proyecto {project['id']} APROBADO por el usuario.")
+            elif opcion_review == "2":
+                self.update_production_status(project_path, "REJECTED")
+                self.console.print("\n[bold yellow][↻] Producción RECHAZADA. Marcada para rehacer.[/bold yellow]")
+                Logger.info(f"Proyecto {project['id']} marcado para REHACER.")
+            else:
+                self.update_production_status(project_path, "CANCELLED")
+                self.console.print("\n[bold red][✖] Producción CANCELADA.[/bold red]")
+                Logger.info(f"Proyecto {project['id']} CANCELADO por el usuario.")
 
         except Exception as error:
-
             Logger.error(str(error))
-
             self.console.print(
-                f"\n[red]{error}[/red]"
+                f"\n[red]Error durante la producción:[/red] {error}"
             )
 
         self.pause()
+
     def continue_project_runtime(self):
 
         try:
@@ -147,14 +234,16 @@ class MenuController:
             self.console.print(f"\n[red]Error en Runtime:[/red] {error}")
 
         self.pause()
+
     def system_status(self):
 
         self.console.print("\n[bold cyan]Estado del Sistema[/bold cyan]\n")
-        self.console.print("Versión: 0.4.0")
-        self.console.print("Estado: Runtime operativo")
+        self.console.print("Versión: 0.5.0")
+        self.console.print("Estado: Runtime + Media Production Operativo")
         self.console.print("Módulo activo: MenuController + PipelineEngine")
 
         self.pause()
+
     def validate_system(self):
 
         errors = self.validator.validate_system()
@@ -175,7 +264,8 @@ class MenuController:
             )
 
         self.pause()
-        # --------------------------------------------------
+
+    # --------------------------------------------------
     # KNOWLEDGE
     # --------------------------------------------------
 

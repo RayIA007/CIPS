@@ -1,0 +1,45 @@
+CIPS Sprint 2C — Validación acumulativa
+
+COMMAND: python -m tests.test_core_orchestrator_smoke
+OK: Core Orchestrator operativo.
+Workflow ID: workflow_1c7861adb9dd4051
+Run ID: run_f283d38400e84d25
+Estado: succeeded
+Tareas completadas: 3
+Mensajes emitidos: 8
+EXIT_CODE: 0
+
+COMMAND: python -m tests.test_adapter_framework_smoke
+OK: Adapter Framework operativo.
+Adaptador: EchoAdapter
+Capability: echo
+Estado: succeeded
+Result ID: ares_37b18d15e95c44d0
+Duración ms: 0.006
+Adaptadores registrados: 1
+EXIT_CODE: 0
+
+COMMAND: python -m tests.test_research_adapter_smoke
+OK: Research Director Adapter operativo.
+Adaptador: ResearchDirectorAdapter
+Capability: research
+Package ID: ppkg_45ba4184e8bf4e35
+Score: 8.14
+Tokens estimados: 8356
+Diagnósticos: 0
+Estado: succeeded
+EXIT_CODE: 0
+
+COMMAND: python -m tests.test_core_research_integration_smoke
+OK: Integración Research Adapter + Core Orchestrator operativa.
+Workflow ID: workflow_c63eabaa1c4344e0
+Run ID: run_d543eba1cfe040ab
+Estado: succeeded
+Adaptador: ResearchDirectorAdapter
+Package ID: ppkg_204ffcd639e74ddd
+Score: 7.74
+Tokens estimados: 8267
+Mensajes emitidos: 5
+Checkpoint: guardado
+EXIT_CODE: 0
+

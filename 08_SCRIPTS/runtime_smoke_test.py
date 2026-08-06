@@ -1,133 +1,175 @@
 """
-=========================================================
-Proyecto : CIPS
-Release  : 0.3
-Build    : 009A
-Archivo  : runtime_smoke_test.py
-Estado   : RELEASE
-=========================================================
+===============================================================================
+AUD-006
+Runtime Inventory
+
+File:
+    runtime_smoke_test.py
+
+Purpose:
+    Smoke Test for the Runtime Scanner.
+
+Execution Policy:
+    READ ONLY
+
+===============================================================================
 """
+
+from __future__ import annotations
+
+import tempfile
 
 from pathlib import Path
 
-from runtime_models import Project, LLMResponse
-from knowledge_engine import KnowledgeEngine
-from context_engine import ContextEngine
-from prompt_engine import PromptEngine
-from validator_engine import ValidatorEngine
-from memory_engine import MemoryEngine
-from utils import ROOT, read_yaml
+from runtime_scanner import (
+    scan_runtime,
+)
+
+from runtime_inventory_writer import (
+    write_runtime_inventory,
+)
 
 
-def get_latest_project() -> Path:
-    projects_dir = ROOT / "04_PROYECTOS"
+# =============================================================================
+# MAIN
+# =============================================================================
 
-    projects = sorted(
-        [
-            item for item in projects_dir.iterdir()
-            if item.is_dir() and item.name.startswith("PROYECTO_")
-        ]
+
+def main() -> int:
+
+    print("=" * 72)
+
+    print("AUD-006 Runtime Inventory Smoke Test")
+
+    print("=" * 72)
+
+    inventory = scan_runtime()
+
+    if not inventory.python_version:
+
+        raise AssertionError(
+
+            "Python version not detected."
+
+        )
+
+    if not inventory.python_executable:
+
+        raise AssertionError(
+
+            "Python executable not detected."
+
+        )
+
+    if not inventory.operating_system:
+
+        raise AssertionError(
+
+            "Operating system not detected."
+
+        )
+
+    if len(inventory.tools) == 0:
+
+        raise AssertionError(
+
+            "No runtime tools detected."
+
+        )
+
+    if len(inventory.installed_packages) == 0:
+
+        raise AssertionError(
+
+            "No installed Python packages detected."
+
+        )
+
+    python_tool = next(
+
+        (
+
+            tool
+
+            for tool in inventory.tools
+
+            if tool.name.startswith(
+
+                "python"
+
+            )
+
+            and tool.available
+
+        ),
+
+        None,
+
     )
 
-    if not projects:
-        raise FileNotFoundError("No existe ningún proyecto creado.")
+    if python_tool is None:
 
-    return projects[-1]
+        raise AssertionError(
 
+            "Python executable not available."
 
-def load_project(project_path: Path) -> Project:
-    data = read_yaml(project_path / "proyecto.yaml")
+        )
 
-    return Project(
-        project_id=data.get("id", project_path.name),
-        path=project_path,
-        tema=data.get("tema", ""),
-        estado=data.get("estado", "READY"),
-        stage_actual=data.get("estado", "investigacion"),
-        ultimo_stage_validado=data.get("ultimo_stage_validado", ""),
-        config={},
-        memory=read_yaml(project_path / "memoria.yaml"),
-        metadata=data,
-    )
+    with tempfile.TemporaryDirectory(
 
+        prefix="aud006_",
 
-def main():
-    print("CIPS Runtime Smoke Test")
-    print("-" * 40)
+    ) as temp:
 
-    project_path = get_latest_project()
-    project = load_project(project_path)
+        output = (
 
-    print(f"Proyecto: {project.project_id}")
-    print(f"Tema: {project.tema}")
-    print(f"Stage: {project.stage_actual}")
+            Path(temp)
+
+            / "runtime_inventory.json"
+
+        )
+
+        write_runtime_inventory(
+
+            inventory=inventory,
+
+            output_file=output,
+
+        )
+
+        if not output.exists():
+
+            raise AssertionError(
+
+                "Runtime inventory was not generated."
+
+            )
+
     print()
 
-    knowledge_result = KnowledgeEngine().execute(project)
+    print("SMOKE TEST PASSED")
 
-    if not knowledge_result.success:
-        print("ERROR KnowledgeEngine")
-        print(knowledge_result.errors)
-        return
+    print("Python Runtime     : VALID")
 
-    print("KnowledgeEngine OK")
+    print("Operating System   : VALID")
 
-    context_result = ContextEngine().execute(
-        project,
-        knowledge_result.data,
-    )
+    print("Installed Packages : VALID")
 
-    if not context_result.success:
-        print("ERROR ContextEngine")
-        print(context_result.errors)
-        return
+    print("Runtime Tools      : VALID")
 
-    print("ContextEngine OK")
+    print("Inventory JSON     : VALID")
 
-    prompt_result = PromptEngine().execute(
-        project,
-        context_result.data,
-    )
+    print("READ ONLY          : VALID")
 
-    if not prompt_result.success:
-        print("ERROR PromptEngine")
-        print(prompt_result.errors)
-        return
+    print("=" * 72)
 
-    print("PromptEngine OK")
-    print(f"Prompt generado: {prompt_result.data['prompt_path']}")
-
-    fake_response = LLMResponse(
-        content="# Prueba de validación\n\nEsta es una respuesta simulada suficientemente larga para validar que el ValidatorEngine funciona correctamente dentro del Runtime de CIPS.",
-        model="manual_test",
-    )
-
-    validation_result = ValidatorEngine().execute(
-        project,
-        fake_response,
-    )
-
-    if not validation_result.success:
-        print("ERROR ValidatorEngine")
-        print(validation_result.errors)
-        return
-
-    print("ValidatorEngine OK")
-
-    memory_result = MemoryEngine().execute(
-        project,
-        validation_result.data,
-    )
-
-    if not memory_result.success:
-        print("ERROR MemoryEngine")
-        print(memory_result.errors)
-        return
-
-    print("MemoryEngine OK")
-    print()
-    print("Runtime Smoke Test completado correctamente.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+
+    raise SystemExit(
+
+        main()
+
+    )

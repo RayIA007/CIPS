@@ -1,0 +1,1640 @@
+# =============================================================================
+#
+# CIPS FILE MANIFEST
+#
+# Official Repository Inventory
+#
+# =============================================================================
+
+document:
+
+  name: CIPS_FILE_MANIFEST.yaml
+
+  official_name: Official Repository Inventory
+
+  version: 2.0.0
+
+  status: ACTIVE
+
+  type: PROJECT_CONTROL
+
+  authority: Production Architecture Board
+
+# =============================================================================
+# PROJECT
+# =============================================================================
+
+project:
+
+  name: ConsejoIA_V5
+
+  codename: CIPS Production Operating System
+
+  target_version: 1.0.0
+
+# =============================================================================
+# PURPOSE
+# =============================================================================
+
+purpose:
+
+  description: >
+    Define the official inventory of every architectural artifact belonging
+    to the Production Operating System.
+
+  objectives:
+
+    - Maintain repository integrity
+
+    - Provide a single source of truth for repository contents
+
+    - Enable repository auditing
+
+    - Support automated validation
+
+    - Enable dependency discovery
+
+    - Enable bootstrap automation
+
+    - Support engineering intelligence
+
+# =============================================================================
+# INVENTORY PRINCIPLES
+# =============================================================================
+
+principles:
+
+  single_source_of_truth: true
+
+  repository_complete: true
+
+  deterministic_structure: true
+
+  explicit_file_registration: true
+
+  immutable_identity: true
+
+  traceable_lifecycle: true
+
+  architecture_driven: true
+
+# =============================================================================
+# FILE STATES
+# =============================================================================
+
+file_states:
+
+  RESERVED:
+
+    description: >
+      Planned by the architecture but not yet created.
+
+  IMPLEMENTED:
+
+    description: >
+      File exists and is under development.
+
+  ACCEPTED:
+
+    description: >
+      Officially accepted.
+
+  DEPRECATED:
+
+    description: >
+      Scheduled for retirement.
+
+  ARCHIVED:
+
+    description: >
+      Preserved for historical reasons.
+
+# =============================================================================
+# FILE TYPES
+# =============================================================================
+
+file_types:
+
+  DOCUMENTATION:
+
+    extensions:
+
+      - md
+
+  CONFIGURATION:
+
+    extensions:
+
+      - yaml
+
+      - yml
+
+      - json
+
+      - toml
+
+  SOURCE_CODE:
+
+    extensions:
+
+      - py
+
+  TEST:
+
+    extensions:
+
+      - py
+
+  TEMPLATE:
+
+    extensions:
+
+      - jinja2
+
+      - txt
+
+  DATA:
+
+    extensions:
+
+      - sqlite
+
+      - db
+
+      - csv
+
+  ASSET:
+
+    extensions:
+
+      - png
+
+      - jpg
+
+      - svg
+
+      - wav
+
+      - mp4
+
+# =============================================================================
+# REPOSITORY ROOTS
+# =============================================================================
+
+repository_roots:
+
+  constitutional_documents:
+
+    description: >
+      Technical Constitution.
+
+  production_system:
+
+    description: >
+      Production Operating System.
+
+  developer_tools:
+
+    description: >
+      Internal engineering ecosystem.
+
+  runtime:
+
+    description: >
+      Runtime execution environment.
+
+  tests:
+
+    description: >
+      Validation infrastructure.
+
+# =============================================================================
+# REGISTRATION RULES
+# =============================================================================
+
+registration_rules:
+
+  every_file_must_be_registered: true
+
+  duplicate_paths_forbidden: true
+
+  duplicate_identifiers_forbidden: true
+
+  unknown_files_forbidden: true
+
+  orphan_files_forbidden: true
+
+# =============================================================================
+# END OF PART I
+# =============================================================================
+# =============================================================================
+# FILE REGISTRATION MODEL
+# =============================================================================
+
+registration_model:
+
+  identifier_format:
+
+    pattern: FILE-XXXXX
+
+    unique: true
+
+    immutable: true
+
+  path_policy:
+
+    absolute_paths: forbidden
+
+    relative_paths: required
+
+    normalized_paths: required
+
+  naming:
+
+    case_sensitive: true
+
+    duplicate_names_allowed: true
+
+    duplicate_paths_allowed: false
+
+# =============================================================================
+# INVENTORY HIERARCHY
+# =============================================================================
+
+inventory_hierarchy:
+
+  level_0:
+
+    name: Repository
+
+  level_1:
+
+    name: Top Directory
+
+  level_2:
+
+    name: Module
+
+  level_3:
+
+    name: Component
+
+  level_4:
+
+    name: File
+
+# =============================================================================
+# FILE METADATA
+# =============================================================================
+
+file_metadata:
+
+  required:
+
+    - file_id
+
+    - filename
+
+    - relative_path
+
+    - extension
+
+    - type
+
+    - subsystem
+
+    - owner
+
+    - lifecycle
+
+    - status
+
+    - phase
+
+    - version
+
+  optional:
+
+    - description
+
+    - dependencies
+
+    - consumers
+
+    - tags
+
+    - protected
+
+    - generated
+
+    - checksum
+
+# =============================================================================
+# ARCHITECTURAL OWNERSHIP
+# =============================================================================
+
+ownership:
+
+  constitutional_documents:
+
+    owner: Technical Constitution
+
+  project_control:
+
+    owner: Project Control System
+
+  engineering_knowledge:
+
+    owner: Engineering Knowledge System
+
+  developer_tools:
+
+    owner: Developer Tool Suite
+
+  production_os:
+
+    owner: Production Operating System
+
+# =============================================================================
+# LIFECYCLE
+# =============================================================================
+
+lifecycle:
+
+  RESERVED:
+
+    next:
+
+      - IMPLEMENTED
+
+  IMPLEMENTED:
+
+    next:
+
+      - TESTED
+
+      - DEPRECATED
+
+  TESTED:
+
+    next:
+
+      - ACCEPTED
+
+      - REJECTED
+
+  ACCEPTED:
+
+    next:
+
+      - SUPERSEDED
+
+      - DEPRECATED
+
+  SUPERSEDED:
+
+    next:
+
+      - ARCHIVED
+
+  DEPRECATED:
+
+    next:
+
+      - ARCHIVED
+
+  ARCHIVED:
+
+    next: []
+
+# =============================================================================
+# FILE CLASSIFICATION
+# =============================================================================
+
+classification:
+
+  architecture:
+
+    priority: CRITICAL
+
+  contracts:
+
+    priority: CRITICAL
+
+  interfaces:
+
+    priority: CRITICAL
+
+  project_control:
+
+    priority: HIGH
+
+  developer_tools:
+
+    priority: HIGH
+
+  runtime:
+
+    priority: HIGH
+
+  providers:
+
+    priority: HIGH
+
+  implementation:
+
+    priority: NORMAL
+
+  tests:
+
+    priority: NORMAL
+
+  documentation:
+
+    priority: NORMAL
+
+  assets:
+
+    priority: LOW
+
+# =============================================================================
+# INVENTORY VALIDATION
+# =============================================================================
+
+inventory_validation:
+
+  required_checks:
+
+    - identifier_uniqueness
+
+    - path_uniqueness
+
+    - valid_extension
+
+    - valid_owner
+
+    - valid_subsystem
+
+    - valid_phase
+
+    - valid_status
+
+    - lifecycle_consistency
+
+    - dependency_consistency
+
+# =============================================================================
+# SUBSYSTEM REGISTRATION
+# =============================================================================
+
+subsystems:
+
+  constitutional_layer:
+
+    inventory_required: true
+
+  project_control:
+
+    inventory_required: true
+
+  engineering_knowledge:
+
+    inventory_required: true
+
+  developer_tools:
+
+    inventory_required: true
+
+  production_os:
+
+    inventory_required: true
+
+# =============================================================================
+# INVENTORY INDEXES
+# =============================================================================
+
+indexes:
+
+  by_identifier: true
+
+  by_filename: true
+
+  by_relative_path: true
+
+  by_subsystem: true
+
+  by_owner: true
+
+  by_phase: true
+
+  by_type: true
+
+  by_status: true
+
+# =============================================================================
+# END OF PART II
+# =============================================================================
+# =============================================================================
+# OFFICIAL FILE INVENTORY
+# =============================================================================
+
+files:
+
+  FILE-00001:
+    filename: CIPS_PRODUCTION_ARCHITECTURE_V2.md
+    relative_path: 12_PRODUCTION_SYSTEM/00_ARCHITECTURE/CIPS_PRODUCTION_ARCHITECTURE_V2.md
+    extension: md
+    type: DOCUMENTATION
+    classification: architecture
+    subsystem: constitutional_layer
+    owner: Technical Constitution
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PRE_IMPLEMENTATION
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Master architecture document for the CIPS Production Operating System.
+    dependencies: []
+    consumers:
+      - CIPS_MASTER_ROADMAP.md
+      - CIPS_CURRENT_STATE.yaml
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_FILE_MANIFEST.yaml
+      - validate_project_control.py
+    tags:
+      - constitution
+      - architecture
+      - production-os
+
+  FILE-00002:
+    filename: 00_ARCHITECTURE_RULES.md
+    relative_path: 12_PRODUCTION_SYSTEM/00_ARCHITECTURE/00_ARCHITECTURE_RULES.md
+    extension: md
+    type: DOCUMENTATION
+    classification: architecture
+    subsystem: constitutional_layer
+    owner: Technical Constitution
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PRE_IMPLEMENTATION
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Immutable engineering rules for the implementation of the Production
+      Operating System.
+    dependencies:
+      - FILE-00001
+    consumers:
+      - CIPS_MASTER_ROADMAP.md
+      - CIPS_CURRENT_STATE.yaml
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_FILE_MANIFEST.yaml
+      - validate_project_control.py
+    tags:
+      - constitution
+      - engineering-rules
+      - governance
+
+  FILE-00003:
+    filename: CIPS_TECHNICAL_SPECIFICATIONS_V2.md
+    relative_path: 12_PRODUCTION_SYSTEM/00_ARCHITECTURE/CIPS_TECHNICAL_SPECIFICATIONS_V2.md
+    extension: md
+    type: DOCUMENTATION
+    classification: architecture
+    subsystem: constitutional_layer
+    owner: Technical Constitution
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PRE_IMPLEMENTATION
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Official technical specifications for components, interfaces, contracts,
+      events, profiles, tests and integrations.
+    dependencies:
+      - FILE-00001
+      - FILE-00002
+    consumers:
+      - CIPS_MASTER_ROADMAP.md
+      - CIPS_CURRENT_STATE.yaml
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_FILE_MANIFEST.yaml
+      - validate_project_control.py
+    tags:
+      - constitution
+      - technical-specifications
+      - contracts
+      - interfaces
+
+  FILE-00004:
+    filename: CIPS_IMPLEMENTATION_ROADMAP_V2.md
+    relative_path: 12_PRODUCTION_SYSTEM/00_ARCHITECTURE/CIPS_IMPLEMENTATION_ROADMAP_V2.md
+    extension: md
+    type: DOCUMENTATION
+    classification: architecture
+    subsystem: constitutional_layer
+    owner: Technical Constitution
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PRE_IMPLEMENTATION
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Official implementation sequence from Phase 0 through Production Release.
+    dependencies:
+      - FILE-00001
+      - FILE-00002
+      - FILE-00003
+    consumers:
+      - CIPS_MASTER_ROADMAP.md
+      - CIPS_CURRENT_STATE.yaml
+      - CIPS_DELIVERY_LEDGER.md
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_FILE_MANIFEST.yaml
+      - validate_project_control.py
+    tags:
+      - constitution
+      - implementation-roadmap
+      - phases
+      - deliverables
+
+  FILE-00005:
+    filename: CIPS_MASTER_ROADMAP.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_MASTER_ROADMAP.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PHASE-0
+    deliverable_id: CTRL-002
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Official project execution manual and operational governance document.
+    dependencies:
+      - FILE-00001
+      - FILE-00002
+      - FILE-00003
+      - FILE-00004
+    consumers:
+      - CIPS_CURRENT_STATE.yaml
+      - CIPS_DELIVERY_LEDGER.md
+      - CIPS_DECISION_LOG.md
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_FILE_MANIFEST.yaml
+      - CIPS_SESSION_HANDOFF.md
+      - validate_project_control.py
+    tags:
+      - project-control
+      - execution
+      - governance
+      - roadmap
+
+  FILE-00006:
+    filename: CIPS_CURRENT_STATE.yaml
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_CURRENT_STATE.yaml
+    extension: yaml
+    type: CONFIGURATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PHASE-0
+    deliverable_id: CTRL-003
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Live state of the project, including current phase, active deliverable,
+      permissions, restrictions, readiness and synchronization.
+    dependencies:
+      - FILE-00005
+    consumers:
+      - CIPS_SESSION_HANDOFF.md
+      - CIPS_CHECKPOINTS.md
+      - validate_project_control.py
+      - bootstrap_context.py
+      - project_dashboard.py
+    tags:
+      - project-control
+      - live-state
+      - bootstrap
+      - execution
+
+  FILE-00007:
+    filename: CIPS_DELIVERY_LEDGER.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_DELIVERY_LEDGER.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PHASE-0
+    deliverable_id: CTRL-004
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Immutable engineering ledger containing the official history of
+      deliverables and acceptance evidence.
+    dependencies:
+      - FILE-00004
+      - FILE-00005
+      - FILE-00006
+    consumers:
+      - CIPS_SESSION_HANDOFF.md
+      - CIPS_ACCEPTANCE_MATRIX.md
+      - CIPS_CHECKPOINTS.md
+      - validate_project_control.py
+      - delivery_ledger.py
+      - project_metrics.py
+    tags:
+      - project-control
+      - engineering-ledger
+      - traceability
+      - acceptance
+
+  FILE-00008:
+    filename: CIPS_DECISION_LOG.md
+    official_name: Engineering Knowledge Base
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_DECISION_LOG.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: engineering_knowledge
+    owner: Engineering Knowledge System
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PHASE-0
+    deliverable_id: CTRL-005
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Official Engineering Knowledge Base containing decisions, patterns,
+      anti-patterns, lessons, evidence and future proposals.
+    dependencies:
+      - FILE-00001
+      - FILE-00002
+      - FILE-00003
+      - FILE-00004
+      - FILE-00005
+      - FILE-00007
+    consumers:
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_SESSION_HANDOFF.md
+      - CIPS_CHANGE_CONTROL.md
+      - validate_project_control.py
+      - knowledge_engine
+      - engineering_advisor
+    tags:
+      - engineering-knowledge
+      - decisions
+      - patterns
+      - lessons-learned
+
+  FILE-00009:
+    filename: CIPS_DEPENDENCY_MAP.yaml
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_DEPENDENCY_MAP.yaml
+    extension: yaml
+    type: CONFIGURATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: ACCEPTED
+    status: ACCEPTED
+    phase: PHASE-0
+    deliverable_id: CTRL-006
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Official dependency graph for phases, deliverables, subsystems and future
+      dependency automation.
+    dependencies:
+      - FILE-00004
+      - FILE-00005
+      - FILE-00006
+      - FILE-00007
+      - FILE-00008
+    consumers:
+      - CIPS_FILE_MANIFEST.yaml
+      - CIPS_ACCEPTANCE_MATRIX.md
+      - CIPS_CHANGE_CONTROL.md
+      - validate_project_control.py
+      - dependency_engine
+      - impact_analyzer
+    tags:
+      - dependency-graph
+      - dag
+      - impact-analysis
+      - topological-order
+
+  FILE-00010:
+    filename: CIPS_FILE_MANIFEST.yaml
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_FILE_MANIFEST.yaml
+    extension: yaml
+    type: CONFIGURATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: IMPLEMENTED
+    status: IN_PROGRESS
+    phase: PHASE-0
+    deliverable_id: CTRL-007
+    version: 2.0.0
+    protected: true
+    generated: false
+    description: >
+      Official repository inventory and structural catalog of all recognized
+      project files.
+    dependencies:
+      - FILE-00005
+      - FILE-00006
+      - FILE-00007
+      - FILE-00008
+      - FILE-00009
+    consumers:
+      - CIPS_SESSION_HANDOFF.md
+      - CIPS_ACCEPTANCE_MATRIX.md
+      - CIPS_BASELINE_MANIFEST.yaml
+      - CIPS_PROTECTED_FILES.yaml
+      - validate_project_control.py
+      - repository_auditor
+      - dependency_engine
+    tags:
+      - file-manifest
+      - repository-inventory
+      - structural-catalog
+      - project-control
+
+# =============================================================================
+# RESERVED PROJECT CONTROL FILES
+# =============================================================================
+
+reserved_project_control_files:
+
+  FILE-00011:
+    filename: CIPS_SESSION_HANDOFF.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_SESSION_HANDOFF.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-008
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00010
+
+  FILE-00012:
+    filename: CIPS_ACCEPTANCE_MATRIX.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_ACCEPTANCE_MATRIX.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-009
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00011
+
+  FILE-00013:
+    filename: CIPS_CHANGE_CONTROL.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_CHANGE_CONTROL.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-010
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00012
+
+  FILE-00014:
+    filename: CIPS_BASELINE_MANIFEST.yaml
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_BASELINE_MANIFEST.yaml
+    extension: yaml
+    type: CONFIGURATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-011
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00013
+
+  FILE-00015:
+    filename: CIPS_PROTECTED_FILES.yaml
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_PROTECTED_FILES.yaml
+    extension: yaml
+    type: CONFIGURATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-012
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00014
+
+  FILE-00016:
+    filename: CIPS_RISK_REGISTER.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_RISK_REGISTER.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-013
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00015
+
+  FILE-00017:
+    filename: CIPS_CHECKPOINTS.md
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL/CIPS_CHECKPOINTS.md
+    extension: md
+    type: DOCUMENTATION
+    classification: project_control
+    subsystem: project_control
+    owner: Project Control System
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-014
+    version: 2.0.0
+    protected: true
+    generated: false
+    dependencies:
+      - FILE-00016
+
+  FILE-00018:
+    filename: validate_project_control.py
+    relative_path: 08_SCRIPTS/validate_project_control.py
+    extension: py
+    type: SOURCE_CODE
+    classification: developer_tools
+    subsystem: developer_tools
+    owner: Developer Tool Suite
+    lifecycle: RESERVED
+    status: RESERVED
+    phase: PHASE-0
+    deliverable_id: CTRL-015
+    version: 0.1.0
+    protected: false
+    generated: false
+    dependencies:
+      - FILE-00006
+      - FILE-00007
+      - FILE-00009
+      - FILE-00010
+      - FILE-00011
+      - FILE-00012
+      - FILE-00013
+      - FILE-00014
+      - FILE-00015
+      - FILE-00016
+      - FILE-00017
+
+# =============================================================================
+# MANIFEST SUMMARY
+# =============================================================================
+
+manifest_summary:
+
+  total_registered_entries: 18
+
+  by_status:
+    ACCEPTED: 9
+    IN_PROGRESS: 1
+    RESERVED: 8
+
+  by_subsystem:
+    constitutional_layer: 4
+    project_control: 11
+    engineering_knowledge: 1
+    developer_tools: 2
+    production_os: 0
+
+  protected_entries: 17
+  unprotected_entries: 1
+
+# =============================================================================
+# END OF PART III
+# =============================================================================
+# =============================================================================
+# REPOSITORY DIRECTORY REGISTRY
+# =============================================================================
+
+directories:
+
+  DIR-00001:
+    name: 00_ARCHITECTURE
+    relative_path: 12_PRODUCTION_SYSTEM/00_ARCHITECTURE
+    subsystem: constitutional_layer
+    owner: Technical Constitution
+    status: ACTIVE
+    protected: true
+    description: >
+      Contains the immutable constitutional documents governing the
+      Production Operating System.
+
+    contains:
+      - FILE-00001
+      - FILE-00002
+      - FILE-00003
+      - FILE-00004
+
+  DIR-00002:
+    name: 99_PROJECT_CONTROL
+    relative_path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL
+    subsystem: project_control
+    owner: Project Control System
+    status: ACTIVE
+    protected: true
+    description: >
+      Contains all Project Control artifacts.
+
+    contains:
+      - FILE-00005
+      - FILE-00006
+      - FILE-00007
+      - FILE-00008
+      - FILE-00009
+      - FILE-00010
+      - FILE-00011
+      - FILE-00012
+      - FILE-00013
+      - FILE-00014
+      - FILE-00015
+      - FILE-00016
+      - FILE-00017
+      - FILE-00018
+
+  DIR-00003:
+    name: 98_DEVELOPER_TOOLS
+    relative_path: 12_PRODUCTION_SYSTEM/98_DEVELOPER_TOOLS
+    subsystem: developer_tools
+    owner: Developer Tool Suite
+    status: RESERVED
+    protected: false
+    description: >
+      Future internal engineering tools.
+
+# =============================================================================
+# REPOSITORY POLICIES
+# =============================================================================
+
+repository_policies:
+
+  directory_creation:
+
+    registration_required: true
+
+    architectural_approval_required: true
+
+  file_creation:
+
+    manifest_registration_required: true
+
+    dependency_validation_required: true
+
+    owner_required: true
+
+  file_deletion:
+
+    forbidden_without_change_control: true
+
+    historical_registration_required: true
+
+  file_move:
+
+    dependency_analysis_required: true
+
+    impact_analysis_required: true
+
+    approval_required: true
+
+# =============================================================================
+# FILE PROTECTION
+# =============================================================================
+
+protection_levels:
+
+  LEVEL_0:
+
+    name: IMMUTABLE
+
+    description: >
+      Constitutional documents.
+
+    modification: FORBIDDEN
+
+  LEVEL_1:
+
+    name: CONTROLLED
+
+    description: >
+      Project Control documents.
+
+    modification: CHANGE_CONTROL_REQUIRED
+
+  LEVEL_2:
+
+    name: DEVELOPMENT
+
+    description: >
+      Source code under implementation.
+
+    modification: ALLOWED
+
+  LEVEL_3:
+
+    name: GENERATED
+
+    description: >
+      Automatically generated artifacts.
+
+    modification: REGENERATE_ONLY
+
+# =============================================================================
+# MANIFEST VALIDATION
+# =============================================================================
+
+manifest_validation:
+
+  repository:
+
+    no_unknown_files: true
+
+    no_duplicate_paths: true
+
+    no_duplicate_ids: true
+
+    no_invalid_extensions: true
+
+  architecture:
+
+    constitutional_documents_present: true
+
+    project_control_complete: true
+
+    dependency_map_registered: true
+
+    roadmap_registered: true
+
+  consistency:
+
+    dependency_map_consistency: required
+
+    delivery_ledger_consistency: required
+
+    current_state_consistency: required
+
+    roadmap_consistency: required
+
+# =============================================================================
+# REPOSITORY AUDIT TARGETS
+# =============================================================================
+
+repository_audit:
+
+  verify:
+
+    - missing_files
+
+    - unexpected_files
+
+    - duplicated_files
+
+    - misplaced_files
+
+    - orphan_files
+
+    - invalid_extensions
+
+    - invalid_owners
+
+    - invalid_versions
+
+    - invalid_dependencies
+
+    - protected_file_modifications
+
+# =============================================================================
+# AUTOMATION CONSUMERS
+# =============================================================================
+
+automation:
+
+  consumed_by:
+
+    - repository_auditor.py
+
+    - dependency_engine.py
+
+    - bootstrap_context.py
+
+    - project_dashboard.py
+
+    - acceptance_validator.py
+
+    - impact_analyzer.py
+
+    - engineering_advisor.py
+
+    - project_metrics.py
+
+  generated_outputs:
+
+    - repository_inventory_report
+
+    - repository_health_report
+
+    - repository_growth_report
+
+    - missing_file_report
+
+    - orphan_file_report
+
+    - dependency_inventory
+
+# =============================================================================
+# FUTURE EXTENSIONS
+# =============================================================================
+
+future_extensions:
+
+  repository_object_model:
+
+    status: RESERVED
+
+    target_version: POST_1_0
+
+  asset_manifest:
+
+    status: RESERVED
+
+    target_version: POST_1_0
+
+  module_registry:
+
+    status: RESERVED
+
+    target_version: POST_1_0
+
+  prompt_registry:
+
+    status: RESERVED
+
+    target_version: POST_1_0
+
+  ai_model_registry:
+
+    status: RESERVED
+
+    target_version: POST_1_0
+
+
+# =============================================================================
+# END OF PART IV
+# =============================================================================
+# =============================================================================
+# REPOSITORY GOVERNANCE
+# =============================================================================
+
+repository_governance:
+
+  authority:
+
+    primary_source: CIPS_FILE_MANIFEST.yaml
+
+    architecture_reference: CIPS_PRODUCTION_ARCHITECTURE_V2.md
+
+    roadmap_reference: CIPS_IMPLEMENTATION_ROADMAP_V2.md
+
+    dependency_reference: CIPS_DEPENDENCY_MAP.yaml
+
+    engineering_reference: CIPS_DECISION_LOG.md
+
+# =============================================================================
+# REPOSITORY CONSISTENCY
+# =============================================================================
+
+repository_consistency:
+
+  required:
+
+    manifest_matches_repository: true
+
+    dependency_graph_matches_manifest: true
+
+    roadmap_matches_manifest: true
+
+    current_state_matches_manifest: true
+
+    delivery_ledger_matches_manifest: true
+
+  violations:
+
+    unknown_file: ERROR
+
+    duplicate_identifier: ERROR
+
+    duplicate_path: ERROR
+
+    invalid_owner: ERROR
+
+    invalid_subsystem: ERROR
+
+    missing_registered_file: ERROR
+
+    orphan_registered_file: WARNING
+
+# =============================================================================
+# INVENTORY METRICS
+# =============================================================================
+
+repository_metrics:
+
+  calculate:
+
+    total_files
+
+    protected_files
+
+    reserved_files
+
+    implemented_files
+
+    accepted_files
+
+    deprecated_files
+
+    archived_files
+
+    generated_files
+
+    project_control_files
+
+    constitutional_files
+
+    developer_tool_files
+
+    production_files
+
+    documentation_ratio
+
+    source_code_ratio
+
+    repository_growth
+
+# =============================================================================
+# REPOSITORY HEALTH MODEL
+# =============================================================================
+
+repository_health:
+
+  indicators:
+
+    structural_integrity
+
+    dependency_integrity
+
+    architectural_integrity
+
+    documentation_integrity
+
+    registration_integrity
+
+    protection_integrity
+
+    repository_completeness
+
+  overall_health:
+
+    calculation: weighted_score
+
+    range:
+
+      minimum: 0
+
+      maximum: 100
+
+# =============================================================================
+# ENGINEERING AUTOMATION
+# =============================================================================
+
+engineering_automation:
+
+  repository_auditor:
+
+    enabled: true
+
+  dependency_engine:
+
+    enabled: true
+
+  bootstrap_context:
+
+    enabled: true
+
+  acceptance_validator:
+
+    enabled: true
+
+  engineering_advisor:
+
+    enabled: true
+
+  project_dashboard:
+
+    enabled: true
+
+  repository_metrics:
+
+    enabled: true
+
+# =============================================================================
+# ENGINEERING QUERIES
+# =============================================================================
+
+engineering_queries:
+
+  supported:
+
+    - locate_file
+
+    - locate_owner
+
+    - locate_subsystem
+
+    - list_protected_files
+
+    - list_reserved_files
+
+    - list_generated_files
+
+    - dependency_lookup
+
+    - impact_lookup
+
+    - lifecycle_lookup
+
+    - version_lookup
+
+    - repository_statistics
+
+# =============================================================================
+# FUTURE REPOSITORY SERVICES
+# =============================================================================
+
+future_services:
+
+  repository_search_engine:
+
+    status: RESERVED
+
+  repository_navigation_engine:
+
+    status: RESERVED
+
+  repository_graph_service:
+
+    status: RESERVED
+
+  repository_change_tracker:
+
+    status: RESERVED
+
+  repository_simulator:
+
+    status: RESERVED
+
+  repository_digital_twin:
+
+    status: RESERVED
+
+# =============================================================================
+# ACCEPTANCE CRITERIA
+# =============================================================================
+
+acceptance:
+
+  required:
+
+    yaml_valid: true
+
+    unique_file_ids: true
+
+    unique_paths: true
+
+    valid_extensions: true
+
+    valid_owners: true
+
+    valid_subsystems: true
+
+    dependency_map_consistent: true
+
+    roadmap_consistent: true
+
+    repository_complete: true
+
+# =============================================================================
+# COMPLETION TRANSITION
+# =============================================================================
+
+completion_transition:
+
+  current_deliverable:
+
+    id: CTRL-007
+
+    status: READY_FOR_ACCEPTANCE
+
+  unlocks:
+
+    next_deliverable:
+
+      id: CTRL-008
+
+      name: CIPS_SESSION_HANDOFF.md
+
+# =============================================================================
+# DOCUMENT STATUS
+# =============================================================================
+
+document_status:
+
+  document:
+
+    CIPS_FILE_MANIFEST.yaml
+
+  official_name:
+
+    Official Repository Inventory
+
+  version:
+
+    2.0.0
+
+  state:
+
+    READY_FOR_REVIEW
+
+  deliverable:
+
+    CTRL-007
+
+  next_deliverable:
+
+    CTRL-008
+
+# =============================================================================
+# END OF DOCUMENT
+# =============================================================================

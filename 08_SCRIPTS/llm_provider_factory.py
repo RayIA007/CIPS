@@ -23,6 +23,7 @@ from typing import Any
 from gemini_llm_provider import GeminiLLMProvider
 from llm_provider import LLMProvider
 from manual_llm_provider import ManualLLMProvider
+from ollama_provider import OllamaLLMProvider
 
 
 ProviderBuilder = Callable[..., LLMProvider]
@@ -46,6 +47,7 @@ class LLMProviderFactory:
     _providers: dict[str, ProviderBuilder] = {
         "manual": ManualLLMProvider,
         "gemini": GeminiLLMProvider,
+        "ollama": OllamaLLMProvider,
     }
 
     @classmethod

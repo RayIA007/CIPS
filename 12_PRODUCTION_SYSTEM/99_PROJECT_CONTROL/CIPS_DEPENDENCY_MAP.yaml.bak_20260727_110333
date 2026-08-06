@@ -1,0 +1,1956 @@
+# =============================================================================
+#
+# CIPS DEPENDENCY MAP
+#
+# Official Dependency Graph
+#
+# =============================================================================
+
+document:
+
+  name: CIPS_DEPENDENCY_MAP.yaml
+
+  official_name: Official Dependency Graph
+
+  version: 2.0.0
+
+  status: ACTIVE
+
+  type: PROJECT_CONTROL
+
+  authority: Production Architecture Board
+
+# =============================================================================
+# PROJECT
+# =============================================================================
+
+project:
+
+  name: ConsejoIA_V5
+
+  codename: CIPS Production Operating System
+
+  target_version: 1.0.0
+
+# =============================================================================
+# PURPOSE
+# =============================================================================
+
+purpose:
+
+  description: >
+    Define the official dependency graph of the entire Production Operating
+    System.
+
+  objectives:
+
+    - Detect dependency violations
+
+    - Prevent circular dependencies
+
+    - Build dependency graph
+
+    - Enable impact analysis
+
+    - Enable automatic validation
+
+    - Support Engineering Intelligence
+
+# =============================================================================
+# DEPENDENCY PRINCIPLES
+# =============================================================================
+
+principles:
+
+  single_source_of_truth: true
+
+  acyclic_graph: true
+
+  explicit_dependencies: true
+
+  dependency_injection_only: true
+
+  interface_first: true
+
+  layered_architecture: true
+
+  no_hidden_dependencies: true
+
+# =============================================================================
+# DEPENDENCY TYPES
+# =============================================================================
+
+dependency_types:
+
+  HARD:
+
+    description: >
+      Mandatory dependency.
+
+  SOFT:
+
+    description: >
+      Optional dependency.
+
+  RUNTIME:
+
+    description: >
+      Runtime dependency.
+
+  DEVELOPMENT:
+
+    description: >
+      Development dependency.
+
+  KNOWLEDGE:
+
+    description: >
+      Engineering Knowledge dependency.
+
+# =============================================================================
+# ROOT NODES
+# =============================================================================
+
+root_nodes:
+
+  constitution:
+
+    description: >
+      Constitutional documents.
+
+  project_control:
+
+    description: >
+      Project Control System.
+
+  developer_tools:
+
+    description: >
+      Internal engineering tools.
+
+  production_os:
+
+    description: >
+      Production Operating System.
+
+# =============================================================================
+# DEPENDENCY LAYERS
+# =============================================================================
+
+layers:
+
+  layer_0:
+
+    name: Constitutional Layer
+
+  layer_1:
+
+    name: Project Control Layer
+
+  layer_2:
+
+    name: Engineering Knowledge Layer
+
+  layer_3:
+
+    name: Developer Tool Layer
+
+  layer_4:
+
+    name: Production Layer
+
+# =============================================================================
+# GRAPH RULES
+# =============================================================================
+
+graph_rules:
+
+  upward_dependencies: forbidden
+
+  circular_dependencies: forbidden
+
+  hidden_dependencies: forbidden
+
+  duplicated_dependencies: forbidden
+
+  interface_skipping: forbidden
+
+# =============================================================================
+# END OF PART I
+# =============================================================================
+# =============================================================================
+# DEPENDENCY MODEL
+# =============================================================================
+
+dependency_model:
+
+  graph_type: DAG
+
+  directed: true
+
+  acyclic: true
+
+  transitive_dependencies: explicit
+
+  dependency_resolution: deterministic
+
+# =============================================================================
+# DEPENDENCY HIERARCHY
+# =============================================================================
+
+hierarchy:
+
+  level_0:
+
+    id: constitution
+
+    description: >
+      Constitutional documents.
+
+    dependencies: []
+
+  level_1:
+
+    id: project_control
+
+    description: >
+      Project Control System.
+
+    dependencies:
+
+      - constitution
+
+  level_2:
+
+    id: engineering_knowledge
+
+    description: >
+      Engineering Knowledge System.
+
+    dependencies:
+
+      - constitution
+
+      - project_control
+
+  level_3:
+
+    id: developer_tools
+
+    description: >
+      Developer Tool Suite.
+
+    dependencies:
+
+      - constitution
+
+      - project_control
+
+      - engineering_knowledge
+
+  level_4:
+
+    id: production_os
+
+    description: >
+      Production Operating System.
+
+    dependencies:
+
+      - constitution
+
+      - project_control
+
+      - engineering_knowledge
+
+      - developer_tools
+
+# =============================================================================
+# PROJECT SUBSYSTEMS
+# =============================================================================
+
+subsystems:
+
+  technical_constitution:
+
+    layer: level_0
+
+    dependency_type: HARD
+
+  project_control:
+
+    layer: level_1
+
+    dependency_type: HARD
+
+  engineering_knowledge:
+
+    layer: level_2
+
+    dependency_type: HARD
+
+  developer_tools:
+
+    layer: level_3
+
+    dependency_type: HARD
+
+  production_os:
+
+    layer: level_4
+
+    dependency_type: HARD
+
+# =============================================================================
+# DEPENDENCY DIRECTION
+# =============================================================================
+
+dependency_direction:
+
+  constitution:
+
+    may_depend_on: []
+
+    may_be_used_by:
+
+      - project_control
+
+      - engineering_knowledge
+
+      - developer_tools
+
+      - production_os
+
+  project_control:
+
+    may_depend_on:
+
+      - constitution
+
+    may_be_used_by:
+
+      - engineering_knowledge
+
+      - developer_tools
+
+      - production_os
+
+  engineering_knowledge:
+
+    may_depend_on:
+
+      - constitution
+
+      - project_control
+
+    may_be_used_by:
+
+      - developer_tools
+
+      - production_os
+
+  developer_tools:
+
+    may_depend_on:
+
+      - constitution
+
+      - project_control
+
+      - engineering_knowledge
+
+    may_be_used_by:
+
+      - production_os
+
+  production_os:
+
+    may_depend_on:
+
+      - constitution
+
+      - project_control
+
+      - engineering_knowledge
+
+      - developer_tools
+
+    may_be_used_by: []
+
+# =============================================================================
+# DEPENDENCY CONSTRAINTS
+# =============================================================================
+
+constraints:
+
+  circular_dependency_detection: true
+
+  duplicate_dependency_detection: true
+
+  orphan_node_detection: true
+
+  unreachable_node_detection: true
+
+  invalid_reference_detection: true
+
+  layer_violation_detection: true
+
+# =============================================================================
+# GRAPH VALIDATION
+# =============================================================================
+
+validation:
+
+  graph_connected: required
+
+  dag_validation: required
+
+  root_nodes_present: required
+
+  layer_integrity: required
+
+  dependency_integrity: required
+
+  topological_sort: required
+
+# =============================================================================
+# DEPENDENCY INHERITANCE
+# =============================================================================
+
+inheritance:
+
+  enabled: true
+
+  explicit_override_required: true
+
+  inherited_constraints:
+
+    - architecture_rules
+
+    - interface_contracts
+
+    - dependency_rules
+
+    - validation_rules
+
+# =============================================================================
+# END OF PART II
+# =============================================================================
+# =============================================================================
+# GRAPH NODES
+# =============================================================================
+
+nodes:
+
+  constitutional_layer:
+
+    id: L0
+
+    name: Constitutional Layer
+
+    type: ROOT
+
+    dependencies: []
+
+    children:
+
+      - architecture
+
+      - architecture_rules
+
+      - technical_specifications
+
+      - implementation_roadmap
+
+  project_control_layer:
+
+    id: L1
+
+    name: Project Control Layer
+
+    type: CONTROL
+
+    dependencies:
+
+      - constitutional_layer
+
+    children:
+
+      - master_roadmap
+
+      - current_state
+
+      - delivery_ledger
+
+      - engineering_knowledge
+
+      - dependency_map
+
+      - file_manifest
+
+      - session_handoff
+
+      - acceptance_matrix
+
+      - checkpoints
+
+  engineering_knowledge_layer:
+
+    id: L2
+
+    name: Engineering Knowledge Layer
+
+    type: KNOWLEDGE
+
+    dependencies:
+
+      - constitutional_layer
+
+      - project_control_layer
+
+    children:
+
+      - knowledge_base
+
+      - engineering_patterns
+
+      - engineering_standards
+
+      - lessons_learned
+
+      - anti_patterns
+
+  developer_tools_layer:
+
+    id: L3
+
+    name: Developer Tool Suite
+
+    type: TOOLING
+
+    dependencies:
+
+      - constitutional_layer
+
+      - project_control_layer
+
+      - engineering_knowledge_layer
+
+    children:
+
+      - bootstrap
+
+      - validators
+
+      - analyzers
+
+      - generators
+
+      - dashboards
+
+      - reporting
+
+      - metrics
+
+      - cli
+
+  production_layer:
+
+    id: L4
+
+    name: Production Operating System
+
+    type: PRODUCT
+
+    dependencies:
+
+      - constitutional_layer
+
+      - project_control_layer
+
+      - engineering_knowledge_layer
+
+      - developer_tools_layer
+
+# =============================================================================
+# NODE TYPES
+# =============================================================================
+
+node_types:
+
+  ROOT:
+
+    description: >
+      Root node of the dependency graph.
+
+  CONTROL:
+
+    description: >
+      Governs project execution.
+
+  KNOWLEDGE:
+
+    description: >
+      Preserves engineering knowledge.
+
+  TOOLING:
+
+    description: >
+      Provides engineering automation.
+
+  PRODUCT:
+
+    description: >
+      Delivers business value.
+
+# =============================================================================
+# EDGE RULES
+# =============================================================================
+
+edges:
+
+  relationship_types:
+
+    - depends_on
+
+    - implements
+
+    - validates
+
+    - references
+
+    - generates
+
+    - consumes
+
+    - extends
+
+    - certifies
+
+  direction:
+
+    parent_to_child: allowed
+
+    child_to_parent: forbidden
+
+    peer_to_peer: explicit_only
+
+# =============================================================================
+# DEPENDENCY RESOLUTION
+# =============================================================================
+
+resolution:
+
+  strategy: topological_sort
+
+  execution_order:
+
+    - constitutional_layer
+
+    - project_control_layer
+
+    - engineering_knowledge_layer
+
+    - developer_tools_layer
+
+    - production_layer
+
+  deterministic: true
+
+# =============================================================================
+# IMPACT ANALYSIS
+# =============================================================================
+
+impact_analysis:
+
+  enabled: true
+
+  analyze:
+
+    - upstream_dependencies
+
+    - downstream_dependencies
+
+    - affected_documents
+
+    - affected_modules
+
+    - affected_deliverables
+
+    - affected_tests
+
+    - affected_validations
+
+# =============================================================================
+# GRAPH INTEGRITY
+# =============================================================================
+
+integrity:
+
+  orphan_nodes: forbidden
+
+  isolated_nodes: forbidden
+
+  duplicated_nodes: forbidden
+
+  circular_paths: forbidden
+
+  broken_edges: forbidden
+
+  invalid_layers: forbidden
+
+# =============================================================================
+# FUTURE GRAPH EXTENSIONS
+# =============================================================================
+
+future_extensions:
+
+  reserved:
+
+    - document_graph
+
+    - knowledge_graph
+
+    - contract_graph
+
+    - interface_graph
+
+    - runtime_graph
+
+    - provider_graph
+
+    - event_graph
+
+    - asset_graph
+
+  status: RESERVED_FOR_FUTURE_RELEASE
+
+# =============================================================================
+# DOCUMENT STATUS
+# =============================================================================
+
+status:
+
+  document: CIPS_DEPENDENCY_MAP.yaml
+
+  version: 2.0.0
+
+  part: III
+
+  deliverable: CTRL-006
+
+  state: IN_PROGRESS
+
+# =============================================================================
+# END OF PART III
+# =============================================================================
+# =============================================================================
+# DELIVERABLE DEPENDENCY GRAPH
+# =============================================================================
+
+deliverables:
+
+  CTRL-001:
+    name: Create Project Control Structure
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: ACCEPTED
+    dependencies: []
+    unlocks:
+      - CTRL-002
+      - CTRL-003
+      - CTRL-004
+      - CTRL-005
+      - CTRL-006
+      - CTRL-007
+      - CTRL-008
+      - CTRL-009
+      - CTRL-010
+      - CTRL-011
+      - CTRL-012
+      - CTRL-013
+      - CTRL-014
+      - CTRL-015
+
+  CTRL-002:
+    name: CIPS_MASTER_ROADMAP.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: ACCEPTED
+    dependencies:
+      - CTRL-001
+    unlocks:
+      - CTRL-003
+
+  CTRL-003:
+    name: CIPS_CURRENT_STATE.yaml
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: ACCEPTED
+    dependencies:
+      - CTRL-001
+      - CTRL-002
+    unlocks:
+      - CTRL-004
+
+  CTRL-004:
+    name: CIPS_DELIVERY_LEDGER.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: ACCEPTED
+    dependencies:
+      - CTRL-001
+      - CTRL-002
+      - CTRL-003
+    unlocks:
+      - CTRL-005
+
+  CTRL-005:
+    name: CIPS_DECISION_LOG.md
+    official_name: Engineering Knowledge Base
+    phase: PHASE-0
+    category: ENGINEERING_KNOWLEDGE
+    status: ACCEPTED
+    dependencies:
+      - CTRL-001
+      - CTRL-002
+      - CTRL-003
+      - CTRL-004
+    unlocks:
+      - CTRL-006
+
+  CTRL-006:
+    name: CIPS_DEPENDENCY_MAP.yaml
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: IN_PROGRESS
+    dependencies:
+      - CTRL-001
+      - CTRL-002
+      - CTRL-003
+      - CTRL-004
+      - CTRL-005
+    unlocks:
+      - CTRL-007
+
+  CTRL-007:
+    name: CIPS_FILE_MANIFEST.yaml
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-006
+    unlocks:
+      - CTRL-008
+
+  CTRL-008:
+    name: CIPS_SESSION_HANDOFF.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-007
+    unlocks:
+      - CTRL-009
+
+  CTRL-009:
+    name: CIPS_ACCEPTANCE_MATRIX.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-008
+    unlocks:
+      - CTRL-010
+
+  CTRL-010:
+    name: CIPS_CHANGE_CONTROL.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-009
+    unlocks:
+      - CTRL-011
+
+  CTRL-011:
+    name: CIPS_BASELINE_MANIFEST.yaml
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-010
+    unlocks:
+      - CTRL-012
+
+  CTRL-012:
+    name: CIPS_PROTECTED_FILES.yaml
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-011
+    unlocks:
+      - CTRL-013
+
+  CTRL-013:
+    name: CIPS_RISK_REGISTER.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-012
+    unlocks:
+      - CTRL-014
+
+  CTRL-014:
+    name: CIPS_CHECKPOINTS.md
+    phase: PHASE-0
+    category: PROJECT_CONTROL
+    status: PENDING
+    dependencies:
+      - CTRL-013
+    unlocks:
+      - CTRL-015
+
+  CTRL-015:
+    name: validate_project_control.py
+    phase: PHASE-0
+    category: DEVELOPER_TOOL
+    status: PENDING
+    dependencies:
+      - CTRL-006
+      - CTRL-007
+      - CTRL-008
+      - CTRL-009
+      - CTRL-010
+      - CTRL-011
+      - CTRL-012
+      - CTRL-013
+      - CTRL-014
+    unlocks:
+      - AUD-001
+
+# =============================================================================
+# PHASE DEPENDENCY GRAPH
+# =============================================================================
+
+phases:
+
+  PHASE-0:
+    name: Development Control Bootstrap
+    status: IN_PROGRESS
+    dependencies: []
+    required_deliverables:
+      - CTRL-001
+      - CTRL-002
+      - CTRL-003
+      - CTRL-004
+      - CTRL-005
+      - CTRL-006
+      - CTRL-007
+      - CTRL-008
+      - CTRL-009
+      - CTRL-010
+      - CTRL-011
+      - CTRL-012
+      - CTRL-013
+      - CTRL-014
+      - CTRL-015
+    unlocks:
+      - PHASE-1
+
+  PHASE-1:
+    name: Repository Baseline and Compatibility Audit
+    status: PENDING
+    dependencies:
+      - PHASE-0
+    required_deliverables:
+      - AUD-001
+      - AUD-002
+      - AUD-003
+      - AUD-004
+      - AUD-005
+      - AUD-006
+      - AUD-007
+      - AUD-008
+      - AUD-009
+      - AUD-010
+      - AUD-011
+      - AUD-012
+    unlocks:
+      - PHASE-2
+
+  PHASE-2:
+    name: Core Foundations
+    status: PENDING
+    dependencies:
+      - PHASE-1
+    required_deliverables:
+      - CORE-001
+      - CORE-002
+      - CORE-003
+      - CORE-004
+      - CORE-005
+      - CORE-006
+      - CORE-007
+      - CORE-008
+      - CORE-009
+      - CORE-010
+      - CORE-011
+      - CORE-012
+      - CORE-013
+      - CORE-014
+      - CORE-015
+    unlocks:
+      - PHASE-3
+      - PHASE-4
+
+# =============================================================================
+# DEVELOPER TOOL DEPENDENCIES
+# =============================================================================
+
+developer_tools:
+
+  dependency_engine:
+    status: RESERVED
+    target_phase: PHASE-1
+    components:
+      - graph_builder
+      - graph_validator
+      - cycle_detector
+      - impact_analyzer
+      - topological_sort_engine
+      - dependency_visualizer
+      - change_propagation_analyzer
+      - build_order_generator
+      - graph_exporter
+    consumes:
+      - CIPS_DEPENDENCY_MAP.yaml
+      - CIPS_FILE_MANIFEST.yaml
+      - CIPS_DELIVERY_LEDGER.md
+      - CIPS_DECISION_LOG.md
+    produces:
+      - dependency_validation_report
+      - impact_analysis_report
+      - topological_build_order
+      - dependency_graph_export
+
+  meta_dependency_graph:
+    status: FUTURE_PROPOSAL
+    target_version: POST_1_0
+    requires:
+      - dependency_engine
+      - knowledge_engine
+      - file_manifest
+      - contract_registry
+      - interface_registry
+      - event_registry
+      - provider_registry
+    graph_domains:
+      - system
+      - document
+      - knowledge
+      - deliverable
+      - module
+      - contract
+      - interface
+      - event
+      - runtime
+      - provider
+      - asset
+
+# =============================================================================
+# VALIDATION RULES
+# =============================================================================
+
+dependency_validation_rules:
+
+  identifiers:
+    unique: true
+    non_empty: true
+    pattern_validation: true
+
+  references:
+    must_exist: true
+    self_reference_forbidden: true
+
+  graph:
+    cycles_forbidden: true
+    disconnected_deliverables_forbidden: true
+    orphan_deliverables_forbidden: true
+    topological_sort_required: true
+
+  roadmap:
+    deliverables_must_exist_in_roadmap: true
+    phases_must_exist_in_roadmap: true
+    execution_order_must_match_roadmap: true
+
+  status:
+    valid_values:
+      - PENDING
+      - READY
+      - IN_PROGRESS
+      - BLOCKED
+      - IMPLEMENTED
+      - TESTED
+      - ACCEPTED
+      - REJECTED
+      - SUPERSEDED
+      - DEPRECATED
+
+  acceptance:
+    accepted_dependencies_required_before_start: true
+    next_deliverable_must_be_unlocked: true
+
+# =============================================================================
+# CURRENT GRAPH STATE
+# =============================================================================
+
+current_graph_state:
+
+  current_phase: PHASE-0
+  current_deliverable: CTRL-006
+  last_accepted_deliverable: CTRL-005
+  next_deliverable: CTRL-007
+
+  completed_deliverables:
+    - CTRL-001
+    - CTRL-002
+    - CTRL-003
+    - CTRL-004
+    - CTRL-005
+
+  active_deliverables:
+    - CTRL-006
+
+  blocked_deliverables: []
+
+  dependency_integrity: PENDING_VALIDATION
+  cycle_status: PENDING_VALIDATION
+  topological_sort_status: PENDING_VALIDATION
+
+# =============================================================================
+# DOCUMENT STATUS
+# =============================================================================
+
+document_status:
+
+  document: CIPS_DEPENDENCY_MAP.yaml
+  version: 2.0.0
+  part: IV
+  deliverable: CTRL-006
+  state: IN_PROGRESS
+
+# =============================================================================
+# END OF PART IV
+# =============================================================================
+# =============================================================================
+# REMAINING PHASE DEPENDENCY GRAPH
+# =============================================================================
+
+remaining_phases:
+
+  PHASE-3:
+    name: Contracts and Base Models
+    status: PENDING
+    dependencies:
+      - PHASE-2
+    required_deliverables:
+      - CONTRACT-001
+      - CONTRACT-002
+      - CONTRACT-003
+      - CONTRACT-004
+      - CONTRACT-005
+      - CONTRACT-006
+      - CONTRACT-007
+      - CONTRACT-008
+      - CONTRACT-009
+      - CONTRACT-010
+      - CONTRACT-011
+      - CONTRACT-012
+      - CONTRACT-013
+      - CONTRACT-014
+      - CONTRACT-015
+    unlocks:
+      - PHASE-4
+
+  PHASE-4:
+    name: Interfaces and Error System
+    status: PENDING
+    dependencies:
+      - PHASE-2
+      - PHASE-3
+    required_deliverables:
+      - INTERFACE-001
+      - INTERFACE-002
+      - INTERFACE-003
+      - INTERFACE-004
+      - INTERFACE-005
+      - INTERFACE-006
+      - INTERFACE-007
+      - INTERFACE-008
+      - INTERFACE-009
+      - INTERFACE-010
+      - INTERFACE-011
+      - INTERFACE-012
+    unlocks:
+      - PHASE-5
+
+  PHASE-5:
+    name: Registry and Dependency Injection
+    status: PENDING
+    dependencies:
+      - PHASE-4
+    required_deliverables:
+      - REGISTRY-001
+      - REGISTRY-002
+      - REGISTRY-003
+      - REGISTRY-004
+      - REGISTRY-005
+      - REGISTRY-006
+      - REGISTRY-007
+      - REGISTRY-008
+      - REGISTRY-009
+      - REGISTRY-010
+    unlocks:
+      - PHASE-6
+
+  PHASE-6:
+    name: Configuration Policies and Capability Resolution
+    status: PENDING
+    dependencies:
+      - PHASE-5
+    required_deliverables:
+      - CONFIG-001
+      - CONFIG-002
+      - CONFIG-003
+      - CONFIG-004
+      - CONFIG-005
+      - CONFIG-006
+      - CONFIG-007
+      - CONFIG-008
+      - CONFIG-009
+      - CONFIG-010
+    unlocks:
+      - PHASE-7
+
+  PHASE-7:
+    name: Event Bus and Local Persistence
+    status: PENDING
+    dependencies:
+      - PHASE-6
+    required_deliverables:
+      - EVENT-001
+      - EVENT-002
+      - EVENT-003
+      - EVENT-004
+      - EVENT-005
+      - EVENT-006
+      - EVENT-007
+      - EVENT-008
+      - EVENT-009
+      - EVENT-010
+    unlocks:
+      - PHASE-8
+
+  PHASE-8:
+    name: Runtime Foundation
+    status: PENDING
+    dependencies:
+      - PHASE-7
+    required_deliverables:
+      - RUNTIME-001
+      - RUNTIME-002
+      - RUNTIME-003
+      - RUNTIME-004
+      - RUNTIME-005
+      - RUNTIME-006
+      - RUNTIME-007
+      - RUNTIME-008
+      - RUNTIME-009
+      - RUNTIME-010
+    unlocks:
+      - PHASE-9
+
+  PHASE-9:
+    name: Asset Management System
+    status: PENDING
+    dependencies:
+      - PHASE-8
+    required_deliverables:
+      - ASSET-001
+      - ASSET-002
+      - ASSET-003
+      - ASSET-004
+      - ASSET-005
+      - ASSET-006
+      - ASSET-007
+      - ASSET-008
+      - ASSET-009
+      - ASSET-010
+    unlocks:
+      - PHASE-10
+
+  PHASE-10:
+    name: Editorial Integration Adapter
+    status: PENDING
+    dependencies:
+      - PHASE-9
+    required_deliverables:
+      - EDITOR-001
+      - EDITOR-002
+      - EDITOR-003
+      - EDITOR-004
+      - EDITOR-005
+      - EDITOR-006
+    unlocks:
+      - PHASE-11
+
+  PHASE-11:
+    name: Voice and Audio MVP
+    status: PENDING
+    dependencies:
+      - PHASE-10
+    required_deliverables:
+      - VOICE-001
+      - VOICE-002
+      - VOICE-003
+      - VOICE-004
+      - VOICE-005
+      - VOICE-006
+      - VOICE-007
+      - VOICE-008
+      - VOICE-009
+      - VOICE-010
+    unlocks:
+      - PHASE-12
+
+  PHASE-12:
+    name: Subtitle and Caption MVP
+    status: PENDING
+    dependencies:
+      - PHASE-11
+    required_deliverables:
+      - SUBTITLE-001
+      - SUBTITLE-002
+      - SUBTITLE-003
+      - SUBTITLE-004
+      - SUBTITLE-005
+      - SUBTITLE-006
+      - SUBTITLE-007
+      - SUBTITLE-008
+      - SUBTITLE-009
+      - SUBTITLE-010
+    unlocks:
+      - PHASE-13
+
+  PHASE-13:
+    name: Media and Visual Asset MVP
+    status: PENDING
+    dependencies:
+      - PHASE-12
+    required_deliverables:
+      - MEDIA-001
+      - MEDIA-002
+      - MEDIA-003
+      - MEDIA-004
+      - MEDIA-005
+      - MEDIA-006
+      - MEDIA-007
+      - MEDIA-008
+      - MEDIA-009
+      - MEDIA-010
+      - MEDIA-011
+      - MEDIA-012
+    unlocks:
+      - PHASE-14
+
+  PHASE-14:
+    name: Motion and Visual Dynamics MVP
+    status: PENDING
+    dependencies:
+      - PHASE-13
+    required_deliverables:
+      - MOTION-001
+      - MOTION-002
+      - MOTION-003
+      - MOTION-004
+      - MOTION-005
+      - MOTION-006
+      - MOTION-007
+      - MOTION-008
+      - MOTION-009
+      - MOTION-010
+      - MOTION-011
+    unlocks:
+      - PHASE-15
+
+  PHASE-15:
+    name: Render and Composition MVP
+    status: PENDING
+    dependencies:
+      - PHASE-14
+    required_deliverables:
+      - RENDER-001
+      - RENDER-002
+      - RENDER-003
+      - RENDER-004
+      - RENDER-005
+      - RENDER-006
+      - RENDER-007
+      - RENDER-008
+      - RENDER-009
+      - RENDER-010
+    unlocks:
+      - PHASE-16
+
+  PHASE-16:
+    name: End-to-End Production Pipeline
+    status: PENDING
+    dependencies:
+      - PHASE-15
+    required_deliverables:
+      - PIPELINE-001
+      - PIPELINE-002
+      - PIPELINE-003
+      - PIPELINE-004
+      - PIPELINE-005
+      - PIPELINE-006
+      - PIPELINE-007
+      - PIPELINE-008
+    unlocks:
+      - PHASE-17
+
+  PHASE-17:
+    name: Validation Repair and Quality Assurance
+    status: PENDING
+    dependencies:
+      - PHASE-16
+    required_deliverables:
+      - VALIDATION-001
+      - VALIDATION-002
+      - VALIDATION-003
+      - VALIDATION-004
+      - VALIDATION-005
+      - VALIDATION-006
+      - VALIDATION-007
+      - VALIDATION-008
+      - VALIDATION-009
+      - VALIDATION-010
+    unlocks:
+      - PHASE-18
+
+  PHASE-18:
+    name: User Configuration and Production Profiles
+    status: PENDING
+    dependencies:
+      - PHASE-17
+    required_deliverables:
+      - PROFILE-001
+      - PROFILE-002
+      - PROFILE-003
+      - PROFILE-004
+      - PROFILE-005
+      - PROFILE-006
+      - PROFILE-007
+      - PROFILE-008
+      - PROFILE-009
+      - PROFILE-010
+    unlocks:
+      - PHASE-19
+
+  PHASE-19:
+    name: Production Intelligence Foundation
+    status: PENDING
+    dependencies:
+      - PHASE-18
+    required_deliverables:
+      - PIS-001
+      - PIS-002
+      - PIS-003
+      - PIS-004
+      - PIS-005
+      - PIS-006
+      - PIS-007
+      - PIS-008
+      - PIS-009
+      - PIS-010
+    unlocks:
+      - PHASE-20
+
+  PHASE-20:
+    name: Publication Analytics and Learning
+    status: PENDING
+    dependencies:
+      - PHASE-19
+    required_deliverables:
+      - PUBLICATION-001
+      - PUBLICATION-002
+      - PUBLICATION-003
+      - PUBLICATION-004
+      - PUBLICATION-005
+      - PUBLICATION-006
+      - PUBLICATION-007
+      - PUBLICATION-008
+      - PUBLICATION-009
+      - PUBLICATION-010
+    unlocks:
+      - PHASE-21
+
+  PHASE-21:
+    name: Governance and Constitutional Enforcement
+    status: PENDING
+    dependencies:
+      - PHASE-20
+    required_deliverables:
+      - GOV-001
+      - GOV-002
+      - GOV-003
+      - GOV-004
+      - GOV-005
+      - GOV-006
+      - GOV-007
+      - GOV-008
+      - GOV-009
+      - GOV-010
+    unlocks:
+      - PHASE-22
+
+  PHASE-22:
+    name: Provider SDK Plugin SDK and Extensibility
+    status: PENDING
+    dependencies:
+      - PHASE-21
+    required_deliverables:
+      - SDK-001
+      - SDK-002
+      - SDK-003
+      - SDK-004
+      - SDK-005
+      - SDK-006
+      - SDK-007
+      - SDK-008
+      - SDK-009
+      - SDK-010
+    unlocks:
+      - PHASE-23
+
+  PHASE-23:
+    name: Certification Stabilization and System Integration
+    status: PENDING
+    dependencies:
+      - PHASE-22
+    required_deliverables:
+      - CERT-001
+      - CERT-002
+      - CERT-003
+      - CERT-004
+      - CERT-005
+      - CERT-006
+      - CERT-007
+      - CERT-008
+      - CERT-009
+      - CERT-010
+    unlocks:
+      - PHASE-24
+
+  PHASE-24:
+    name: Production Release
+    status: PENDING
+    dependencies:
+      - PHASE-23
+    required_deliverables:
+      - RELEASE-001
+      - RELEASE-002
+      - RELEASE-003
+      - RELEASE-004
+      - RELEASE-005
+      - RELEASE-006
+      - RELEASE-007
+      - RELEASE-008
+      - RELEASE-009
+      - RELEASE-010
+    unlocks:
+      - RELEASE-1.0.0
+
+# =============================================================================
+# PHASE EXECUTION ORDER
+# =============================================================================
+
+phase_execution_order:
+
+  strategy: STRICT_TOPOLOGICAL
+
+  ordered_phases:
+    - PHASE-0
+    - PHASE-1
+    - PHASE-2
+    - PHASE-3
+    - PHASE-4
+    - PHASE-5
+    - PHASE-6
+    - PHASE-7
+    - PHASE-8
+    - PHASE-9
+    - PHASE-10
+    - PHASE-11
+    - PHASE-12
+    - PHASE-13
+    - PHASE-14
+    - PHASE-15
+    - PHASE-16
+    - PHASE-17
+    - PHASE-18
+    - PHASE-19
+    - PHASE-20
+    - PHASE-21
+    - PHASE-22
+    - PHASE-23
+    - PHASE-24
+
+  parallel_execution:
+    default_allowed: false
+    explicit_authorization_required: true
+
+  phase_skipping:
+    allowed: false
+
+# =============================================================================
+# CROSS-PHASE DEPENDENCIES
+# =============================================================================
+
+cross_phase_dependencies:
+
+  contracts_before_interfaces:
+    source: PHASE-3
+    target: PHASE-4
+    dependency_type: HARD
+
+  interfaces_before_registry:
+    source: PHASE-4
+    target: PHASE-5
+    dependency_type: HARD
+
+  registry_before_configuration:
+    source: PHASE-5
+    target: PHASE-6
+    dependency_type: HARD
+
+  configuration_before_event_bus:
+    source: PHASE-6
+    target: PHASE-7
+    dependency_type: HARD
+
+  event_bus_before_runtime:
+    source: PHASE-7
+    target: PHASE-8
+    dependency_type: HARD
+
+  runtime_before_assets:
+    source: PHASE-8
+    target: PHASE-9
+    dependency_type: HARD
+
+  assets_before_editorial_adapter:
+    source: PHASE-9
+    target: PHASE-10
+    dependency_type: HARD
+
+  editorial_adapter_before_multimedia:
+    source: PHASE-10
+    targets:
+      - PHASE-11
+      - PHASE-12
+      - PHASE-13
+      - PHASE-14
+      - PHASE-15
+    dependency_type: HARD
+
+  multimedia_before_pipeline:
+    sources:
+      - PHASE-11
+      - PHASE-12
+      - PHASE-13
+      - PHASE-14
+      - PHASE-15
+    target: PHASE-16
+    dependency_type: HARD
+
+  pipeline_before_quality:
+    source: PHASE-16
+    target: PHASE-17
+    dependency_type: HARD
+
+  quality_before_profiles:
+    source: PHASE-17
+    target: PHASE-18
+    dependency_type: HARD
+
+  profiles_before_intelligence:
+    source: PHASE-18
+    target: PHASE-19
+    dependency_type: HARD
+
+  intelligence_before_publication:
+    source: PHASE-19
+    target: PHASE-20
+    dependency_type: HARD
+
+  publication_before_governance:
+    source: PHASE-20
+    target: PHASE-21
+    dependency_type: HARD
+
+  governance_before_sdk:
+    source: PHASE-21
+    target: PHASE-22
+    dependency_type: HARD
+
+  sdk_before_certification:
+    source: PHASE-22
+    target: PHASE-23
+    dependency_type: HARD
+
+  certification_before_release:
+    source: PHASE-23
+    target: PHASE-24
+    dependency_type: HARD
+
+# =============================================================================
+# ARCHITECTURAL DEPENDENCY BOUNDARIES
+# =============================================================================
+
+architectural_boundaries:
+
+  production_os:
+
+    may_import_from:
+      - core
+      - contracts
+      - interfaces
+      - registry
+      - configuration
+      - event_bus
+      - runtime
+      - asset_management
+
+    may_not_import_from:
+      - project_control_documents
+      - developer_tool_implementations
+      - test_fixtures
+      - temporary_scripts
+
+  developer_tools:
+
+    may_read:
+      - constitutional_documents
+      - project_control_documents
+      - engineering_knowledge
+      - source_code
+      - tests
+      - configuration
+
+    may_modify:
+      - derived_reports
+      - generated_artifacts
+      - approved_project_control_updates
+
+    may_not_modify_without_authorization:
+      - constitutional_documents
+      - protected_legacy_files
+      - accepted_contracts
+      - accepted_interfaces
+
+  project_control:
+
+    may_reference:
+      - all_project_entities
+
+    may_execute_business_logic: false
+
+  engineering_knowledge:
+
+    may_reference:
+      - architecture
+      - specifications
+      - roadmap
+      - deliverables
+      - modules
+      - tests
+      - incidents
+      - risks
+
+    may_execute_business_logic: false
+
+# =============================================================================
+# CHANGE IMPACT PROPAGATION
+# =============================================================================
+
+change_impact_propagation:
+
+  constitutional_change:
+    severity: CRITICAL
+    requires:
+      - architecture_review
+      - approved_change_request
+      - new_document_version
+      - dependency_graph_revalidation
+      - roadmap_impact_analysis
+      - full_regression_review
+
+  contract_change:
+    severity: HIGH
+    requires:
+      - consumer_discovery
+      - compatibility_analysis
+      - interface_review
+      - contract_tests
+      - dependent_module_revalidation
+
+  interface_change:
+    severity: HIGH
+    requires:
+      - implementation_discovery
+      - provider_compatibility_review
+      - integration_tests
+      - dependent_module_revalidation
+
+  configuration_change:
+    severity: MEDIUM
+    requires:
+      - schema_validation
+      - profile_resolution_tests
+      - policy_validation
+
+  implementation_change:
+    severity: VARIABLE
+    requires:
+      - affected_test_discovery
+      - dependency_impact_analysis
+      - targeted_regression_tests
+
+# =============================================================================
+# GRAPH AUTOMATION TARGETS
+# =============================================================================
+
+graph_automation_targets:
+
+  phase_0:
+    capabilities:
+      - yaml_validation
+      - unique_identifier_validation
+      - missing_reference_detection
+      - cycle_detection
+      - topological_sort
+
+  phase_1:
+    capabilities:
+      - repository_graph_generation
+      - module_import_analysis
+      - file_dependency_analysis
+      - protected_file_impact_analysis
+
+  phase_2:
+    capabilities:
+      - typed_graph_models
+      - dependency_contracts
+      - graph_result_models
+
+  future:
+    capabilities:
+      - contract_graph
+      - interface_graph
+      - event_graph
+      - provider_graph
+      - asset_graph
+      - knowledge_graph
+      - meta_dependency_graph
+
+# =============================================================================
+# ACCEPTANCE GATE
+# =============================================================================
+
+acceptance_gate:
+
+  deliverable_id: CTRL-006
+
+  required_checks:
+    - yaml_syntax_valid
+    - no_duplicate_top_level_keys
+    - all_deliverable_ids_unique
+    - all_phase_ids_unique
+    - all_references_resolve
+    - no_self_dependencies
+    - no_cycles
+    - topological_sort_succeeds
+    - current_state_matches_dependency_map
+    - roadmap_order_matches_graph
+    - accepted_deliverables_have_accepted_dependencies
+    - pending_deliverables_do_not_unlock_active_work
+    - future_proposals_are_marked_non_active
+
+  expected_result:
+    status: PASS
+    errors: 0
+    critical_warnings: 0
+
+  current_status: READY_FOR_REVIEW
+
+# =============================================================================
+# COMPLETION TRANSITION
+# =============================================================================
+
+completion_transition:
+
+  when_ctrl_006_is_accepted:
+
+    mark_deliverable:
+      id: CTRL-006
+      status: ACCEPTED
+
+    unlock_deliverable:
+      id: CTRL-007
+      name: CIPS_FILE_MANIFEST.yaml
+      status: READY
+
+    current_graph_state:
+      current_deliverable: CTRL-007
+      last_accepted_deliverable: CTRL-006
+      next_deliverable: CTRL-008
+      dependency_integrity: VALID
+      cycle_status: ACYCLIC
+      topological_sort_status: VALID
+
+# =============================================================================
+# DOCUMENT COMPLETION
+# =============================================================================
+
+document_completion:
+
+  document: CIPS_DEPENDENCY_MAP.yaml
+  version: 2.0.0
+
+  parts_completed:
+    - PART_I
+    - PART_II
+    - PART_III
+    - PART_IV
+    - PART_V
+
+  document_complete: true
+  review_required: true
+  validation_required: true
+  acceptance_required: true
+
+  deliverable:
+    id: CTRL-006
+    status: READY_FOR_ACCEPTANCE
+
+  next_deliverable:
+    id: CTRL-007
+    name: CIPS_FILE_MANIFEST.yaml
+
+# =============================================================================
+# END OF DOCUMENT
+# =============================================================================

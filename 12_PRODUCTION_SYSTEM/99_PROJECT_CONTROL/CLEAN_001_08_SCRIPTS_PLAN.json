@@ -1,0 +1,1979 @@
+{
+    "document": {
+        "name": "CLEAN_001_08_SCRIPTS_PLAN.json",
+        "version": "1.0.0",
+        "deliverable": "CLEAN-001",
+        "status": "PLANNED",
+        "generated_at": "2026-07-28T03:14:05.836191+00:00"
+    },
+    "root": "C:\\ConsejoIA_V5\\08_SCRIPTS",
+    "records": [
+        {
+            "name": "05_OUTPUTS",
+            "relative_path": "08_SCRIPTS\\05_OUTPUTS",
+            "item_type": "DIRECTORY",
+            "size_bytes": 1450,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "__init__.py",
+            "relative_path": "08_SCRIPTS\\__init__.py",
+            "item_type": "FILE",
+            "size_bytes": 240,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "__pycache__",
+            "relative_path": "08_SCRIPTS\\__pycache__",
+            "item_type": "DIRECTORY",
+            "size_bytes": 1904458,
+            "category": "CACHE",
+            "proposed_action": "DELETE_CANDIDATE",
+            "reason": "Generated cache directory."
+        },
+        {
+            "name": "apply_aud001_repository_auditor.py",
+            "relative_path": "08_SCRIPTS\\apply_aud001_repository_auditor.py",
+            "item_type": "FILE",
+            "size_bytes": 3579,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_aud002_directory_tree.py",
+            "relative_path": "08_SCRIPTS\\apply_aud002_directory_tree.py",
+            "item_type": "FILE",
+            "size_bytes": 3683,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ctrl016_finalization_compatibility_fix.py",
+            "relative_path": "08_SCRIPTS\\apply_ctrl016_finalization_compatibility_fix.py",
+            "item_type": "FILE",
+            "size_bytes": 10174,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ctrl016_part8_end_of_graph_patch.py",
+            "relative_path": "08_SCRIPTS\\apply_ctrl016_part8_end_of_graph_patch.py",
+            "item_type": "FILE",
+            "size_bytes": 15868,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ctrl018_part1_result_architecture.py",
+            "relative_path": "08_SCRIPTS\\apply_ctrl018_part1_result_architecture.py",
+            "item_type": "FILE",
+            "size_bytes": 26098,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ctrl018_part2_stage_result_refactor.py",
+            "relative_path": "08_SCRIPTS\\apply_ctrl018_part2_stage_result_refactor.py",
+            "item_type": "FILE",
+            "size_bytes": 813,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ctrl018_validator_consistency_refactor.py",
+            "relative_path": "08_SCRIPTS\\apply_ctrl018_validator_consistency_refactor.py",
+            "item_type": "FILE",
+            "size_bytes": 38419,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_dependency_map_ctrl016_patch.py",
+            "relative_path": "08_SCRIPTS\\apply_dependency_map_ctrl016_patch.py",
+            "item_type": "FILE",
+            "size_bytes": 10337,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ras_fix001_windows_runtime.py",
+            "relative_path": "08_SCRIPTS\\apply_ras_fix001_windows_runtime.py",
+            "item_type": "FILE",
+            "size_bytes": 9502,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ras_fix001_windows_runtime_v2.py",
+            "relative_path": "08_SCRIPTS\\apply_ras_fix001_windows_runtime_v2.py",
+            "item_type": "FILE",
+            "size_bytes": 10187,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ras_fix001_windows_runtime_v3.py",
+            "relative_path": "08_SCRIPTS\\apply_ras_fix001_windows_runtime_v3.py",
+            "item_type": "FILE",
+            "size_bytes": 9832,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ras_fix001_windows_runtime_v4.py",
+            "relative_path": "08_SCRIPTS\\apply_ras_fix001_windows_runtime_v4.py",
+            "item_type": "FILE",
+            "size_bytes": 10501,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_ras_windows_path_runtime_fix.py",
+            "relative_path": "08_SCRIPTS\\apply_ras_windows_path_runtime_fix.py",
+            "item_type": "FILE",
+            "size_bytes": 1047,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_sync_project_control_fix.py",
+            "relative_path": "08_SCRIPTS\\apply_sync_project_control_fix.py",
+            "item_type": "FILE",
+            "size_bytes": 3615,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_sync_project_control_part4_patch.py",
+            "relative_path": "08_SCRIPTS\\apply_sync_project_control_part4_patch.py",
+            "item_type": "FILE",
+            "size_bytes": 16716,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_sync_project_control_part5_patch.py",
+            "relative_path": "08_SCRIPTS\\apply_sync_project_control_part5_patch.py",
+            "item_type": "FILE",
+            "size_bytes": 20747,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_sync_project_control_part6_patch.py",
+            "relative_path": "08_SCRIPTS\\apply_sync_project_control_part6_patch.py",
+            "item_type": "FILE",
+            "size_bytes": 20575,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_sync_project_control_part7_patch.py",
+            "relative_path": "08_SCRIPTS\\apply_sync_project_control_part7_patch.py",
+            "item_type": "FILE",
+            "size_bytes": 27596,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_validate_project_control_fix.py",
+            "relative_path": "08_SCRIPTS\\apply_validate_project_control_fix.py",
+            "item_type": "FILE",
+            "size_bytes": 3294,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_validator_terminal_final_fix.py",
+            "relative_path": "08_SCRIPTS\\apply_validator_terminal_final_fix.py",
+            "item_type": "FILE",
+            "size_bytes": 3264,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "apply_validator_terminal_previous_order_fix.py",
+            "relative_path": "08_SCRIPTS\\apply_validator_terminal_previous_order_fix.py",
+            "item_type": "FILE",
+            "size_bytes": 4585,
+            "category": "ENGINEERING",
+            "proposed_action": "ARCHIVE",
+            "reason": "One-shot patch, repair or engineering utility."
+        },
+        {
+            "name": "ARQUITECTURA.md",
+            "relative_path": "08_SCRIPTS\\ARQUITECTURA.md",
+            "item_type": "FILE",
+            "size_bytes": 354,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "audit_constants.py",
+            "relative_path": "08_SCRIPTS\\audit_constants.py",
+            "item_type": "FILE",
+            "size_bytes": 2897,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "audit_engine.py",
+            "relative_path": "08_SCRIPTS\\audit_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 4241,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "audit_exceptions.py",
+            "relative_path": "08_SCRIPTS\\audit_exceptions.py",
+            "item_type": "FILE",
+            "size_bytes": 9081,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "audit_models.py",
+            "relative_path": "08_SCRIPTS\\audit_models.py",
+            "item_type": "FILE",
+            "size_bytes": 5120,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "baseline_acceptance.py",
+            "relative_path": "08_SCRIPTS\\baseline_acceptance.py",
+            "item_type": "FILE",
+            "size_bytes": 7673,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "baseline_acceptance_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\baseline_acceptance_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 4110,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "baseline_acceptance_writer.py",
+            "relative_path": "08_SCRIPTS\\baseline_acceptance_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2480,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "CHANGELOG.md",
+            "relative_path": "08_SCRIPTS\\CHANGELOG.md",
+            "item_type": "FILE",
+            "size_bytes": 306,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "CHANGELOG_SPRINT2B.md",
+            "relative_path": "08_SCRIPTS\\CHANGELOG_SPRINT2B.md",
+            "item_type": "FILE",
+            "size_bytes": 798,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "CHANGELOG_SPRINT2C.md",
+            "relative_path": "08_SCRIPTS\\CHANGELOG_SPRINT2C.md",
+            "item_type": "FILE",
+            "size_bytes": 671,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "CHANGELOG_SPRINT3.md",
+            "relative_path": "08_SCRIPTS\\CHANGELOG_SPRINT3.md",
+            "item_type": "FILE",
+            "size_bytes": 350,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "CHANGELOG_SPRINT4A.md",
+            "relative_path": "08_SCRIPTS\\CHANGELOG_SPRINT4A.md",
+            "item_type": "FILE",
+            "size_bytes": 414,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "CHANGELOG_SPRINT4B1.md",
+            "relative_path": "08_SCRIPTS\\CHANGELOG_SPRINT4B1.md",
+            "item_type": "FILE",
+            "size_bytes": 314,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "checksum_engine.py",
+            "relative_path": "08_SCRIPTS\\checksum_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 2442,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "cips_core",
+            "relative_path": "08_SCRIPTS\\cips_core",
+            "item_type": "DIRECTORY",
+            "size_bytes": 140574,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "close_ctrl016_after_ctrl018.py",
+            "relative_path": "08_SCRIPTS\\close_ctrl016_after_ctrl018.py",
+            "item_type": "FILE",
+            "size_bytes": 7294,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "compatibility_assessment.py",
+            "relative_path": "08_SCRIPTS\\compatibility_assessment.py",
+            "item_type": "FILE",
+            "size_bytes": 7833,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "compatibility_report_writer.py",
+            "relative_path": "08_SCRIPTS\\compatibility_report_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2742,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "compatibility_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\compatibility_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 5310,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "config.py",
+            "relative_path": "08_SCRIPTS\\config.py",
+            "item_type": "FILE",
+            "size_bytes": 922,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "configuration_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\configuration_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2775,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "configuration_scanner.py",
+            "relative_path": "08_SCRIPTS\\configuration_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 11299,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "configuration_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "relative_path": "08_SCRIPTS\\configuration_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "item_type": "FILE",
+            "size_bytes": 9259,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "configuration_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "relative_path": "08_SCRIPTS\\configuration_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "item_type": "FILE",
+            "size_bytes": 9259,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "configuration_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "relative_path": "08_SCRIPTS\\configuration_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "item_type": "FILE",
+            "size_bytes": 9259,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "configuration_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\configuration_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 4076,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "configuration_smoke_test.py.bak_ras_fix001_v4_20260727_205946",
+            "relative_path": "08_SCRIPTS\\configuration_smoke_test.py.bak_ras_fix001_v4_20260727_205946",
+            "item_type": "FILE",
+            "size_bytes": 4042,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "content_director",
+            "relative_path": "08_SCRIPTS\\content_director",
+            "item_type": "DIRECTORY",
+            "size_bytes": 119138,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "content_pipeline.py",
+            "relative_path": "08_SCRIPTS\\content_pipeline.py",
+            "item_type": "FILE",
+            "size_bytes": 3648,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "context_compressor.py",
+            "relative_path": "08_SCRIPTS\\context_compressor.py",
+            "item_type": "FILE",
+            "size_bytes": 10798,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "context_engine.py",
+            "relative_path": "08_SCRIPTS\\context_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 7462,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "core_orchestrator.py",
+            "relative_path": "08_SCRIPTS\\core_orchestrator.py",
+            "item_type": "FILE",
+            "size_bytes": 24,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "cost_analyzer.py",
+            "relative_path": "08_SCRIPTS\\cost_analyzer.py",
+            "item_type": "FILE",
+            "size_bytes": 39145,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "cost_models.py",
+            "relative_path": "08_SCRIPTS\\cost_models.py",
+            "item_type": "FILE",
+            "size_bytes": 15052,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "dashboard_exporter.py",
+            "relative_path": "08_SCRIPTS\\dashboard_exporter.py",
+            "item_type": "FILE",
+            "size_bytes": 46681,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "dashboard_generator.py",
+            "relative_path": "08_SCRIPTS\\dashboard_generator.py",
+            "item_type": "FILE",
+            "size_bytes": 37926,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "dashboard_models.py",
+            "relative_path": "08_SCRIPTS\\dashboard_models.py",
+            "item_type": "FILE",
+            "size_bytes": 17272,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "dependency_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\dependency_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2730,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "dependency_scanner.py",
+            "relative_path": "08_SCRIPTS\\dependency_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 11294,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "dependency_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\dependency_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 4159,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "directory_tree_builder.py",
+            "relative_path": "08_SCRIPTS\\directory_tree_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 6392,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "directory_tree_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\directory_tree_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 3248,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "entrypoint_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\entrypoint_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2140,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "entrypoint_scanner.py",
+            "relative_path": "08_SCRIPTS\\entrypoint_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 7369,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "entrypoint_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\entrypoint_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 3716,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "ESTRUCTURA.md",
+            "relative_path": "08_SCRIPTS\\ESTRUCTURA.md",
+            "item_type": "FILE",
+            "size_bytes": 775,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "expert_council_stage.py",
+            "relative_path": "08_SCRIPTS\\expert_council_stage.py",
+            "item_type": "FILE",
+            "size_bytes": 5298,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "export_engine.py",
+            "relative_path": "08_SCRIPTS\\export_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 26638,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "filesystem_scanner.py",
+            "relative_path": "08_SCRIPTS\\filesystem_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 4319,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "final_project_builder.py",
+            "relative_path": "08_SCRIPTS\\final_project_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 20352,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "finalization_engine.py",
+            "relative_path": "08_SCRIPTS\\finalization_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 20173,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "finalize_ctrl016.py",
+            "relative_path": "08_SCRIPTS\\finalize_ctrl016.py",
+            "item_type": "FILE",
+            "size_bytes": 15099,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "finalize_repository_audit_system.py",
+            "relative_path": "08_SCRIPTS\\finalize_repository_audit_system.py",
+            "item_type": "FILE",
+            "size_bytes": 19061,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "full_pipeline_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\full_pipeline_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 35764,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Validation or test component; preserved by default."
+        },
+        {
+            "name": "gemini_llm_provider.py",
+            "relative_path": "08_SCRIPTS\\gemini_llm_provider.py",
+            "item_type": "FILE",
+            "size_bytes": 29763,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "health_analyzer.py",
+            "relative_path": "08_SCRIPTS\\health_analyzer.py",
+            "item_type": "FILE",
+            "size_bytes": 33566,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "health_models.py",
+            "relative_path": "08_SCRIPTS\\health_models.py",
+            "item_type": "FILE",
+            "size_bytes": 13821,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "INSTALACION.md",
+            "relative_path": "08_SCRIPTS\\INSTALACION.md",
+            "item_type": "FILE",
+            "size_bytes": 302,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "INSTALACION_SPRINT2C.md",
+            "relative_path": "08_SCRIPTS\\INSTALACION_SPRINT2C.md",
+            "item_type": "FILE",
+            "size_bytes": 662,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "INSTALACION_SPRINT3.md",
+            "relative_path": "08_SCRIPTS\\INSTALACION_SPRINT3.md",
+            "item_type": "FILE",
+            "size_bytes": 229,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "INSTALACION_SPRINT4A.md",
+            "relative_path": "08_SCRIPTS\\INSTALACION_SPRINT4A.md",
+            "item_type": "FILE",
+            "size_bytes": 320,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "INSTALACION_SPRINT4B1.md",
+            "relative_path": "08_SCRIPTS\\INSTALACION_SPRINT4B1.md",
+            "item_type": "FILE",
+            "size_bytes": 368,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "intelligence_pipeline.py",
+            "relative_path": "08_SCRIPTS\\intelligence_pipeline.py",
+            "item_type": "FILE",
+            "size_bytes": 28008,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "inventory_builder.py",
+            "relative_path": "08_SCRIPTS\\inventory_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 3776,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "json_exporter.py",
+            "relative_path": "08_SCRIPTS\\json_exporter.py",
+            "item_type": "FILE",
+            "size_bytes": 15861,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "knowledge_assets",
+            "relative_path": "08_SCRIPTS\\knowledge_assets",
+            "item_type": "DIRECTORY",
+            "size_bytes": 744783,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "knowledge_engine.py",
+            "relative_path": "08_SCRIPTS\\knowledge_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 12198,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "knowledge_injector.py",
+            "relative_path": "08_SCRIPTS\\knowledge_injector.py",
+            "item_type": "FILE",
+            "size_bytes": 33289,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "knowledge_module_builder.py",
+            "relative_path": "08_SCRIPTS\\knowledge_module_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 4277,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "knowledge_resolver.py",
+            "relative_path": "08_SCRIPTS\\knowledge_resolver.py",
+            "item_type": "FILE",
+            "size_bytes": 18561,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "legacy_baseline_builder.py",
+            "relative_path": "08_SCRIPTS\\legacy_baseline_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 7103,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "legacy_baseline_report_writer.py",
+            "relative_path": "08_SCRIPTS\\legacy_baseline_report_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2482,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "legacy_baseline_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\legacy_baseline_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 4580,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "llm_adapter.py",
+            "relative_path": "08_SCRIPTS\\llm_adapter.py",
+            "item_type": "FILE",
+            "size_bytes": 12083,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "llm_config.py",
+            "relative_path": "08_SCRIPTS\\llm_config.py",
+            "item_type": "FILE",
+            "size_bytes": 10633,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "llm_manager.py",
+            "relative_path": "08_SCRIPTS\\llm_manager.py",
+            "item_type": "FILE",
+            "size_bytes": 2353,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "llm_provider.py",
+            "relative_path": "08_SCRIPTS\\llm_provider.py",
+            "item_type": "FILE",
+            "size_bytes": 5463,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "llm_provider_factory.py",
+            "relative_path": "08_SCRIPTS\\llm_provider_factory.py",
+            "item_type": "FILE",
+            "size_bytes": 6534,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "logger.py",
+            "relative_path": "08_SCRIPTS\\logger.py",
+            "item_type": "FILE",
+            "size_bytes": 909,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "manifest_engine.py",
+            "relative_path": "08_SCRIPTS\\manifest_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 20015,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "MANIFIESTO.md",
+            "relative_path": "08_SCRIPTS\\MANIFIESTO.md",
+            "item_type": "FILE",
+            "size_bytes": 297,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "MANIFIESTO_SPRINT2B.md",
+            "relative_path": "08_SCRIPTS\\MANIFIESTO_SPRINT2B.md",
+            "item_type": "FILE",
+            "size_bytes": 264,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "MANIFIESTO_SPRINT2C.md",
+            "relative_path": "08_SCRIPTS\\MANIFIESTO_SPRINT2C.md",
+            "item_type": "FILE",
+            "size_bytes": 357,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "MANIFIESTO_SPRINT3.md",
+            "relative_path": "08_SCRIPTS\\MANIFIESTO_SPRINT3.md",
+            "item_type": "FILE",
+            "size_bytes": 322,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "MANIFIESTO_SPRINT4A.md",
+            "relative_path": "08_SCRIPTS\\MANIFIESTO_SPRINT4A.md",
+            "item_type": "FILE",
+            "size_bytes": 350,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "MANIFIESTO_SPRINT4B1.md",
+            "relative_path": "08_SCRIPTS\\MANIFIESTO_SPRINT4B1.md",
+            "item_type": "FILE",
+            "size_bytes": 279,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "manual_llm_provider.py",
+            "relative_path": "08_SCRIPTS\\manual_llm_provider.py",
+            "item_type": "FILE",
+            "size_bytes": 4392,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "markdown_exporter.py",
+            "relative_path": "08_SCRIPTS\\markdown_exporter.py",
+            "item_type": "FILE",
+            "size_bytes": 10095,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "master_producer.py",
+            "relative_path": "08_SCRIPTS\\master_producer.py",
+            "item_type": "FILE",
+            "size_bytes": 79438,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "master_producer_models.py",
+            "relative_path": "08_SCRIPTS\\master_producer_models.py",
+            "item_type": "FILE",
+            "size_bytes": 36271,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "master_producer_prompt_builder.py",
+            "relative_path": "08_SCRIPTS\\master_producer_prompt_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 31604,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "memory_engine.py",
+            "relative_path": "08_SCRIPTS\\memory_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 9034,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "menu.py",
+            "relative_path": "08_SCRIPTS\\menu.py",
+            "item_type": "FILE",
+            "size_bytes": 1409,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "menu_controller.py",
+            "relative_path": "08_SCRIPTS\\menu_controller.py",
+            "item_type": "FILE",
+            "size_bytes": 13142,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "metadata_collector.py",
+            "relative_path": "08_SCRIPTS\\metadata_collector.py",
+            "item_type": "FILE",
+            "size_bytes": 6439,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "metrics_engine.py",
+            "relative_path": "08_SCRIPTS\\metrics_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 30139,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "mock_provider.py",
+            "relative_path": "08_SCRIPTS\\mock_provider.py",
+            "item_type": "FILE",
+            "size_bytes": 3932,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "ollama_provider.py",
+            "relative_path": "08_SCRIPTS\\ollama_provider.py",
+            "item_type": "FILE",
+            "size_bytes": 3141,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "openai_provider.py",
+            "relative_path": "08_SCRIPTS\\openai_provider.py",
+            "item_type": "FILE",
+            "size_bytes": 2631,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "optimization_models.py",
+            "relative_path": "08_SCRIPTS\\optimization_models.py",
+            "item_type": "FILE",
+            "size_bytes": 28655,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "pipeline_engine.py",
+            "relative_path": "08_SCRIPTS\\pipeline_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 44285,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "pipeline_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\pipeline_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2116,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "pipeline_runner.py",
+            "relative_path": "08_SCRIPTS\\pipeline_runner.py",
+            "item_type": "FILE",
+            "size_bytes": 4325,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "pipeline_scanner.py",
+            "relative_path": "08_SCRIPTS\\pipeline_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 10103,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "pipeline_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\pipeline_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 4846,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "plan_clean_08_scripts.py",
+            "relative_path": "08_SCRIPTS\\plan_clean_08_scripts.py",
+            "item_type": "FILE",
+            "size_bytes": 12372,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "project_intelligence_engine.py",
+            "relative_path": "08_SCRIPTS\\project_intelligence_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 55495,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "project_intelligence_models.py",
+            "relative_path": "08_SCRIPTS\\project_intelligence_models.py",
+            "item_type": "FILE",
+            "size_bytes": 21542,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "project_manager.py",
+            "relative_path": "08_SCRIPTS\\project_manager.py",
+            "item_type": "FILE",
+            "size_bytes": 4251,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "prompt_builder.py",
+            "relative_path": "08_SCRIPTS\\prompt_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 3012,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "prompt_engine.py",
+            "relative_path": "08_SCRIPTS\\prompt_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 22051,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "prompt_intelligence_analyzer.py",
+            "relative_path": "08_SCRIPTS\\prompt_intelligence_analyzer.py",
+            "item_type": "FILE",
+            "size_bytes": 38594,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "prompt_intelligence_models.py",
+            "relative_path": "08_SCRIPTS\\prompt_intelligence_models.py",
+            "item_type": "FILE",
+            "size_bytes": 15813,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "prompt_renderer.py",
+            "relative_path": "08_SCRIPTS\\prompt_renderer.py",
+            "item_type": "FILE",
+            "size_bytes": 20875,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "provider_registry.py",
+            "relative_path": "08_SCRIPTS\\provider_registry.py",
+            "item_type": "FILE",
+            "size_bytes": 11372,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "python_module_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\python_module_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2660,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "python_module_scanner.py",
+            "relative_path": "08_SCRIPTS\\python_module_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 9473,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "python_module_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\python_module_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 3892,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "README.md",
+            "relative_path": "08_SCRIPTS\\README.md",
+            "item_type": "FILE",
+            "size_bytes": 514,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "README_SPRINT2B.md",
+            "relative_path": "08_SCRIPTS\\README_SPRINT2B.md",
+            "item_type": "FILE",
+            "size_bytes": 1133,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "README_SPRINT2C.md",
+            "relative_path": "08_SCRIPTS\\README_SPRINT2C.md",
+            "item_type": "FILE",
+            "size_bytes": 1397,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "README_SPRINT3.md",
+            "relative_path": "08_SCRIPTS\\README_SPRINT3.md",
+            "item_type": "FILE",
+            "size_bytes": 1145,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "README_SPRINT4A.md",
+            "relative_path": "08_SCRIPTS\\README_SPRINT4A.md",
+            "item_type": "FILE",
+            "size_bytes": 1157,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "README_SPRINT4B1.md",
+            "relative_path": "08_SCRIPTS\\README_SPRINT4B1.md",
+            "item_type": "FILE",
+            "size_bytes": 711,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "repository_audit_system_integration_test.py",
+            "relative_path": "08_SCRIPTS\\repository_audit_system_integration_test.py",
+            "item_type": "FILE",
+            "size_bytes": 7893,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "repository_auditor.py",
+            "relative_path": "08_SCRIPTS\\repository_auditor.py",
+            "item_type": "FILE",
+            "size_bytes": 3942,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "repository_auditor_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\repository_auditor_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 5273,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "repository_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\repository_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 3583,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "research_director_models.py",
+            "relative_path": "08_SCRIPTS\\research_director_models.py",
+            "item_type": "FILE",
+            "size_bytes": 91903,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "research_director_prompt_builder.py",
+            "relative_path": "08_SCRIPTS\\research_director_prompt_builder.py",
+            "item_type": "FILE",
+            "size_bytes": 301,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "research_director_prompt_builder_part1.py",
+            "relative_path": "08_SCRIPTS\\research_director_prompt_builder_part1.py",
+            "item_type": "FILE",
+            "size_bytes": 214,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "research_director_prompt_builder_part2.py",
+            "relative_path": "08_SCRIPTS\\research_director_prompt_builder_part2.py",
+            "item_type": "FILE",
+            "size_bytes": 98,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "research_director_prompt_builder_part3.py",
+            "relative_path": "08_SCRIPTS\\research_director_prompt_builder_part3.py",
+            "item_type": "FILE",
+            "size_bytes": 302,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "research_prompt",
+            "relative_path": "08_SCRIPTS\\research_prompt",
+            "item_type": "DIRECTORY",
+            "size_bytes": 333258,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "research_stage.py",
+            "relative_path": "08_SCRIPTS\\research_stage.py",
+            "item_type": "FILE",
+            "size_bytes": 618,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "retry_engine.py",
+            "relative_path": "08_SCRIPTS\\retry_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 24531,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "retry_policy.py",
+            "relative_path": "08_SCRIPTS\\retry_policy.py",
+            "item_type": "FILE",
+            "size_bytes": 19879,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "run_cips_pipeline.py",
+            "relative_path": "08_SCRIPTS\\run_cips_pipeline.py",
+            "item_type": "FILE",
+            "size_bytes": 4877,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_component.py",
+            "relative_path": "08_SCRIPTS\\runtime_component.py",
+            "item_type": "FILE",
+            "size_bytes": 1446,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_constants.py",
+            "relative_path": "08_SCRIPTS\\runtime_constants.py",
+            "item_type": "FILE",
+            "size_bytes": 2821,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_context.py",
+            "relative_path": "08_SCRIPTS\\runtime_context.py",
+            "item_type": "FILE",
+            "size_bytes": 3524,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_health_monitor.py",
+            "relative_path": "08_SCRIPTS\\runtime_health_monitor.py",
+            "item_type": "FILE",
+            "size_bytes": 16669,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\runtime_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2703,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "runtime_models.py",
+            "relative_path": "08_SCRIPTS\\runtime_models.py",
+            "item_type": "FILE",
+            "size_bytes": 13266,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_optimizer.py",
+            "relative_path": "08_SCRIPTS\\runtime_optimizer.py",
+            "item_type": "FILE",
+            "size_bytes": 66684,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "runtime_scanner.py",
+            "relative_path": "08_SCRIPTS\\runtime_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 5536,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "runtime_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "relative_path": "08_SCRIPTS\\runtime_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "item_type": "FILE",
+            "size_bytes": 5555,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "runtime_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "relative_path": "08_SCRIPTS\\runtime_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "item_type": "FILE",
+            "size_bytes": 5555,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "runtime_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "relative_path": "08_SCRIPTS\\runtime_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "item_type": "FILE",
+            "size_bytes": 5555,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "runtime_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\runtime_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 2833,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "script_stage.py",
+            "relative_path": "08_SCRIPTS\\script_stage.py",
+            "item_type": "FILE",
+            "size_bytes": 788,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "strategy_director",
+            "relative_path": "08_SCRIPTS\\strategy_director",
+            "item_type": "DIRECTORY",
+            "size_bytes": 42534,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "sync_project_control.py",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py",
+            "item_type": "FILE",
+            "size_bytes": 111980,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "sync_project_control.py.bak",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak",
+            "item_type": "FILE",
+            "size_bytes": 49316,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "sync_project_control.py.bak_final_acceptance_20260727_121126",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak_final_acceptance_20260727_121126",
+            "item_type": "FILE",
+            "size_bytes": 110331,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "sync_project_control.py.bak_part4_20260727_111105",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak_part4_20260727_111105",
+            "item_type": "FILE",
+            "size_bytes": 49407,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "sync_project_control.py.bak_part5_20260727_112224",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak_part5_20260727_112224",
+            "item_type": "FILE",
+            "size_bytes": 62081,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "sync_project_control.py.bak_part6_20260727_112947",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak_part6_20260727_112947",
+            "item_type": "FILE",
+            "size_bytes": 78757,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "sync_project_control.py.bak_part7_20260727_113739",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak_part7_20260727_113739",
+            "item_type": "FILE",
+            "size_bytes": 91594,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "sync_project_control.py.bak_part8_20260727_114822",
+            "relative_path": "08_SCRIPTS\\sync_project_control.py.bak_part8_20260727_114822",
+            "item_type": "FILE",
+            "size_bytes": 108751,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "telemetry_engine.py",
+            "relative_path": "08_SCRIPTS\\telemetry_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 35896,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "telemetry_models.py",
+            "relative_path": "08_SCRIPTS\\telemetry_models.py",
+            "item_type": "FILE",
+            "size_bytes": 16750,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "templates.py",
+            "relative_path": "08_SCRIPTS\\templates.py",
+            "item_type": "FILE",
+            "size_bytes": 2609,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "test_inventory_scanner.py",
+            "relative_path": "08_SCRIPTS\\test_inventory_scanner.py",
+            "item_type": "FILE",
+            "size_bytes": 9124,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "test_inventory_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "relative_path": "08_SCRIPTS\\test_inventory_scanner.py.bak_ras_fix001_v2_20260727_205257",
+            "item_type": "FILE",
+            "size_bytes": 7093,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "test_inventory_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "relative_path": "08_SCRIPTS\\test_inventory_scanner.py.bak_ras_fix001_v3_20260727_205554",
+            "item_type": "FILE",
+            "size_bytes": 7093,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "test_inventory_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "relative_path": "08_SCRIPTS\\test_inventory_scanner.py.bak_ras_fix001_v4_20260727_205946",
+            "item_type": "FILE",
+            "size_bytes": 7093,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "test_inventory_smoke_test.py",
+            "relative_path": "08_SCRIPTS\\test_inventory_smoke_test.py",
+            "item_type": "FILE",
+            "size_bytes": 3730,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "test_inventory_writer.py",
+            "relative_path": "08_SCRIPTS\\test_inventory_writer.py",
+            "item_type": "FILE",
+            "size_bytes": 2078,
+            "category": "PRODUCTION",
+            "proposed_action": "KEEP",
+            "reason": "Required production or support component."
+        },
+        {
+            "name": "tests",
+            "relative_path": "08_SCRIPTS\\tests",
+            "item_type": "DIRECTORY",
+            "size_bytes": 104353,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "utils.py",
+            "relative_path": "08_SCRIPTS\\utils.py",
+            "item_type": "FILE",
+            "size_bytes": 2053,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "VALIDACION.txt",
+            "relative_path": "08_SCRIPTS\\VALIDACION.txt",
+            "item_type": "FILE",
+            "size_bytes": 248,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "VALIDACION_SPRINT2B.txt",
+            "relative_path": "08_SCRIPTS\\VALIDACION_SPRINT2B.txt",
+            "item_type": "FILE",
+            "size_bytes": 884,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "VALIDACION_SPRINT2C.txt",
+            "relative_path": "08_SCRIPTS\\VALIDACION_SPRINT2C.txt",
+            "item_type": "FILE",
+            "size_bytes": 1154,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "VALIDACION_SPRINT3.txt",
+            "relative_path": "08_SCRIPTS\\VALIDACION_SPRINT3.txt",
+            "item_type": "FILE",
+            "size_bytes": 690,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "VALIDACION_SPRINT4A.txt",
+            "relative_path": "08_SCRIPTS\\VALIDACION_SPRINT4A.txt",
+            "item_type": "FILE",
+            "size_bytes": 296,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "VALIDACION_SPRINT4B1.txt",
+            "relative_path": "08_SCRIPTS\\VALIDACION_SPRINT4B1.txt",
+            "item_type": "FILE",
+            "size_bytes": 421,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "validate_project_control.py",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py",
+            "item_type": "FILE",
+            "size_bytes": 207816,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "validate_project_control.py.bak",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak",
+            "item_type": "FILE",
+            "size_bytes": 176539,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_ctrl018_integrated_20260727_162023",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_ctrl018_integrated_20260727_162023",
+            "item_type": "FILE",
+            "size_bytes": 201949,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_ctrl018_part1_20260727_160738",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_ctrl018_part1_20260727_160738",
+            "item_type": "FILE",
+            "size_bytes": 186083,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_finalize_ctrl016_20260727_120725",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_120725",
+            "item_type": "FILE",
+            "size_bytes": 184332,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_finalize_ctrl016_20260727_121248",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_121248",
+            "item_type": "FILE",
+            "size_bytes": 186048,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_finalize_ctrl016_20260727_121801",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_121801",
+            "item_type": "FILE",
+            "size_bytes": 186083,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_finalize_ctrl016_20260727_163432",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_finalize_ctrl016_20260727_163432",
+            "item_type": "FILE",
+            "size_bytes": 205493,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_part8_20260727_114822",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_part8_20260727_114822",
+            "item_type": "FILE",
+            "size_bytes": 176490,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_terminal_dependency_20260727_121126",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_terminal_dependency_20260727_121126",
+            "item_type": "FILE",
+            "size_bytes": 184332,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_terminal_fix_20260727_115616",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_terminal_fix_20260727_115616",
+            "item_type": "FILE",
+            "size_bytes": 184250,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_project_control.py.bak_terminal_previous_order_20260727_121636",
+            "relative_path": "08_SCRIPTS\\validate_project_control.py.bak_terminal_previous_order_20260727_121636",
+            "item_type": "FILE",
+            "size_bytes": 186048,
+            "category": "BACKUP",
+            "proposed_action": "ARCHIVE",
+            "reason": "Timestamped or editor backup artifact."
+        },
+        {
+            "name": "validate_repository_audit_system.py",
+            "relative_path": "08_SCRIPTS\\validate_repository_audit_system.py",
+            "item_type": "FILE",
+            "size_bytes": 23405,
+            "category": "VALIDATION",
+            "proposed_action": "KEEP",
+            "reason": "Required validation or finalization component."
+        },
+        {
+            "name": "validator_engine.py",
+            "relative_path": "08_SCRIPTS\\validator_engine.py",
+            "item_type": "FILE",
+            "size_bytes": 35265,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        },
+        {
+            "name": "zip_exporter.py",
+            "relative_path": "08_SCRIPTS\\zip_exporter.py",
+            "item_type": "FILE",
+            "size_bytes": 18262,
+            "category": "REVIEW_REQUIRED",
+            "proposed_action": "REVIEW",
+            "reason": "Not recognized safely; no automatic cleanup allowed."
+        }
+    ],
+    "summary": {
+        "total_items": 217,
+        "keep": 52,
+        "archive": 49,
+        "delete_candidates": 1,
+        "review_required": 115
+    },
+    "safety": {
+        "execution_mode": "DRY_RUN_ONLY",
+        "files_modified": "NONE",
+        "files_deleted": "NONE",
+        "files_moved": "NONE",
+        "unknown_policy": "REVIEW_REQUIRED"
+    }
+}

@@ -1,0 +1,154 @@
+{
+    "document": {
+        "name": "CLEAN_002_EXECUTION_REPORT.json",
+        "version": "2.0.0",
+        "deliverable": "CLEAN-002",
+        "status": "COMPLETED",
+        "generated_at": "2026-07-28T04:34:15.286761+00:00"
+    },
+    "scope": {
+        "source_directory": "C:\\ConsejoIA_V5\\08_SCRIPTS",
+        "documentation_root": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS",
+        "build_artifact_root": "C:\\ConsejoIA_V5\\98_ENGINEERING\\03_BUILD_ARTIFACTS\\RESEARCH_DIRECTOR",
+        "files_moved": 26,
+        "files_deleted": 0,
+        "file_contents_modified": 0
+    },
+    "moves": [
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\README.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2A\\README.md",
+            "category": "DOCUMENTATION/SPRINT_2A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\CHANGELOG.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2A\\CHANGELOG.md",
+            "category": "DOCUMENTATION/SPRINT_2A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\MANIFIESTO.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2A\\MANIFIESTO.md",
+            "category": "DOCUMENTATION/SPRINT_2A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\INSTALACION.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2A\\INSTALACION.md",
+            "category": "DOCUMENTATION/SPRINT_2A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\README_SPRINT2B.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2B\\README.md",
+            "category": "DOCUMENTATION/SPRINT_2B"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\CHANGELOG_SPRINT2B.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2B\\CHANGELOG.md",
+            "category": "DOCUMENTATION/SPRINT_2B"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\MANIFIESTO_SPRINT2B.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2B\\MANIFIESTO.md",
+            "category": "DOCUMENTATION/SPRINT_2B"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\README_SPRINT2C.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2C\\README.md",
+            "category": "DOCUMENTATION/SPRINT_2C"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\CHANGELOG_SPRINT2C.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2C\\CHANGELOG.md",
+            "category": "DOCUMENTATION/SPRINT_2C"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\MANIFIESTO_SPRINT2C.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2C\\MANIFIESTO.md",
+            "category": "DOCUMENTATION/SPRINT_2C"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\INSTALACION_SPRINT2C.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_2C\\INSTALACION.md",
+            "category": "DOCUMENTATION/SPRINT_2C"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\README_SPRINT3.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_3\\README.md",
+            "category": "DOCUMENTATION/SPRINT_3"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\CHANGELOG_SPRINT3.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_3\\CHANGELOG.md",
+            "category": "DOCUMENTATION/SPRINT_3"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\MANIFIESTO_SPRINT3.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_3\\MANIFIESTO.md",
+            "category": "DOCUMENTATION/SPRINT_3"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\INSTALACION_SPRINT3.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_3\\INSTALACION.md",
+            "category": "DOCUMENTATION/SPRINT_3"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\README_SPRINT4A.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4A\\README.md",
+            "category": "DOCUMENTATION/SPRINT_4A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\CHANGELOG_SPRINT4A.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4A\\CHANGELOG.md",
+            "category": "DOCUMENTATION/SPRINT_4A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\MANIFIESTO_SPRINT4A.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4A\\MANIFIESTO.md",
+            "category": "DOCUMENTATION/SPRINT_4A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\INSTALACION_SPRINT4A.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4A\\INSTALACION.md",
+            "category": "DOCUMENTATION/SPRINT_4A"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\README_SPRINT4B1.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4B1\\README.md",
+            "category": "DOCUMENTATION/SPRINT_4B1"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\CHANGELOG_SPRINT4B1.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4B1\\CHANGELOG.md",
+            "category": "DOCUMENTATION/SPRINT_4B1"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\MANIFIESTO_SPRINT4B1.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4B1\\MANIFIESTO.md",
+            "category": "DOCUMENTATION/SPRINT_4B1"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\INSTALACION_SPRINT4B1.md",
+            "destination": "C:\\ConsejoIA_V5\\00_DOCUMENTACION\\10_SPRINTS\\SPRINT_4B1\\INSTALACION.md",
+            "category": "DOCUMENTATION/SPRINT_4B1"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\research_director_prompt_builder_part1.py",
+            "destination": "C:\\ConsejoIA_V5\\98_ENGINEERING\\03_BUILD_ARTIFACTS\\RESEARCH_DIRECTOR\\research_director_prompt_builder_part1.py",
+            "category": "BUILD_ARTIFACT/RESEARCH_DIRECTOR"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\research_director_prompt_builder_part2.py",
+            "destination": "C:\\ConsejoIA_V5\\98_ENGINEERING\\03_BUILD_ARTIFACTS\\RESEARCH_DIRECTOR\\research_director_prompt_builder_part2.py",
+            "category": "BUILD_ARTIFACT/RESEARCH_DIRECTOR"
+        },
+        {
+            "source": "C:\\ConsejoIA_V5\\08_SCRIPTS\\research_director_prompt_builder_part3.py",
+            "destination": "C:\\ConsejoIA_V5\\98_ENGINEERING\\03_BUILD_ARTIFACTS\\RESEARCH_DIRECTOR\\research_director_prompt_builder_part3.py",
+            "category": "BUILD_ARTIFACT/RESEARCH_DIRECTOR"
+        }
+    ],
+    "validation": {
+        "project_control": "PASS",
+        "ras_validator": "PASS",
+        "ras_integration": "PASS"
+    }
+}

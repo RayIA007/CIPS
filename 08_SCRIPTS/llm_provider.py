@@ -2,7 +2,7 @@
 =========================================================
 Proyecto : CIPS
 Release  : 0.5
-Build    : 028
+Build    : 029
 Archivo  : llm_provider.py
 Estado   : RELEASE
 =========================================================
@@ -94,6 +94,11 @@ class LLMProvider(ABC):
     provider_name = "base"
     model_name = "unknown"
 
+    supports_streaming = False
+    supports_system_prompt = True
+    supports_images = False
+    supports_tools = False
+
     @abstractmethod
     def generate(
         self,
@@ -149,6 +154,54 @@ class LLMProvider(ABC):
             "provider": self.provider_name,
             "model": self.model_name,
         }
+
+    def capabilities(self) -> dict[str, bool]:
+        """
+        Devuelve las capacidades declaradas por el proveedor.
+        """
+
+        return {
+            "streaming": self.supports_streaming,
+            "system_prompt": self.supports_system_prompt,
+            "images": self.supports_images,
+            "tools": self.supports_tools,
+        }
+
+    def health_check(self) -> bool:
+        """
+        Verificación básica de disponibilidad del proveedor.
+
+        Los proveedores concretos pueden sobrescribir este método
+        para comprobar autenticación, conectividad o disponibilidad.
+        """
+
+        return True
+
+    def estimate_tokens(
+        self,
+        prompt: str,
+    ) -> int:
+        """
+        Estima de forma aproximada la cantidad de tokens del prompt.
+
+        Los proveedores concretos pueden sobrescribir este método
+        utilizando su tokenizador oficial.
+        """
+
+        if not isinstance(prompt, str) or not prompt:
+            return 0
+
+        return max(1, len(prompt) // 4)
+
+    def prepare_prompt(
+        self,
+        prompt: str,
+    ) -> str:
+        """
+        Permite adaptar el prompt antes de enviarlo al proveedor.
+        """
+
+        return prompt
 
     def __repr__(self) -> str:
         return (

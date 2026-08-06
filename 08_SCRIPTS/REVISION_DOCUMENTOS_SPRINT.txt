@@ -1,0 +1,535 @@
+﻿================================================================================
+ARCHIVO: CHANGELOG.md
+================================================================================
+# CHANGELOG â€” Sprint 2A 1.0.0
+
+AÃ±adidos: BaseAgentAdapter, AdapterContext, AdapterRequest, AdapterResult,
+AdapterStatus, AdapterRegistry, excepciones especializadas y smoke test.
+
+No se modifican engine.py, agents.py ni research_prompt/. La conexiÃ³n con
+AgentRegistry se realizarÃ¡ en el Entregable C.
+
+
+================================================================================
+ARCHIVO: CHANGELOG_SPRINT2B.md
+================================================================================
+# CHANGELOG
+
+## Sprint 2B â€” Research Adapter 1.0.0
+
+### AÃ±adido
+
+- `ResearchDirectorAdapter` como primer adaptador real de CIPS.
+- `ResearchAdapterConfig` para presupuesto de tokens y optimizaciÃ³n.
+- traducciÃ³n de payload del Orchestrator a entrada del Research Builder;
+- validaciÃ³n de tema y objetivo;
+- ejecuciÃ³n perezosa de `AdvancedResearchPromptEngine`;
+- normalizaciÃ³n de `PromptPackage` a `AdapterResult`;
+- mÃ©tricas de score, tokens, diagnÃ³sticos y auditorÃ­a;
+- descriptor de artefacto `prompt_package`;
+- smoke test contra el Research Prompt Builder real.
+
+### No modificado
+
+- `cips_core/engine.py`;
+- `cips_core/agents.py`;
+- `cips_core/facade.py`;
+- paquete `research_prompt/`.
+
+La conexiÃ³n automÃ¡tica con `AgentRegistry` y `CIPSOrchestrator` corresponde al
+Entregable C.
+
+
+================================================================================
+ARCHIVO: CHANGELOG_SPRINT2C.md
+================================================================================
+# CHANGELOG â€” Sprint 2C
+
+## AÃ±adido
+
+- `AdapterAgentBridge`.
+- `CIPSOrchestrator.register_adapter()`.
+- registro coordinado en `AdapterRegistry` y `AgentRegistry`.
+- resoluciÃ³n automÃ¡tica de tareas por `capability`.
+- evento `adapter.succeeded` en `MessageBus`.
+- mÃ©tricas, advertencias y artefactos en `TaskResult`.
+- conversiÃ³n recursiva a estructuras serializables para checkpoints.
+- smoke test de integraciÃ³n real.
+
+## Compatibilidad
+
+- los agentes tradicionales siguen usando `register_agent()`;
+- el smoke test original del Core continÃºa operativo;
+- no se modifica el Research Prompt Builder;
+- no se modifica el Research Director Adapter del Sprint 2B.
+
+
+================================================================================
+ARCHIVO: CHANGELOG_SPRINT3.md
+================================================================================
+# Changelog Sprint 3
+
+- AÃ±adido `StrategyDirectorEngine`.
+- AÃ±adidos modelos inmutables de estrategia y calidad.
+- AÃ±adido `StrategyDirectorAdapter` con capability `strategy`.
+- AÃ±adida validaciÃ³n obligatoria de evidencia configurable.
+- AÃ±adida trazabilidad automÃ¡tica de paquetes upstream.
+- AÃ±adidos smoke tests independiente e integrado.
+
+
+================================================================================
+ARCHIVO: CHANGELOG_SPRINT4A.md
+================================================================================
+# Changelog â€” Sprint 4A
+
+## AÃ±adido
+
+- Dominio completo del Content Director.
+- Enumeraciones de negocio estables.
+- Modelos inmutables y serializables.
+- ValidaciÃ³n estructural y referencial de `ContentPackage`.
+- Prueba positiva de construcciÃ³n y serializaciÃ³n.
+- Prueba negativa de detecciÃ³n de paquetes incompletos.
+
+## Compatibilidad
+
+No modifica `cips_core`, `strategy_director` ni `research_prompt`.
+
+
+================================================================================
+ARCHIVO: CHANGELOG_SPRINT4B1.md
+================================================================================
+# Changelog â€” Sprint 4B.1
+
+## AÃ±adido
+
+- `ContentPlanningEngine`
+- `PlanningConfig`
+- `ContentPlan`
+- `EditorialPolicy`
+- `ContentAllocation`
+- `PlanningQualityScore`
+- pruebas positiva y negativa
+
+## Compatibilidad
+
+No modifica el Core Orchestrator ni los adaptadores existentes. Requiere Sprint 4A instalado.
+
+
+================================================================================
+ARCHIVO: INSTALACION.md
+================================================================================
+# InstalaciÃ³n
+
+1. Haz una copia de seguridad de `C:\ConsejoIA_V5\08_SCRIPTS`.
+2. Extrae el contenido interno del ZIP directamente en `08_SCRIPTS`.
+3. Abre CMD en `08_SCRIPTS`.
+4. Ejecuta:
+
+```bat
+python -m tests.test_core_orchestrator_smoke
+```
+
+Resultado esperado: `OK: Core Orchestrator operativo.`
+
+
+================================================================================
+ARCHIVO: INSTALACION_SPRINT2C.md
+================================================================================
+# InstalaciÃ³n â€” Sprint 2C
+
+1. Haz una copia de seguridad de:
+
+```text
+C:\ConsejoIA_V5\08_SCRIPTS\cips_core
+```
+
+2. Extrae el ZIP dentro de:
+
+```text
+C:\ConsejoIA_V5\08_SCRIPTS
+```
+
+3. Autoriza combinar carpetas y reemplazar los archivos indicados.
+
+4. No elimines los paquetes ya instalados:
+
+```text
+research_prompt\
+cips_core\adapters\
+```
+
+5. Ejecuta:
+
+```bat
+python -m tests.test_core_research_integration_smoke
+```
+
+## ValidaciÃ³n acumulativa recomendada
+
+```bat
+python -m tests.test_core_orchestrator_smoke
+python -m tests.test_adapter_framework_smoke
+python -m tests.test_research_adapter_smoke
+python -m tests.test_core_research_integration_smoke
+```
+
+
+================================================================================
+ARCHIVO: INSTALACION_SPRINT3.md
+================================================================================
+# InstalaciÃ³n
+
+Extraer el contenido interno del ZIP en `C:\ConsejoIA_V5\08_SCRIPTS` y aceptar combinar carpetas y reemplazar `cips_core\adapters\__init__.py`.
+
+No eliminar `research_prompt`, `cips_core` ni los tests anteriores.
+
+
+================================================================================
+ARCHIVO: INSTALACION_SPRINT4A.md
+================================================================================
+# InstalaciÃ³n
+
+Extrae el contenido del ZIP dentro de:
+
+`C:\ConsejoIA_V5\08_SCRIPTS`
+
+Este entregable agrega `content_director/` y dos pruebas. No reemplaza archivos del Core ni de los adaptadores existentes.
+
+Ejecuta:
+
+```bat
+python -m tests.test_content_domain_smoke
+python -m tests.test_content_domain_validation
+```
+
+
+================================================================================
+ARCHIVO: INSTALACION_SPRINT4B1.md
+================================================================================
+# InstalaciÃ³n
+
+1. Extraiga el contenido del ZIP en `C:\ConsejoIA_V5\08_SCRIPTS`.
+2. Autorice combinar carpetas y reemplazar `content_director\__init__.py`.
+3. No elimine `content_director\models.py` ni `content_director\validators.py`.
+4. Ejecute:
+
+```bat
+python -m tests.test_content_planning_engine_smoke
+python -m tests.test_content_planning_engine_validation
+```
+
+
+================================================================================
+ARCHIVO: MANIFIESTO.md
+================================================================================
+# Manifiesto
+VersiÃ³n: 2A.1.0.0
+
+- cips_core/adapters/__init__.py
+- cips_core/adapters/base.py
+- cips_core/adapters/contracts.py
+- cips_core/adapters/exceptions.py
+- cips_core/adapters/registry.py
+- tests/test_adapter_framework_smoke.py
+- README.md
+- CHANGELOG.md
+- MANIFIESTO.md
+- VALIDACION.txt
+
+
+================================================================================
+ARCHIVO: MANIFIESTO_SPRINT2B.md
+================================================================================
+# MANIFIESTO â€” Sprint 2B
+
+VersiÃ³n del entregable: `2B.1.0.0`
+
+```text
+cips_core/adapters/__init__.py
+cips_core/adapters/research.py
+tests/test_research_adapter_smoke.py
+README_SPRINT2B.md
+CHANGELOG_SPRINT2B.md
+MANIFIESTO_SPRINT2B.md
+VALIDACION_SPRINT2B.txt
+```
+
+
+================================================================================
+ARCHIVO: MANIFIESTO_SPRINT2C.md
+================================================================================
+# Manifiesto â€” CIPS Sprint 2C
+
+VersiÃ³n del Core: `1.1.0`
+
+```text
+cips_core/__init__.py
+cips_core/agents.py
+cips_core/engine.py
+cips_core/facade.py
+cips_core/integration.py
+cips_core/tasks.py
+tests/test_core_research_integration_smoke.py
+README_SPRINT2C.md
+INSTALACION_SPRINT2C.md
+CHANGELOG_SPRINT2C.md
+MANIFIESTO_SPRINT2C.md
+VALIDACION_SPRINT2C.txt
+```
+
+
+================================================================================
+ARCHIVO: MANIFIESTO_SPRINT3.md
+================================================================================
+# Manifiesto Sprint 3
+
+El Strategy Director separa tres conceptos: evidencia, interpretaciÃ³n y decisiÃ³n. No presenta como hecho aquello que solo es una instrucciÃ³n, una hipÃ³tesis o un PromptPackage. Cada StrategyPackage mantiene referencias, supuestos, riesgos y mÃ©tricas para facilitar auditorÃ­a y mejora continua.
+
+
+================================================================================
+ARCHIVO: MANIFIESTO_SPRINT4A.md
+================================================================================
+# Manifiesto Sprint 4A
+
+El Content Director debe producir entregables trazables, medibles y vinculados a una estrategia. Ninguna pieza puede existir sin objetivo, audiencia, pilar y canal vÃ¡lidos. El calendario editorial no es una lista decorativa: es una estructura verificable que conserva la relaciÃ³n entre intenciÃ³n estratÃ©gica y ejecuciÃ³n.
+
+
+================================================================================
+ARCHIVO: MANIFIESTO_SPRINT4B1.md
+================================================================================
+# Manifiesto â€” Sprint 4B.1
+
+El Planning Engine separa la planeaciÃ³n de la generaciÃ³n. Un plan no es todavÃ­a contenido terminado: es un contrato trazable que define quÃ© objetivos, audiencias, pilares, canales, volumen y mÃ©tricas deberÃ¡n gobernar la producciÃ³n posterior.
+
+
+================================================================================
+ARCHIVO: README.md
+================================================================================
+# CIPS Sprint 2 â€” Entregable A: Adapter Framework
+
+AÃ±ade la capa comÃºn que usarÃ¡n todos los Directores para conectarse al Core Orchestrator.
+
+## InstalaciÃ³n
+
+1. Haz respaldo de `C:\ConsejoIA_V5\08_SCRIPTS`.
+2. Extrae el contenido del ZIP dentro de `08_SCRIPTS`.
+3. Autoriza combinar la carpeta `cips_core`.
+4. Reemplaza `tests\__init__.py` si Windows lo solicita.
+
+No elimina ni sustituye `research_prompt` ni los mÃ³dulos anteriores.
+
+## ValidaciÃ³n
+
+```bat
+python -m tests.test_adapter_framework_smoke
+```
+
+
+================================================================================
+ARCHIVO: README_SPRINT2B.md
+================================================================================
+# CIPS Sprint 2 â€” Entregable B: Research Adapter
+
+Este entregable aÃ±ade el primer adaptador de producciÃ³n de CIPS:
+`ResearchDirectorAdapter`.
+
+## Flujo implementado
+
+```text
+Payload del Core Orchestrator
+        â†“
+AdapterRequest
+        â†“
+ResearchDirectorAdapter
+        â†“
+AdvancedResearchPromptEngine
+        â†“
+AdvancedPromptResult / PromptPackage
+        â†“
+AdapterResult
+```
+
+## Archivos instalados
+
+```text
+cips_core/adapters/__init__.py      (actualizado)
+cips_core/adapters/research.py      (nuevo)
+tests/test_research_adapter_smoke.py
+```
+
+## Requisitos previos
+
+Deben estar instalados y validados:
+
+1. Research Prompt Builder refactorizado.
+2. Core Orchestrator Sprint 1.
+3. Adapter Framework Sprint 2A.
+
+## InstalaciÃ³n
+
+Extrae el contenido interno del ZIP directamente en:
+
+```text
+C:\ConsejoIA_V5\08_SCRIPTS
+```
+
+Autoriza combinar carpetas y reemplaza `cips_core\adapters\__init__.py`.
+No se reemplazan `engine.py`, `agents.py` ni el paquete `research_prompt`.
+
+## ValidaciÃ³n
+
+```bat
+python -m tests.test_research_adapter_smoke
+```
+
+El test usa el Research Prompt Builder real; no emplea un agente simulado.
+
+
+================================================================================
+ARCHIVO: README_SPRINT2C.md
+================================================================================
+# CIPS Sprint 2 â€” Entregable C: IntegraciÃ³n con el Core Orchestrator
+
+Este entregable conecta el `AdapterRegistry` con el `AgentRegistry` y permite que un workflow ejecute automÃ¡ticamente el `ResearchDirectorAdapter` mediante su capacidad `research`.
+
+## Flujo operativo
+
+```text
+CIPSOrchestrator
+    â†“ register_adapter(...)
+AdapterAgentBridge
+    â”œâ”€ AdapterRegistry
+    â””â”€ AgentRegistry
+           â†“
+WorkflowEngine
+           â†“ capability="research"
+ResearchDirectorAdapter
+           â†“
+AdvancedResearchPromptEngine
+           â†“
+AdapterResult
+           â†“
+TaskResult + ExecutionContext + MessageBus + Checkpoint
+```
+
+## Archivos
+
+```text
+cips_core/__init__.py
+cips_core/agents.py
+cips_core/engine.py
+cips_core/facade.py
+cips_core/integration.py
+cips_core/tasks.py
+tests/test_core_research_integration_smoke.py
+```
+
+## API aÃ±adida
+
+```python
+orchestrator.register_adapter(ResearchDirectorAdapter())
+```
+
+El adaptador queda registrado simultÃ¡neamente por nombre y por capacidad. Una tarea con `capability="research"` puede omitir `agent_name`.
+
+## Resultados enriquecidos
+
+`TaskResult` incorpora:
+
+- `adapter_result`: resumen serializable de la ejecuciÃ³n;
+- `metrics`;
+- `warnings`;
+- `artifacts`;
+- `output`: salida normalizada del adaptador.
+
+Los resultados se guardan en `ExecutionContext`, se publican en `MessageBus` y son compatibles con `InMemoryCheckpointStore`.
+
+
+================================================================================
+ARCHIVO: README_SPRINT3.md
+================================================================================
+# CIPS Sprint 3 â€” Strategy Director
+
+Primer Director estratÃ©gico integrado al Core Orchestrator mediante la Adapter Layer.
+
+## Componentes
+
+- `strategy_director.models`: contrato `StrategyPackage` y modelos asociados.
+- `strategy_director.engine`: motor determinista que convierte evidencia en estrategia.
+- `cips_core.adapters.strategy`: `StrategyDirectorAdapter`.
+- pruebas independientes y de integraciÃ³n Research â†’ Strategy â†’ Core.
+
+## Principio de credibilidad
+
+El Strategy Director **no confunde un prompt de investigaciÃ³n con resultados de investigaciÃ³n**. El Research Director actual produce un `PromptPackage`; por ello, Strategy requiere hallazgos reales en `research_findings`, `evidence`, `insights` o `hallazgos`. El `package_id` del Research Director se conserva como referencia de trazabilidad.
+
+## Salida principal
+
+`StrategyPackage` incluye resumen ejecutivo, objetivos, audiencias, propuesta de valor, posicionamiento, pilares, canales, KPI, roadmap, riesgos, supuestos, evidencia y referencias.
+
+## Pruebas
+
+```bat
+python -m tests.test_strategy_adapter_smoke
+python -m tests.test_core_strategy_integration_smoke
+```
+
+
+================================================================================
+ARCHIVO: README_SPRINT4A.md
+================================================================================
+# CIPS Sprint 4A â€” Dominio del Content Director
+
+Este entregable define el contrato de datos del Content Director sin introducir todavÃ­a motor, adaptador ni cambios al Core Orchestrator.
+
+## Objetos principales
+
+- `ContentBrief`
+- `ContentObjective`
+- `AudienceSegment`
+- `ContentPillar`
+- `ChannelPlan`
+- `ContentPiece`
+- `EditorialCalendar` y `EditorialSlot`
+- `CallToAction`, `SEOBrief` y `ContentMetricsTarget`
+- `ContentPackage`
+- `ContentQualityScore` y `ContentBuildResult`
+
+## GarantÃ­as
+
+- Modelos inmutables mediante `dataclass(frozen=True, slots=True)`.
+- IDs Ãºnicos y prefijados para trazabilidad.
+- Enumeraciones estables para formato, intenciÃ³n, estado, CTA y cadencia.
+- SerializaciÃ³n a estructuras compatibles con JSON.
+- ValidaciÃ³n de referencias cruzadas entre objetivos, audiencias, pilares, canales, piezas y calendario.
+- ValidaciÃ³n de fechas, estados y consistencia editorial.
+- ConversiÃ³n inicial desde un `StrategyPackage` serializado mediante `ContentBrief.from_strategy_dict()`.
+
+## Alcance deliberado
+
+Sprint 4A no genera contenido. El motor de generaciÃ³n y scoring se implementarÃ¡ en Sprint 4B usando estos contratos.
+
+
+================================================================================
+ARCHIVO: README_SPRINT4B1.md
+================================================================================
+# CIPS â€” Sprint 4B.1: Content Planning Engine
+
+Este entregable transforma un `StrategyPackage` serializado en un `ContentPlan` trazable, medible y listo para alimentar los motores de ideaciÃ³n y calendario.
+
+## Alcance
+
+- TraducciÃ³n de objetivos estratÃ©gicos a objetivos de contenido.
+- ConversiÃ³n de audiencias y pilares al dominio del Content Director.
+- Planes iniciales por canal.
+- PolÃ­tica editorial de horizonte, cadencia y volumen.
+- AsignaciÃ³n porcentual equilibrada por pilar.
+- Herencia de KPIs, roadmap, riesgos, supuestos y referencias.
+- PuntuaciÃ³n de calidad del plan.
+
+## Fuera de alcance
+
+Este sprint no crea piezas, tÃ­tulos, guiones ni slots concretos. Eso corresponde a Sprint 4B.2.
+
+

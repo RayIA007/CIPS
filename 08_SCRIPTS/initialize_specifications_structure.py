@@ -1,0 +1,1 @@
+from pathlib import Path; [Path(r"C:\ConsejoIA_V5\90_SPECIFICATIONS", d).mkdir(parents=True, exist_ok=True) for d in ("01_KERNEL", "02_SYSTEMS", "03_CONTRACTS", "04_SCHEMAS", "05_PROTOCOLS", "99_ARCHIVE")]

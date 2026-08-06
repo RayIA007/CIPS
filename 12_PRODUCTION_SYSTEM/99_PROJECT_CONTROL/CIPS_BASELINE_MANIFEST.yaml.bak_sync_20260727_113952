@@ -1,0 +1,1363 @@
+# =============================================================================
+#
+# CIPS BASELINE MANIFEST
+#
+# Official Production Baseline Registry
+#
+# =============================================================================
+
+document:
+
+  name: CIPS_BASELINE_MANIFEST.yaml
+
+  official_name: Official Production Baseline Registry
+
+  version: 2.0.0
+
+  status: ACTIVE
+
+  type: PROJECT_CONTROL
+
+  authority: Production Architecture Board
+
+# =============================================================================
+# PROJECT
+# =============================================================================
+
+project:
+
+  name: ConsejoIA_V5
+
+  codename: CIPS Production Operating System
+
+  target_version: 1.0.0
+
+# =============================================================================
+# PURPOSE
+# =============================================================================
+
+purpose:
+
+  description: >
+    Define the official certified baseline of the Production Operating System.
+
+  objectives:
+
+    - Establish the official project baseline
+
+    - Preserve engineering integrity
+
+    - Enable deterministic recovery
+
+    - Support configuration management
+
+    - Enable release certification
+
+    - Support engineering audits
+
+    - Enable baseline comparison
+
+# =============================================================================
+# BASELINE PRINCIPLES
+# =============================================================================
+
+principles:
+
+  single_official_baseline: true
+
+  deterministic_state: true
+
+  immutable_after_acceptance: true
+
+  fully_traceable: true
+
+  reproducible: true
+
+  version_controlled: true
+
+  architecture_driven: true
+
+# =============================================================================
+# BASELINE STATES
+# =============================================================================
+
+baseline_states:
+
+  DEVELOPMENT:
+
+    description: >
+      Current engineering work.
+
+  CANDIDATE:
+
+    description: >
+      Ready for certification.
+
+  CERTIFIED:
+
+    description: >
+      Official accepted baseline.
+
+  RELEASED:
+
+    description: >
+      Production baseline.
+
+  ARCHIVED:
+
+    description: >
+      Historical baseline.
+
+# =============================================================================
+# BASELINE TYPES
+# =============================================================================
+
+baseline_types:
+
+  PROJECT
+
+  ARCHITECTURE
+
+  CONFIGURATION
+
+  DOCUMENTATION
+
+  IMPLEMENTATION
+
+  RELEASE
+
+# =============================================================================
+# BASELINE COMPONENTS
+# =============================================================================
+
+baseline_components:
+
+  architecture:
+
+    mandatory: true
+
+  specifications:
+
+    mandatory: true
+
+  roadmap:
+
+    mandatory: true
+
+  project_control:
+
+    mandatory: true
+
+  engineering_knowledge:
+
+    mandatory: true
+
+  implementation:
+
+    mandatory: false
+
+  tests:
+
+    mandatory: false
+
+# =============================================================================
+# BASELINE POLICIES
+# =============================================================================
+
+baseline_policies:
+
+  certification_required: true
+
+  change_control_required: true
+
+  acceptance_required: true
+
+  rollback_supported: true
+
+  repository_consistency_required: true
+
+  dependency_integrity_required: true
+
+# =============================================================================
+# BASELINE REGISTRATION RULES
+# =============================================================================
+
+registration_rules:
+
+  every_baseline_registered: true
+
+  duplicate_versions_forbidden: true
+
+  unique_baseline_identifier: true
+
+  immutable_after_certification: true
+
+  historical_preservation_required: true
+
+# =============================================================================
+# END OF PART I
+# =============================================================================
+# =============================================================================
+# BASELINE MODEL
+# =============================================================================
+
+baseline_model:
+
+  identifier:
+
+    pattern: BASELINE-XXXXX
+
+    unique: true
+
+    immutable: true
+
+  versioning:
+
+    semantic_versioning: true
+
+    baseline_version_required: true
+
+    repository_version_required: true
+
+  ownership:
+
+    authority: Production Architecture Board
+
+# =============================================================================
+# BASELINE STRUCTURE
+# =============================================================================
+
+baseline_structure:
+
+  identification:
+
+    - baseline_id
+
+    - baseline_name
+
+    - version
+
+    - creation_date
+
+    - certification_date
+
+  project:
+
+    - project_name
+
+    - project_version
+
+    - roadmap_phase
+
+    - active_deliverable
+
+  repository:
+
+    - repository_version
+
+    - repository_state
+
+    - registered_files
+
+    - protected_files
+
+  engineering:
+
+    - architecture_version
+
+    - specification_version
+
+    - dependency_version
+
+    - knowledge_version
+
+    - project_control_version
+
+# =============================================================================
+# BASELINE LIFE CYCLE
+# =============================================================================
+
+baseline_lifecycle:
+
+  PLANNED:
+
+    next:
+
+      - DEVELOPMENT
+
+  DEVELOPMENT:
+
+    next:
+
+      - CANDIDATE
+
+  CANDIDATE:
+
+    next:
+
+      - CERTIFIED
+
+      - REJECTED
+
+  CERTIFIED:
+
+    next:
+
+      - RELEASED
+
+      - SUPERSEDED
+
+  RELEASED:
+
+    next:
+
+      - ARCHIVED
+
+  SUPERSEDED:
+
+    next:
+
+      - ARCHIVED
+
+  ARCHIVED:
+
+    next: []
+
+# =============================================================================
+# BASELINE CONTENT
+# =============================================================================
+
+baseline_content:
+
+  mandatory:
+
+    architecture
+
+    specifications
+
+    roadmap
+
+    current_state
+
+    dependency_map
+
+    file_manifest
+
+    engineering_knowledge
+
+    delivery_ledger
+
+  optional:
+
+    implementation
+
+    tests
+
+    developer_tools
+
+    reports
+
+    metrics
+
+# =============================================================================
+# BASELINE VALIDATION
+# =============================================================================
+
+baseline_validation:
+
+  required:
+
+    architecture_integrity
+
+    dependency_integrity
+
+    repository_integrity
+
+    documentation_integrity
+
+    project_control_integrity
+
+    acceptance_integrity
+
+  validation_order:
+
+    - architecture
+
+    - dependencies
+
+    - repository
+
+    - documentation
+
+    - acceptance
+
+# =============================================================================
+# BASELINE CLASSIFICATION
+# =============================================================================
+
+baseline_classification:
+
+  DEVELOPMENT:
+
+    mutable: true
+
+    certification_required: false
+
+  CANDIDATE:
+
+    mutable: false
+
+    certification_required: true
+
+  CERTIFIED:
+
+    mutable: false
+
+    certification_required: completed
+
+  RELEASED:
+
+    mutable: false
+
+    production_reference: true
+
+# =============================================================================
+# BASELINE TRACEABILITY
+# =============================================================================
+
+baseline_traceability:
+
+  references:
+
+    architecture
+
+    specifications
+
+    roadmap
+
+    current_state
+
+    dependency_map
+
+    file_manifest
+
+    delivery_ledger
+
+    engineering_knowledge
+
+    acceptance_matrix
+
+    change_control
+
+# =============================================================================
+# END OF PART II
+# =============================================================================
+# =============================================================================
+# OFFICIAL BASELINE REGISTRY
+# =============================================================================
+
+baselines:
+
+  BASELINE-00001:
+
+    name: Project Initialization
+
+    version: 0.0.0
+
+    type: PROJECT
+
+    state: CERTIFIED
+
+    status: HISTORICAL
+
+    description: >
+      Initial project baseline before Project Control implementation.
+
+    created_by: Production Architecture Board
+
+    certification_required: false
+
+    change_control_required: false
+
+  BASELINE-00002:
+
+    name: Project Control Foundation
+
+    version: 0.1.0
+
+    type: PROJECT_CONTROL
+
+    state: DEVELOPMENT
+
+    status: ACTIVE
+
+    description: >
+      Baseline representing the construction of the Project Control System.
+
+    created_by: Production Architecture Board
+
+    certification_required: true
+
+    change_control_required: true
+
+# =============================================================================
+# CURRENT BASELINE
+# =============================================================================
+
+current_baseline:
+
+  baseline_id: BASELINE-00002
+
+  version: 0.1.0
+
+  phase: PHASE-0
+
+  active_deliverable: CTRL-011
+
+  state: DEVELOPMENT
+
+# =============================================================================
+# BASELINE CONTENT INVENTORY
+# =============================================================================
+
+baseline_inventory:
+
+  constitutional_documents:
+
+    architecture: PRESENT
+
+    architecture_rules: PRESENT
+
+    technical_specifications: PRESENT
+
+    implementation_roadmap: PRESENT
+
+  project_control:
+
+    master_roadmap: PRESENT
+
+    current_state: PRESENT
+
+    delivery_ledger: PRESENT
+
+    engineering_knowledge_base: PRESENT
+
+    dependency_map: PRESENT
+
+    file_manifest: PRESENT
+
+    session_handoff: PRESENT
+
+    acceptance_matrix: PRESENT
+
+    change_control: PRESENT
+
+    baseline_manifest: IN_PROGRESS
+
+    protected_files: RESERVED
+
+    risk_register: RESERVED
+
+    checkpoints: RESERVED
+
+  developer_tools:
+
+    validate_project_control: RESERVED
+
+# =============================================================================
+# BASELINE DEPENDENCIES
+# =============================================================================
+
+baseline_dependencies:
+
+  required_documents:
+
+    - CIPS_PRODUCTION_ARCHITECTURE_V2.md
+    - 00_ARCHITECTURE_RULES.md
+    - CIPS_TECHNICAL_SPECIFICATIONS_V2.md
+    - CIPS_IMPLEMENTATION_ROADMAP_V2.md
+
+  project_control:
+
+    - CIPS_MASTER_ROADMAP.md
+    - CIPS_CURRENT_STATE.yaml
+    - CIPS_DELIVERY_LEDGER.md
+    - CIPS_DECISION_LOG.md
+    - CIPS_DEPENDENCY_MAP.yaml
+    - CIPS_FILE_MANIFEST.yaml
+    - CIPS_SESSION_HANDOFF.md
+    - CIPS_ACCEPTANCE_MATRIX.md
+    - CIPS_CHANGE_CONTROL.md
+    - CIPS_BASELINE_MANIFEST.yaml
+
+# =============================================================================
+# BASELINE CERTIFICATION
+# =============================================================================
+
+baseline_certification:
+
+  required:
+
+    architecture_consistent: true
+
+    roadmap_consistent: true
+
+    dependency_graph_consistent: true
+
+    repository_consistent: true
+
+    documentation_complete: true
+
+    acceptance_completed: true
+
+    project_control_complete: true
+
+# =============================================================================
+# BASELINE EVOLUTION
+# =============================================================================
+
+baseline_evolution:
+
+  allowed:
+
+    forward_only: true
+
+    semantic_versioning: true
+
+    traceable: true
+
+  forbidden:
+
+    overwrite_previous_baseline: true
+
+    modify_certified_baseline: true
+
+    delete_historical_baseline: true
+
+# =============================================================================
+# BASELINE COMPARISON
+# =============================================================================
+
+baseline_comparison:
+
+  supported:
+
+    compare_versions
+
+    compare_dependencies
+
+    compare_documents
+
+    compare_repository
+
+    compare_project_control
+
+    compare_metrics
+
+# =============================================================================
+# BASELINE AUDIT
+# =============================================================================
+
+baseline_audit:
+
+  verify:
+
+    baseline_integrity
+
+    baseline_traceability
+
+    baseline_consistency
+
+    baseline_dependencies
+
+    baseline_certification
+
+# =============================================================================
+# END OF PART III
+# =============================================================================
+# =============================================================================
+# BASELINE ARTIFACT REGISTRY
+# =============================================================================
+
+baseline_artifacts:
+
+  BASELINE-00002:
+
+    constitutional_documents:
+
+      - file_id: FILE-00001
+        filename: CIPS_PRODUCTION_ARCHITECTURE_V2.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00002
+        filename: 00_ARCHITECTURE_RULES.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00003
+        filename: CIPS_TECHNICAL_SPECIFICATIONS_V2.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00004
+        filename: CIPS_IMPLEMENTATION_ROADMAP_V2.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+    project_control_documents:
+
+      - file_id: FILE-00005
+        filename: CIPS_MASTER_ROADMAP.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00006
+        filename: CIPS_CURRENT_STATE.yaml
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00007
+        filename: CIPS_DELIVERY_LEDGER.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00008
+        filename: CIPS_DECISION_LOG.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00009
+        filename: CIPS_DEPENDENCY_MAP.yaml
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00010
+        filename: CIPS_FILE_MANIFEST.yaml
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00011
+        filename: CIPS_SESSION_HANDOFF.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00012
+        filename: CIPS_ACCEPTANCE_MATRIX.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00013
+        filename: CIPS_CHANGE_CONTROL.md
+        required: true
+        expected_status: ACCEPTED
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00014
+        filename: CIPS_BASELINE_MANIFEST.yaml
+        required: true
+        expected_status: IN_PROGRESS
+        integrity_status: PENDING_VALIDATION
+
+      - file_id: FILE-00015
+        filename: CIPS_PROTECTED_FILES.yaml
+        required: true
+        expected_status: RESERVED
+        integrity_status: NOT_APPLICABLE
+
+      - file_id: FILE-00016
+        filename: CIPS_RISK_REGISTER.md
+        required: true
+        expected_status: RESERVED
+        integrity_status: NOT_APPLICABLE
+
+      - file_id: FILE-00017
+        filename: CIPS_CHECKPOINTS.md
+        required: true
+        expected_status: RESERVED
+        integrity_status: NOT_APPLICABLE
+
+# =============================================================================
+# BASELINE INTEGRITY MODEL
+# =============================================================================
+
+baseline_integrity:
+
+  checksum_algorithm: SHA256
+
+  checksum_scope:
+
+    - constitutional_documents
+    - accepted_project_control_documents
+    - accepted_configuration_files
+    - accepted_source_code
+    - accepted_tests
+
+  integrity_states:
+
+    - NOT_CALCULATED
+    - VALID
+    - INVALID
+    - MISSING
+    - NOT_APPLICABLE
+
+  required_checks:
+
+    - registered_artifacts_exist
+    - registered_paths_match_manifest
+    - artifact_versions_match
+    - artifact_statuses_match
+    - checksums_match
+    - dependency_graph_is_valid
+    - protected_files_are_unchanged
+    - no_unapproved_artifacts_are_included
+
+# =============================================================================
+# BASELINE CERTIFICATION GATES
+# =============================================================================
+
+certification_gates:
+
+  architecture_gate:
+
+    required: true
+
+    checks:
+
+      - architecture_document_present
+      - architecture_rules_present
+      - technical_specifications_present
+      - implementation_roadmap_present
+      - constitutional_versions_consistent
+
+  project_control_gate:
+
+    required: true
+
+    checks:
+
+      - required_control_documents_present
+      - current_state_consistent
+      - delivery_ledger_consistent
+      - dependency_map_consistent
+      - file_manifest_consistent
+      - acceptance_matrix_consistent
+      - change_control_consistent
+
+  dependency_gate:
+
+    required: true
+
+    checks:
+
+      - no_missing_dependencies
+      - no_invalid_references
+      - no_self_dependencies
+      - no_cycles
+      - topological_order_valid
+
+  repository_gate:
+
+    required: true
+
+    checks:
+
+      - registered_files_exist
+      - no_duplicate_paths
+      - no_duplicate_identifiers
+      - no_unapproved_protected_file_changes
+      - no_missing_required_files
+
+  acceptance_gate:
+
+    required: true
+
+    checks:
+
+      - required_deliverables_accepted
+      - acceptance_evidence_available
+      - critical_blockers_closed
+      - critical_risks_mitigated
+      - baseline_candidate_ready
+
+# =============================================================================
+# BASELINE CREATION PROCESS
+# =============================================================================
+
+baseline_creation_process:
+
+  steps:
+
+    - id: STEP-01
+      action: collect_registered_artifacts
+
+    - id: STEP-02
+      action: validate_file_manifest
+
+    - id: STEP-03
+      action: validate_dependency_graph
+
+    - id: STEP-04
+      action: validate_acceptance_status
+
+    - id: STEP-05
+      action: calculate_checksums
+
+    - id: STEP-06
+      action: generate_baseline_candidate
+
+    - id: STEP-07
+      action: execute_certification_gates
+
+    - id: STEP-08
+      action: approve_or_reject_candidate
+
+    - id: STEP-09
+      action: register_certified_baseline
+
+    - id: STEP-10
+      action: create_checkpoint
+
+  execution_policy:
+
+    deterministic: true
+    atomic_registration: true
+    partial_certification_allowed: false
+    manual_override_allowed: false
+
+# =============================================================================
+# BASELINE ROLLBACK
+# =============================================================================
+
+baseline_rollback:
+
+  supported: true
+
+  target_requirements:
+
+    baseline_must_exist: true
+    baseline_must_be_certified: true
+    artifact_integrity_must_be_valid: true
+    rollback_authorization_required: true
+
+  required_actions:
+
+    - identify_target_baseline
+    - validate_target_integrity
+    - calculate_change_impact
+    - preserve_current_state
+    - restore_registered_artifacts
+    - validate_restored_repository
+    - update_current_state
+    - create_rollback_checkpoint
+    - record_operation_in_delivery_ledger
+
+  prohibited_actions:
+
+    - rollback_to_uncertified_baseline
+    - overwrite_historical_baseline
+    - delete_current_evidence
+    - bypass_repository_validation
+
+# =============================================================================
+# BASELINE CONSUMERS
+# =============================================================================
+
+baseline_consumers:
+
+  project_control_validator:
+
+    consumes:
+
+      - baseline_identity
+      - baseline_inventory
+      - certification_requirements
+      - integrity_rules
+
+    questions_answered:
+
+      - Is the baseline structurally valid?
+      - Are all mandatory artifacts registered?
+      - Is the baseline ready for certification?
+
+  acceptance_process:
+
+    consumes:
+
+      - baseline_candidate_state
+      - certification_gate_results
+      - artifact_integrity
+
+    questions_answered:
+
+      - Can the candidate be accepted?
+      - Is the evidence complete?
+      - Can the baseline be certified?
+
+  change_control_process:
+
+    consumes:
+
+      - current_certified_baseline
+      - baseline_version
+      - registered_artifacts
+
+    questions_answered:
+
+      - What certified state will the change modify?
+      - Which baseline must be preserved?
+      - Does the change require a new baseline?
+
+  rollback_process:
+
+    consumes:
+
+      - certified_baseline_registry
+      - artifact_checksums
+      - baseline_inventory
+
+    questions_answered:
+
+      - Which certified state can be restored?
+      - Are the recovery artifacts valid?
+      - Was restoration completed correctly?
+
+# =============================================================================
+# BASELINE UPDATE RULES
+# =============================================================================
+
+baseline_update_rules:
+
+  development_baseline:
+
+    updates_allowed: true
+
+    requirements:
+
+      - file_manifest_update
+      - dependency_map_update_when_required
+      - current_state_update_at_significant_checkpoint
+
+  candidate_baseline:
+
+    updates_allowed: false
+
+    correction_policy:
+
+      - reject_candidate
+      - return_to_development
+      - apply_corrections
+      - create_new_candidate
+
+  certified_baseline:
+
+    updates_allowed: false
+
+    evolution_policy:
+
+      - create_change_request
+      - implement_change
+      - certify_new_baseline
+      - preserve_previous_baseline
+
+# =============================================================================
+# BASELINE VERSION TRANSITIONS
+# =============================================================================
+
+version_transitions:
+
+  patch:
+
+    allowed_for:
+
+      - bug_fix
+      - documentation_correction
+      - non_breaking_configuration_correction
+
+  minor:
+
+    allowed_for:
+
+      - new_backward_compatible_capability
+      - new_non_breaking_component
+      - approved_functional_extension
+
+  major:
+
+    allowed_for:
+
+      - architectural_change
+      - breaking_contract_change
+      - breaking_interface_change
+      - incompatible_baseline_change
+
+# =============================================================================
+# CURRENT CERTIFICATION STATUS
+# =============================================================================
+
+current_certification_status:
+
+  baseline_id: BASELINE-00002
+
+  state: DEVELOPMENT
+
+  certification_ready: false
+
+  completed_gates: []
+
+  pending_gates:
+
+    - architecture_gate
+    - project_control_gate
+    - dependency_gate
+    - repository_gate
+    - acceptance_gate
+
+  blockers:
+
+    - CTRL-011_NOT_ACCEPTED
+    - CTRL-012_NOT_COMPLETED
+    - CTRL-013_NOT_COMPLETED
+    - CTRL-014_NOT_COMPLETED
+    - CTRL-015_NOT_COMPLETED
+
+# =============================================================================
+# END OF PART IV
+# =============================================================================
+# =============================================================================
+# BASELINE GOVERNANCE
+# =============================================================================
+
+baseline_governance:
+
+  authority:
+
+    primary_source: CIPS_BASELINE_MANIFEST.yaml
+
+    architecture_reference: CIPS_PRODUCTION_ARCHITECTURE_V2.md
+
+    roadmap_reference: CIPS_IMPLEMENTATION_ROADMAP_V2.md
+
+    dependency_reference: CIPS_DEPENDENCY_MAP.yaml
+
+    change_control_reference: CIPS_CHANGE_CONTROL.md
+
+    acceptance_reference: CIPS_ACCEPTANCE_MATRIX.md
+
+# =============================================================================
+# BASELINE CONSISTENCY
+# =============================================================================
+
+baseline_consistency:
+
+  required:
+
+    repository_matches_baseline: true
+
+    manifest_matches_baseline: true
+
+    dependency_graph_matches_baseline: true
+
+    acceptance_matches_baseline: true
+
+    current_state_matches_baseline: true
+
+  violations:
+
+    missing_artifact: ERROR
+
+    checksum_mismatch: ERROR
+
+    dependency_violation: ERROR
+
+    modified_protected_file: ERROR
+
+    invalid_baseline_version: ERROR
+
+    duplicate_baseline: ERROR
+
+# =============================================================================
+# BASELINE METRICS
+# =============================================================================
+
+baseline_metrics:
+
+  calculate:
+
+    total_baselines
+
+    certified_baselines
+
+    released_baselines
+
+    archived_baselines
+
+    average_certification_time
+
+    rollback_operations
+
+    baseline_growth
+
+    baseline_stability_index
+
+# =============================================================================
+# BASELINE HEALTH
+# =============================================================================
+
+baseline_health:
+
+  indicators:
+
+    integrity
+
+    traceability
+
+    reproducibility
+
+    certification
+
+    consistency
+
+    recoverability
+
+  overall_health:
+
+    calculation: weighted_score
+
+    minimum: 0
+
+    maximum: 100
+
+# =============================================================================
+# ENGINEERING AUTOMATION
+# =============================================================================
+
+engineering_automation:
+
+  project_control_validator:
+
+    enabled: true
+
+  acceptance_process:
+
+    enabled: true
+
+  change_control_process:
+
+    enabled: true
+
+  rollback_process:
+
+    enabled: true
+
+# =============================================================================
+# BASELINE QUERIES
+# =============================================================================
+
+baseline_queries:
+
+  supported:
+
+    - current_baseline
+
+    - baseline_history
+
+    - baseline_integrity
+
+    - baseline_certification
+
+    - baseline_dependencies
+
+    - baseline_contents
+
+    - baseline_version
+
+    - rollback_targets
+
+# =============================================================================
+# ACCEPTANCE
+# =============================================================================
+
+acceptance:
+
+  required:
+
+    yaml_valid: true
+
+    baseline_identifiers_unique: true
+
+    artifact_inventory_complete: true
+
+    certification_gates_defined: true
+
+    rollback_defined: true
+
+    baseline_consumers_defined: true
+
+    update_rules_defined: true
+
+# =============================================================================
+# COMPLETION TRANSITION
+# =============================================================================
+
+completion_transition:
+
+  current_deliverable:
+
+    id: CTRL-011
+
+    status: READY_FOR_ACCEPTANCE
+
+  unlocks:
+
+    next_deliverable:
+
+      id: CTRL-012
+
+      name: CIPS_PROTECTED_FILES.yaml
+
+# =============================================================================
+# DOCUMENT STATUS
+# =============================================================================
+
+document_status:
+
+  document:
+
+    CIPS_BASELINE_MANIFEST.yaml
+
+  official_name:
+
+    Official Production Baseline Registry
+
+  version:
+
+    2.0.0
+
+  state:
+
+    READY_FOR_REVIEW
+
+  deliverable:
+
+    CTRL-011
+
+  next_deliverable:
+
+    CTRL-012
+
+# =============================================================================
+# END OF DOCUMENT
+# =============================================================================

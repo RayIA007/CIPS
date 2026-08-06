@@ -2,9 +2,9 @@
 =========================================================
 Proyecto : CIPS
 Release  : 0.8
-Build    : 062
+Build    : 063-F1
 Archivo  : pipeline_engine.py
-Estado   : RELEASE
+Estado   : RELEASE (Fase 1 integrada)
 =========================================================
 
 Adaptador operativo entre la interfaz de CIPS y el
@@ -20,7 +20,9 @@ Responsabilidades:
 - conservar el modo manual;
 - validar respuestas;
 - actualizar memoria;
-- avanzar el Stage aprobado.
+- avanzar el Stage aprobado;
+- GESTIONAR ESTADO DE PRODUCCIÓN (F1);
+- REGISTRAR LOGS ESTRUCTURADOS (F1).
 """
 
 from pathlib import Path
@@ -59,6 +61,18 @@ from telemetry_models import (
 )
 from validator_engine import ValidatorEngine
 
+# --------------------------------------------------
+# Fase 1: Production State & Logger
+# --------------------------------------------------
+from production_state import (
+    ProductionStateManager,
+    StageStatus,
+)
+from production_logger import (
+    ProductionLogger,
+    LogLevel,
+)
+
 
 class PipelineEngine:
     """
@@ -74,7 +88,8 @@ class PipelineEngine:
 
     component_name = "pipeline_engine"
 
-    def __init__(self) -> None:
+    def __init__(self, stage_delay_seconds: float = 12.0) -> None:
+        self.stage_delay_seconds = stage_delay_seconds
         self.project_manager = ProjectManager()
         self.llm_adapter = LLMAdapter()
 
@@ -86,15 +101,21 @@ class PipelineEngine:
         self.metrics_engine = MetricsEngine()
         self.export_engine = ExportEngine()
         self.telemetry_engine = TelemetryEngine()
-                
+
+        # --------------------------------------------------
+        # Fase 1: Estado y Logger de producción
+        # --------------------------------------------------
+        self.state_manager: ProductionStateManager | None = None
+        self.production_logger: ProductionLogger | None = None
+
         # --------------------------------------------------
         # Intelligence Framework
         # --------------------------------------------------
-        
+
         self.intelligence_pipeline = IntelligencePipeline(
             telemetry_engine=self.telemetry_engine
         )
-                
+
         self.pre_llm_runner = PipelineRunner(
             components=[
                 KnowledgeEngine(),
@@ -104,7 +125,7 @@ class PipelineEngine:
                 PromptEngine(),
             ]
         )
-        
+
         self.post_llm_runner = PipelineRunner(
             components=[
                 ValidatorEngine(),
@@ -134,6 +155,11 @@ class PipelineEngine:
                 project_path
             )
 
+            # --------------------------------------------------
+            # Fase 1: Inicializar estado y logger
+            # --------------------------------------------------
+            self._initialize_production_state(project)
+
             executed_stage = project.stage_actual
 
             if project.stage_actual == FINAL_STAGE:
@@ -149,6 +175,20 @@ class PipelineEngine:
                         "stage": project.stage_actual,
                         "finished": True,
                     },
+                )
+
+            # F1: Registrar inicio de Stage
+            if self.state_manager is not None:
+                self.state_manager.transition_stage(
+                    stage_name=executed_stage,
+                    new_status=StageStatus.RUNNING,
+                )
+            if self.production_logger is not None:
+                self.production_logger.info(
+                    stage=executed_stage,
+                    message=f"Stage '{executed_stage}' iniciado.",
+                    component=self.component_name,
+                    operation="execute_stage",
                 )
 
             response_path = self._get_response_path(
@@ -170,7 +210,25 @@ class PipelineEngine:
                     project
                 )
 
+                if result.success and self.stage_delay_seconds > 0:
+                    time.sleep(self.stage_delay_seconds)
+
         except Exception as error:
+            # F1: Registrar fallo en estado y logger
+            if self.state_manager is not None and executed_stage:
+                self.state_manager.transition_stage(
+                    stage_name=executed_stage,
+                    new_status=StageStatus.FAILED,
+                    error_message=str(error),
+                )
+            if self.production_logger is not None and executed_stage:
+                self.production_logger.error(
+                    stage=executed_stage,
+                    message=f"Error inesperado en PipelineEngine: {error}",
+                    component=self.component_name,
+                    operation="execute_stage",
+                )
+
             result = EngineResult.fail(
                 message=(
                     "Error inesperado en PipelineEngine."
@@ -192,6 +250,43 @@ class PipelineEngine:
             6,
         )
 
+        # --------------------------------------------------
+        # Fase 1: Registrar resultado del Stage
+        # --------------------------------------------------
+        if self.state_manager is not None and executed_stage:
+            if result.success:
+                self.state_manager.transition_stage(
+                    stage_name=executed_stage,
+                    new_status=StageStatus.COMPLETED,
+                    result_summary=result.message,
+                    warnings=list(result.warnings),
+                    metadata=dict(result.metadata),
+                )
+            else:
+                self.state_manager.transition_stage(
+                    stage_name=executed_stage,
+                    new_status=StageStatus.FAILED,
+                    error_message=result.message,
+                    warnings=list(result.warnings),
+                    metadata=dict(result.metadata),
+                )
+
+        if self.production_logger is not None and executed_stage:
+            level = LogLevel.INFO if result.success else LogLevel.ERROR
+            self.production_logger.log(
+                level=level,
+                stage=executed_stage,
+                message=result.message,
+                component=self.component_name,
+                operation="execute_stage",
+                duration_seconds=duration_seconds,
+                metadata={
+                    "success": result.success,
+                    "errors": list(result.errors),
+                    "warnings": list(result.warnings),
+                },
+            )
+
         result = self._attach_telemetry(
             project=project,
             stage=executed_stage,
@@ -211,6 +306,31 @@ class PipelineEngine:
             )
         return result
 
+    # --------------------------------------------------
+    # Fase 1: Inicialización de estado y logger
+    # --------------------------------------------------
+
+    def _initialize_production_state(self, project: Project) -> None:
+        """Inicializa ProductionState y ProductionLogger para el proyecto."""
+        self.state_manager = ProductionStateManager(project.path)
+        self.state_manager.load_or_create(
+            project_id=project.project_id,
+            current_stage=project.stage_actual,
+        )
+
+        # Legacy logger se inyecta si existe en el módulo logger.py
+        legacy_logger = None
+        try:
+            import logger
+            legacy_logger = logger.get_logger() if hasattr(logger, "get_logger") else None
+        except Exception:
+            pass
+
+        self.production_logger = ProductionLogger(
+            project_path=project.path,
+            legacy_logger=legacy_logger,
+        )
+        self.production_logger.rebuild_metrics()
 
     def _generate_and_request_response(
         self,
@@ -673,6 +793,13 @@ class PipelineEngine:
         original_stage = project.stage_actual
         project.stage_actual = FINAL_STAGE
 
+        # F1: Snapshot antes de finalización
+        if self.state_manager is not None:
+            self.state_manager.add_snapshot(
+                label="pre_finalization",
+                metadata={"original_stage": original_stage},
+            )
+
         builder_result = (
             self.final_project_builder.execute(
                 project_input=project,
@@ -762,6 +889,14 @@ class PipelineEngine:
 
         final_project = export_result.data
 
+        # F1: Marcar finalización en estado
+        if self.state_manager is not None:
+            self.state_manager.transition_stage(
+                stage_name=FINAL_STAGE,
+                new_status=StageStatus.COMPLETED,
+                result_summary="Finalización y exportación completadas.",
+            )
+
         return EngineResult.ok(
             data=final_project,
             message=(
@@ -805,6 +940,15 @@ class PipelineEngine:
         """
         Normaliza un fallo de la cadena de finalización.
         """
+
+        # F1: Registrar fallo en estado
+        if self.state_manager is not None:
+            self.state_manager.transition_stage(
+                stage_name=FINAL_STAGE,
+                new_status=StageStatus.FAILED,
+                error_message=result.message,
+                warnings=list(result.warnings),
+            )
 
         return EngineResult.fail(
             message=(
@@ -873,7 +1017,6 @@ class PipelineEngine:
         )
 
         return result
-
 
     def _attach_intelligence_package(
         self,
@@ -946,7 +1089,6 @@ class PipelineEngine:
                 )
 
         return result
-
 
     def _record_telemetry(
         self,
@@ -1350,6 +1492,7 @@ class PipelineEngine:
             project_path=project.path,
             update_summary=True,
         )
+
     def _build_manual_pending_result(
         self,
         runtime_context: RuntimeContext,

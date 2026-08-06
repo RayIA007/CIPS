@@ -1,0 +1,1106 @@
+# =============================================================================
+#
+# CIPS PROTECTED FILES
+#
+# Official Repository Protection Registry
+#
+# =============================================================================
+
+document:
+
+  name: CIPS_PROTECTED_FILES.yaml
+
+  official_name: Official Repository Protection Registry
+
+  version: 2.0.0
+
+  status: ACTIVE
+
+  type: PROJECT_CONTROL
+
+  authority: Production Architecture Board
+
+# =============================================================================
+# PROJECT
+# =============================================================================
+
+project:
+
+  name: ConsejoIA_V5
+
+  codename: CIPS Production Operating System
+
+  target_version: 1.0.0
+
+# =============================================================================
+# PURPOSE
+# =============================================================================
+
+purpose:
+
+  description: >
+    Define the official protection policy for all critical repository assets.
+
+  objectives:
+
+    - Protect constitutional documents
+
+    - Protect certified baselines
+
+    - Preserve repository integrity
+
+    - Prevent unauthorized modifications
+
+    - Support repository auditing
+
+    - Enable deterministic validation
+
+    - Preserve engineering traceability
+
+# =============================================================================
+# PROTECTION PRINCIPLES
+# =============================================================================
+
+principles:
+
+  constitution_is_protected: true
+
+  certified_baselines_are_immutable: true
+
+  project_control_is_protected: true
+
+  approved_changes_only: true
+
+  full_traceability_required: true
+
+  change_control_required: true
+
+# =============================================================================
+# PROTECTION LEVELS
+# =============================================================================
+
+protection_levels:
+
+  LEVEL_0:
+
+    name: IMMUTABLE
+
+    description: >
+      Modification forbidden after certification.
+
+  LEVEL_1:
+
+    name: CHANGE_CONTROLLED
+
+    description: >
+      Requires official Change Control approval.
+
+  LEVEL_2:
+
+    name: CONTROLLED
+
+    description: >
+      Changes require engineering validation.
+
+  LEVEL_3:
+
+    name: DEVELOPMENT
+
+    description: >
+      Free modification during active development.
+
+# =============================================================================
+# PROTECTED CATEGORIES
+# =============================================================================
+
+protected_categories:
+
+  constitutional_documents:
+
+    protection_level: LEVEL_0
+
+  project_control_documents:
+
+    protection_level: LEVEL_1
+
+  certified_baselines:
+
+    protection_level: LEVEL_0
+
+  repository_configuration:
+
+    protection_level: LEVEL_1
+
+  implementation:
+
+    protection_level: LEVEL_3
+
+  developer_tools:
+
+    protection_level: LEVEL_3
+
+# =============================================================================
+# PROTECTION POLICIES
+# =============================================================================
+
+protection_policies:
+
+  unauthorized_modification: forbidden
+
+  checksum_validation: required
+
+  repository_validation: required
+
+  change_control_validation: required
+
+  acceptance_validation: required
+
+# =============================================================================
+# PROTECTED OPERATIONS
+# =============================================================================
+
+protected_operations:
+
+  forbidden_without_authorization:
+
+    - delete
+
+    - rename
+
+    - move
+
+    - overwrite
+
+    - replace
+
+  controlled_operations:
+
+    - modify
+
+    - version_upgrade
+
+    - baseline_update
+
+# =============================================================================
+# REGISTRATION RULES
+# =============================================================================
+
+registration_rules:
+
+  every_protected_file_registered: true
+
+  unique_identifier_required: true
+
+  protection_level_required: true
+
+  owner_required: true
+
+  checksum_required: true
+
+# =============================================================================
+# END OF PART I
+# =============================================================================
+# =============================================================================
+# PROTECTED FILE REGISTRY
+# =============================================================================
+
+protected_files:
+
+  constitutional:
+
+    protection_level: LEVEL_0
+
+    owner: Production Architecture Board
+
+    files:
+
+      - file_id: FILE-00001
+        filename: CIPS_PRODUCTION_ARCHITECTURE_V2.md
+        modification_policy: FORBIDDEN_AFTER_CERTIFICATION
+
+      - file_id: FILE-00002
+        filename: 00_ARCHITECTURE_RULES.md
+        modification_policy: FORBIDDEN_AFTER_CERTIFICATION
+
+      - file_id: FILE-00003
+        filename: CIPS_TECHNICAL_SPECIFICATIONS_V2.md
+        modification_policy: FORBIDDEN_AFTER_CERTIFICATION
+
+      - file_id: FILE-00004
+        filename: CIPS_IMPLEMENTATION_ROADMAP_V2.md
+        modification_policy: CHANGE_CONTROL_REQUIRED
+
+# =============================================================================
+# PROJECT CONTROL FILES
+# =============================================================================
+
+project_control:
+
+  protection_level: LEVEL_1
+
+  owner: Project Control System
+
+  files:
+
+    - file_id: FILE-00005
+      filename: CIPS_MASTER_ROADMAP.md
+
+    - file_id: FILE-00006
+      filename: CIPS_CURRENT_STATE.yaml
+
+    - file_id: FILE-00007
+      filename: CIPS_DELIVERY_LEDGER.md
+
+    - file_id: FILE-00008
+      filename: CIPS_DECISION_LOG.md
+
+    - file_id: FILE-00009
+      filename: CIPS_DEPENDENCY_MAP.yaml
+
+    - file_id: FILE-00010
+      filename: CIPS_FILE_MANIFEST.yaml
+
+    - file_id: FILE-00011
+      filename: CIPS_SESSION_HANDOFF.md
+
+    - file_id: FILE-00012
+      filename: CIPS_ACCEPTANCE_MATRIX.md
+
+    - file_id: FILE-00013
+      filename: CIPS_CHANGE_CONTROL.md
+
+    - file_id: FILE-00014
+      filename: CIPS_BASELINE_MANIFEST.yaml
+
+    - file_id: FILE-00015
+      filename: CIPS_PROTECTED_FILES.yaml
+
+    - file_id: FILE-00016
+      filename: CIPS_RISK_REGISTER.md
+
+    - file_id: FILE-00017
+      filename: CIPS_CHECKPOINTS.md
+
+# =============================================================================
+# PROTECTED DIRECTORIES
+# =============================================================================
+
+protected_directories:
+
+  architecture:
+
+    path: 00_ARCHITECTURE
+
+    protection_level: LEVEL_0
+
+  specifications:
+
+    path: 90_SPECIFICATIONS
+
+    protection_level: LEVEL_0
+
+  production_architecture:
+
+    path: 12_PRODUCTION_SYSTEM/00_ARCHITECTURE
+
+    protection_level: LEVEL_0
+
+  project_control:
+
+    path: 12_PRODUCTION_SYSTEM/99_PROJECT_CONTROL
+
+    protection_level: LEVEL_1
+
+# =============================================================================
+# MODIFICATION AUTHORIZATION
+# =============================================================================
+
+modification_authorization:
+
+  LEVEL_0:
+
+    requires:
+
+      - approved_change_request
+      - architecture_review
+      - baseline_update
+      - acceptance_recertification
+
+  LEVEL_1:
+
+    requires:
+
+      - approved_change_request
+      - engineering_review
+      - documentation_update
+
+  LEVEL_2:
+
+    requires:
+
+      - engineering_validation
+
+  LEVEL_3:
+
+    requires: []
+
+# =============================================================================
+# PROTECTED ATTRIBUTES
+# =============================================================================
+
+protected_attributes:
+
+  filename:
+
+    protected: true
+
+  location:
+
+    protected: true
+
+  identifier:
+
+    protected: true
+
+  ownership:
+
+    protected: true
+
+  protection_level:
+
+    protected: true
+
+  checksum:
+
+    protected: true
+
+# =============================================================================
+# PROTECTION EXCEPTIONS
+# =============================================================================
+
+exceptions:
+
+  allowed:
+
+    - approved_change_control
+
+    - certified_baseline_creation
+
+    - official_version_upgrade
+
+    - repository_recovery
+
+  forbidden:
+
+    - manual_override
+
+    - direct_repository_edit
+
+    - undocumented_change
+
+    - delete_protected_file
+
+# =============================================================================
+# END OF PART II
+# =============================================================================
+# =============================================================================
+# PROTECTION GOVERNANCE
+# =============================================================================
+
+protection_governance:
+
+  primary_authority:
+
+    CIPS_PROTECTED_FILES.yaml
+
+  authority:
+
+    primary_source: CIPS_PROTECTED_FILES.yaml
+
+    architecture_reference: CIPS_PRODUCTION_ARCHITECTURE_V2.md
+
+    roadmap_reference: CIPS_IMPLEMENTATION_ROADMAP_V2.md
+
+    manifest_reference: CIPS_FILE_MANIFEST.yaml
+
+    baseline_reference: CIPS_BASELINE_MANIFEST.yaml
+
+    change_control_reference: CIPS_CHANGE_CONTROL.md
+
+  related_documents:
+
+    architecture:
+
+      CIPS_PRODUCTION_ARCHITECTURE_V2.md
+
+    roadmap:
+
+      CIPS_IMPLEMENTATION_ROADMAP_V2.md
+
+    file_manifest:
+
+      CIPS_FILE_MANIFEST.yaml
+
+    dependency_map:
+
+      CIPS_DEPENDENCY_MAP.yaml
+
+    change_control:
+
+      CIPS_CHANGE_CONTROL.md
+
+    baseline_manifest:
+
+      CIPS_BASELINE_MANIFEST.yaml
+
+# =============================================================================
+# PROTECTION DECISION RULES
+# =============================================================================
+
+protection_decision_rules:
+
+  evaluate:
+
+    - file_identity
+    - file_category
+    - protection_level
+    - baseline_membership
+    - change_authorization
+    - checksum_state
+    - repository_state
+
+  outcomes:
+
+    ALLOW:
+
+      description: >
+        Operation may continue without additional authorization.
+
+    ALLOW_WITH_VALIDATION:
+
+      description: >
+        Operation may continue after required engineering validation.
+
+    REQUIRE_CHANGE_CONTROL:
+
+      description: >
+        Operation requires an approved Change Request.
+
+    BLOCK:
+
+      description: >
+        Operation is forbidden.
+
+    RECOVERY_REQUIRED:
+
+      description: >
+        Repository recovery must occur before development continues.
+
+# =============================================================================
+# OPERATION AUTHORIZATION MATRIX
+# =============================================================================
+
+operation_authorization_matrix:
+
+  LEVEL_0:
+
+    read: ALLOW
+
+    modify: REQUIRE_CHANGE_CONTROL
+
+    rename: BLOCK
+
+    move: BLOCK
+
+    delete: BLOCK
+
+    overwrite: BLOCK
+
+    restore: ALLOW_WITH_VALIDATION
+
+    version_upgrade: REQUIRE_CHANGE_CONTROL
+
+  LEVEL_1:
+
+    read: ALLOW
+
+    modify: REQUIRE_CHANGE_CONTROL
+
+    rename: REQUIRE_CHANGE_CONTROL
+
+    move: REQUIRE_CHANGE_CONTROL
+
+    delete: BLOCK
+
+    overwrite: BLOCK
+
+    restore: ALLOW_WITH_VALIDATION
+
+    version_upgrade: REQUIRE_CHANGE_CONTROL
+
+  LEVEL_2:
+
+    read: ALLOW
+
+    modify: ALLOW_WITH_VALIDATION
+
+    rename: REQUIRE_CHANGE_CONTROL
+
+    move: REQUIRE_CHANGE_CONTROL
+
+    delete: REQUIRE_CHANGE_CONTROL
+
+    overwrite: BLOCK
+
+    restore: ALLOW_WITH_VALIDATION
+
+    version_upgrade: ALLOW_WITH_VALIDATION
+
+  LEVEL_3:
+
+    read: ALLOW
+
+    modify: ALLOW
+
+    rename: ALLOW_WITH_VALIDATION
+
+    move: ALLOW_WITH_VALIDATION
+
+    delete: REQUIRE_CHANGE_CONTROL
+
+    overwrite: ALLOW_WITH_VALIDATION
+
+    restore: ALLOW_WITH_VALIDATION
+
+    version_upgrade: ALLOW_WITH_VALIDATION
+
+# =============================================================================
+# WRITE AUTHORIZATION
+# =============================================================================
+
+write_authorization:
+
+  required_context:
+
+    - target_file
+    - requested_operation
+    - current_protection_level
+    - active_deliverable
+    - approved_scope
+    - change_request_id_when_required
+    - rollback_method
+
+  deny_when:
+
+    - target_file_not_registered
+    - protection_level_unknown
+    - active_deliverable_not_authorized
+    - approved_scope_missing
+    - required_change_request_missing
+    - baseline_state_unknown
+    - repository_state_invalid
+
+# =============================================================================
+# AUTOMATED TOOL POLICY
+# =============================================================================
+
+automated_tool_policy:
+
+  default_write_access: false
+
+  tools_may_read_protected_files: true
+
+  tools_may_modify_level_0: false
+
+  tools_may_modify_level_1: false
+
+  tools_may_modify_level_2:
+
+    only_when:
+
+      - explicit_authorization_exists
+      - validation_is_enabled
+      - rollback_is_defined
+
+  tools_may_modify_level_3:
+
+    only_when:
+
+      - target_is_within_active_scope
+      - file_is_not_baselined
+      - operation_is_logged
+
+  required_pre_write_checks:
+
+    - file_manifest_lookup
+    - protection_registry_lookup
+    - active_scope_validation
+    - dependency_impact_lookup
+    - baseline_impact_lookup
+
+  required_post_write_checks:
+
+    - checksum_recalculation
+    - repository_validation
+    - dependency_validation_when_required
+    - operation_logging
+
+# =============================================================================
+# BASELINE PROTECTION RULES
+# =============================================================================
+
+baseline_protection_rules:
+
+  development_baseline:
+
+    protected: true
+
+    modifications_allowed:
+
+      only_through:
+
+        - active_deliverable
+        - approved_change_control
+        - authorized_project_control_update
+
+  candidate_baseline:
+
+    protected: true
+
+    modifications_allowed: false
+
+    correction_policy:
+
+      - reject_candidate
+      - return_to_development
+      - apply_authorized_corrections
+      - create_new_candidate
+
+  certified_baseline:
+
+    protected: true
+
+    modifications_allowed: false
+
+    evolution_policy:
+
+      - preserve_certified_baseline
+      - create_change_request
+      - implement_new_version
+      - certify_new_baseline
+
+  released_baseline:
+
+    protected: true
+
+    modifications_allowed: false
+
+    recovery_only: true
+
+# =============================================================================
+# PROTECTED FILE CHANGE WORKFLOW
+# =============================================================================
+
+protected_file_change_workflow:
+
+  steps:
+
+    - id: STEP-01
+      action: identify_target_file
+
+    - id: STEP-02
+      action: resolve_protection_level
+
+    - id: STEP-03
+      action: validate_requested_operation
+
+    - id: STEP-04
+      action: verify_active_scope
+
+    - id: STEP-05
+      action: verify_change_authorization
+
+    - id: STEP-06
+      action: calculate_dependency_impact
+
+    - id: STEP-07
+      action: calculate_baseline_impact
+
+    - id: STEP-08
+      action: preserve_previous_state
+
+    - id: STEP-09
+      action: execute_authorized_change
+
+    - id: STEP-10
+      action: validate_repository
+
+    - id: STEP-11
+      action: update_checksum
+
+    - id: STEP-12
+      action: register_change_evidence
+
+  execution_policy:
+
+    deterministic: true
+    rollback_required: true
+    partial_execution_allowed: false
+    silent_changes_allowed: false
+
+# =============================================================================
+# RECOVERY POLICY
+# =============================================================================
+
+recovery_policy:
+
+  recovery_triggers:
+
+    - protected_file_missing
+    - unauthorized_modification_detected
+    - checksum_mismatch
+    - corrupted_protected_file
+    - invalid_restore_attempt
+    - baseline_integrity_failure
+
+  recovery_sources:
+
+    priority_order:
+
+      - current_certified_baseline
+      - last_valid_checkpoint
+      - approved_repository_backup
+      - version_control_history
+
+  recovery_requirements:
+
+    - source_integrity_valid
+    - authorization_confirmed
+    - current_state_preserved
+    - incident_registered
+    - restored_file_validated
+    - repository_revalidated
+
+  recovery_completion:
+
+    requires:
+
+      - checksum_valid
+      - file_manifest_consistent
+      - dependency_map_consistent
+      - baseline_consistent
+      - incident_status_closed
+
+# =============================================================================
+# PROTECTION EVIDENCE
+# =============================================================================
+
+protection_evidence:
+
+  required_records:
+
+    - operation_requested
+    - authorization_result
+    - previous_checksum
+    - resulting_checksum
+    - previous_path
+    - resulting_path
+    - change_request_reference
+    - validation_results
+    - rollback_reference
+    - final_status
+
+  retention:
+
+    permanent_for_level_0: true
+    permanent_for_level_1: true
+    project_lifetime_for_level_2: true
+    phase_lifetime_for_level_3: true
+
+# =============================================================================
+# CONSUMER CONTRACTS
+# =============================================================================
+
+consumer_contracts:
+
+  change_control:
+
+    consumes:
+
+      - protection_level
+      - operation_authorization
+      - required_approvals
+      - baseline_impact
+
+    questions_answered:
+
+      - Does this change require formal approval?
+      - Which operations are permitted?
+      - Must a new baseline be created?
+
+  repository_auditor:
+
+    consumes:
+
+      - protected_file_registry
+      - expected_paths
+      - expected_checksums
+      - protection_rules
+
+    questions_answered:
+
+      - Was a protected file altered?
+      - Is the file still in its authorized location?
+      - Does its checksum remain valid?
+
+  acceptance_process:
+
+    consumes:
+
+      - protection_validation_status
+      - unauthorized_change_status
+      - recovery_status
+
+    questions_answered:
+
+      - Can the deliverable be accepted?
+      - Did implementation alter protected assets?
+      - Is repository protection integrity valid?
+
+  project_control_validator:
+
+    consumes:
+
+      - protection_registry
+      - operation_matrix
+      - baseline_protection_rules
+
+    questions_answered:
+
+      - Is the protection model structurally valid?
+      - Are all mandatory protected files registered?
+      - Are protection levels internally consistent?
+
+  development_tools:
+
+    consumes:
+
+      - write_authorization
+      - deny_conditions
+      - pre_write_checks
+      - post_write_checks
+
+    questions_answered:
+
+      - May this tool modify the requested file?
+      - Which validations must run before and after writing?
+      - Must the operation be blocked?
+
+# =============================================================================
+# END OF PART IV
+# =============================================================================
+# =============================================================================
+# PROTECTION CONSISTENCY
+# =============================================================================
+
+protection_consistency:
+
+  required:
+
+    protected_files_registered: true
+
+    protection_levels_defined: true
+
+    file_manifest_consistent: true
+
+    dependency_map_consistent: true
+
+    baseline_consistent: true
+
+    repository_consistent: true
+
+  violations:
+
+    unregistered_protected_file: ERROR
+
+    invalid_protection_level: ERROR
+
+    checksum_mismatch: ERROR
+
+    missing_owner: ERROR
+
+    invalid_repository_location: ERROR
+
+    unauthorized_modification: ERROR
+
+# =============================================================================
+# PROTECTION METRICS
+# =============================================================================
+
+protection_metrics:
+
+  calculate:
+
+    total_protected_files
+
+    immutable_files
+
+    controlled_files
+
+    development_files
+
+    unauthorized_modification_attempts
+
+    successful_recoveries
+
+    repository_integrity_score
+
+# =============================================================================
+# PROTECTION HEALTH
+# =============================================================================
+
+protection_health:
+
+  indicators:
+
+    registry_integrity
+
+    checksum_integrity
+
+    repository_integrity
+
+    baseline_integrity
+
+    authorization_integrity
+
+    recovery_integrity
+
+  overall_health:
+
+    calculation: weighted_score
+
+    minimum: 0
+
+    maximum: 100
+
+# =============================================================================
+# AUTOMATION SUPPORT
+# =============================================================================
+
+automation_support:
+
+  project_control_validator:
+
+    enabled: true
+
+  repository_auditor:
+
+    enabled: true
+
+  change_control:
+
+    enabled: true
+
+  acceptance_process:
+
+    enabled: true
+
+  rollback_process:
+
+    enabled: true
+
+# =============================================================================
+# SUPPORTED QUERIES
+# =============================================================================
+
+supported_queries:
+
+  protection_level
+
+  file_owner
+
+  authorized_operations
+
+  authorization_requirements
+
+  checksum_status
+
+  protected_directory
+
+  baseline_membership
+
+  recovery_status
+
+# =============================================================================
+# ACCEPTANCE
+# =============================================================================
+
+acceptance:
+
+  required:
+
+    yaml_valid: true
+
+    protected_files_registered: true
+
+    protection_levels_defined: true
+
+    authorization_rules_defined: true
+
+    recovery_rules_defined: true
+
+    consumer_contracts_defined: true
+
+# =============================================================================
+# COMPLETION TRANSITION
+# =============================================================================
+
+completion_transition:
+
+  current_deliverable:
+
+    id: CTRL-012
+
+    status: READY_FOR_ACCEPTANCE
+
+  unlocks:
+
+    next_deliverable:
+
+      id: CTRL-013
+
+      name: CIPS_RISK_REGISTER.md
+
+# =============================================================================
+# DOCUMENT STATUS
+# =============================================================================
+
+document_status:
+
+  document:
+
+    CIPS_PROTECTED_FILES.yaml
+
+  official_name:
+
+    Official Repository Protection Registry
+
+  version:
+
+    2.0.0
+
+  state:
+
+    READY_FOR_REVIEW
+
+  deliverable:
+
+    CTRL-012
+
+  next_deliverable:
+
+    CTRL-013
+
+# =============================================================================
+# END OF DOCUMENT
+# =============================================================================

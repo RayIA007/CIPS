@@ -1,0 +1,3 @@
+# Prompt para Thumbnail
+
+Pendiente.
