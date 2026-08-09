@@ -65,6 +65,11 @@ try:
         PromptBuildError,
         PromptPackage,
     )
+    from artifact_store import ArtifactCollisionError, CollisionPolicy
+    from metadata_store import MetadataStore
+    from text_store import TextStore
+    from workspace_models import WorkspaceIdentity
+    from workspace_resolver import WorkspaceResolver
 except ImportError:  # Permite uso como parte de un paquete.
     from .master_producer_models import (
         CheckpointStatus,
@@ -95,6 +100,11 @@ except ImportError:  # Permite uso como parte de un paquete.
         PromptBuildError,
         PromptPackage,
     )
+    from .artifact_store import ArtifactCollisionError, CollisionPolicy
+    from .metadata_store import MetadataStore
+    from .text_store import TextStore
+    from .workspace_models import WorkspaceIdentity
+    from .workspace_resolver import WorkspaceResolver
 
 
 MASTER_PRODUCER_VERSION = "1.0.0"
@@ -486,6 +496,9 @@ class MasterProducer:
         prompt_builder: Optional[MasterProducerPromptBuilder] = None,
         executor: Optional[TaskExecutor] = None,
         logger: Optional[logging.Logger] = None,
+        workspace_resolver: Optional[WorkspaceResolver] = None,
+        text_store: Optional[TextStore] = None,
+        metadata_store: Optional[MetadataStore] = None,
     ) -> None:
         self.configuration = configuration or MasterProducerConfiguration()
         self.prompt_builder = prompt_builder or MasterProducerPromptBuilder(
@@ -493,6 +506,37 @@ class MasterProducer:
         )
         self.executor = executor
         self.logger = logger or LOGGER
+
+        resolved_workspace = workspace_resolver
+        for store, expected_type, label in (
+            (text_store, TextStore, "text_store"),
+            (metadata_store, MetadataStore, "metadata_store"),
+        ):
+            if store is None:
+                continue
+            if not isinstance(store, expected_type):
+                raise TypeError(f"{label} no implementa el store F3 esperado.")
+            if resolved_workspace is None:
+                resolved_workspace = store.workspace_resolver
+            elif store.workspace_resolver is not resolved_workspace:
+                raise ValueError(
+                    f"{label} debe utilizar la misma instancia WorkspaceResolver."
+                )
+
+        if resolved_workspace is not None and not isinstance(
+            resolved_workspace, WorkspaceResolver
+        ):
+            raise TypeError("workspace_resolver debe ser WorkspaceResolver o None.")
+
+        self.workspace_resolver = resolved_workspace
+        self.text_store = text_store or (
+            TextStore(resolved_workspace) if resolved_workspace is not None else None
+        )
+        self.metadata_store = metadata_store or (
+            MetadataStore(resolved_workspace)
+            if resolved_workspace is not None
+            else None
+        )
 
         self._last_context: Optional[ProductionContext] = None
         self._last_prompt_package: Optional[PromptPackage] = None
@@ -569,16 +613,52 @@ class MasterProducer:
     ) -> ProductionContext:
         self.validate_brief(brief)
 
-        root = output_root or self._project_output_directory(brief)
         context = ProductionContext(
             brief=brief,
             current_status=ProjectStatus.PLANNING,
             known_risks=_normalize_strings(known_risks),
             assumptions=_normalize_strings(assumptions),
             open_questions=_normalize_strings(open_questions),
-            output_root=root,
+            output_root="",
             working_data=dict(working_data or {}),
         )
+
+        if self.workspace_resolver is None:
+            context.output_root = output_root or self._project_output_directory(brief)
+        else:
+            if output_root is None:
+                identity = WorkspaceIdentity(
+                    project_id=brief.project_id,
+                    platform=brief.platform.value,
+                    execution_id=context.context_id,
+                )
+                paths = self.workspace_resolver.resolve(identity, create=True)
+                if paths.execution_root is None:
+                    raise MasterProducerError(
+                        "WorkspaceResolver no devolvió execution_root para el contexto."
+                    )
+                project_root = paths.project_root
+                execution_root = paths.execution_root
+            else:
+                self.workspace_resolver.confine_path(
+                    output_root,
+                    "__cips_workspace_validation__",
+                )
+                execution_root = Path(output_root).expanduser().resolve(strict=False)
+                project_root = self.workspace_resolver.resolve_project_workspace(
+                    brief.project_id,
+                    create=True,
+                )
+
+            context.output_root = str(execution_root)
+            context.working_data["f3_workspace"] = {
+                "managed": True,
+                "project_id": brief.project_id,
+                "platform": brief.platform.value,
+                "execution_id": context.context_id,
+                "project_root": str(project_root),
+                "execution_root": str(execution_root),
+            }
 
         context.working_data.setdefault(
             "master_producer_version",
@@ -1453,7 +1533,19 @@ class MasterProducer:
     ) -> Path:
         path = Path(destination)
         path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            self._render_summary(brief, plan, result=result),
+            encoding="utf-8",
+        )
+        return path
 
+    def _render_summary(
+        self,
+        brief: ProductionBrief,
+        plan: ProductionPlan,
+        *,
+        result: Optional[ProductionResult] = None,
+    ) -> str:
         lines = [
             f"# {brief.project_name}",
             "",
@@ -1509,8 +1601,7 @@ class MasterProducer:
                 ]
             )
 
-        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        return path
+        return "\n".join(lines).rstrip() + "\n"
 
     def get_statistics(
         self,
@@ -2120,6 +2211,10 @@ class MasterProducer:
         plan: ProductionPlan,
         result: ProductionResult,
     ) -> None:
+        if self._is_f3_workspace_context(context):
+            self._persist_bundle_f3(brief, context, plan, result)
+            return
+
         root = Path(context.output_root)
         root.mkdir(parents=True, exist_ok=True)
 
@@ -2151,14 +2246,134 @@ class MasterProducer:
             result=result,
         )
 
+    def _is_f3_workspace_context(self, context: ProductionContext) -> bool:
+        workspace = context.working_data.get("f3_workspace", {})
+        return (
+            self.workspace_resolver is not None
+            and self.text_store is not None
+            and self.metadata_store is not None
+            and isinstance(workspace, Mapping)
+            and workspace.get("managed") is True
+        )
+
+    def _persist_bundle_f3(
+        self,
+        brief: ProductionBrief,
+        context: ProductionContext,
+        plan: ProductionPlan,
+        result: ProductionResult,
+    ) -> None:
+        if self.text_store is None or self.metadata_store is None:
+            raise MasterProducerError("Stores F3 no disponibles para persistencia runtime.")
+
+        root = Path(context.output_root)
+        common_metadata = {
+            "source": "CIPS Master Producer",
+            "project_id": brief.project_id,
+            "platform": brief.platform.value,
+            "execution_id": context.context_id,
+            "stage": "runtime_bundle",
+        }
+        files = {
+            "brief.json": brief.to_json(indent=2),
+            "context.json": context.to_json(indent=2),
+            "plan.json": plan.to_json(indent=2),
+            "result.json": result.to_json(indent=2),
+        }
+        if self._last_prompt_package is not None:
+            files["prompt_package.json"] = self._last_prompt_package.to_json(
+                indent=2
+            )
+
+        for filename, content in files.items():
+            self._persist_f3_document(
+                store=self.metadata_store,
+                workspace_root=root,
+                relative_path=filename,
+                content=content,
+                artifact_type="runtime_metadata",
+                mime_type="application/json",
+                metadata={**common_metadata, "logical_name": filename},
+            )
+
+        self._persist_f3_document(
+            store=self.text_store,
+            workspace_root=root,
+            relative_path="README.md",
+            content=self._render_summary(brief, plan, result=result),
+            artifact_type="runtime_summary",
+            mime_type="text/markdown",
+            metadata={**common_metadata, "logical_name": "README.md"},
+        )
+
+    def _persist_f3_document(
+        self,
+        *,
+        store: MetadataStore | TextStore,
+        workspace_root: Path,
+        relative_path: str,
+        content: str,
+        artifact_type: str,
+        mime_type: str,
+        metadata: Mapping[str, Any],
+    ) -> None:
+        payload = content.encode("utf-8")
+        policy = (
+            CollisionPolicy.REPLACE
+            if self.configuration.overwrite_existing
+            else CollisionPolicy.REUSE_IDENTICAL
+        )
+        try:
+            store.persist_bytes(
+                workspace_root=workspace_root,
+                relative_path=relative_path,
+                content=payload,
+                artifact_type=artifact_type,
+                mime_type=mime_type,
+                metadata=metadata,
+                producer_role=SpecialistRole.MASTER_PRODUCER,
+                collision_policy=policy,
+            )
+        except ArtifactCollisionError:
+            if self.configuration.overwrite_existing:
+                raise
+            versioned_path = self._versioned_artifact_path(relative_path, payload)
+            store.persist_bytes(
+                workspace_root=workspace_root,
+                relative_path=versioned_path,
+                content=payload,
+                artifact_type=artifact_type,
+                mime_type=mime_type,
+                metadata={**dict(metadata), "versioned_from": relative_path},
+                producer_role=SpecialistRole.MASTER_PRODUCER,
+                collision_policy=CollisionPolicy.REUSE_IDENTICAL,
+            )
+
+    @staticmethod
+    def _versioned_artifact_path(relative_path: str, payload: bytes) -> str:
+        path = Path(relative_path)
+        content_hash = hashlib.sha256(payload).hexdigest()
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        return str(
+            path.with_name(
+                f"{path.stem}.{content_hash[:12]}.{timestamp}{path.suffix}"
+            )
+        )
+
 
 def create_master_producer(
     configuration: Optional[MasterProducerConfiguration] = None,
     *,
     executor: Optional[TaskExecutor] = None,
+    workspace_resolver: Optional[WorkspaceResolver] = None,
+    text_store: Optional[TextStore] = None,
+    metadata_store: Optional[MetadataStore] = None,
 ) -> MasterProducer:
     """Factory oficial del componente."""
     return MasterProducer(
         configuration=configuration,
         executor=executor,
+        workspace_resolver=workspace_resolver,
+        text_store=text_store,
+        metadata_store=metadata_store,
     )
