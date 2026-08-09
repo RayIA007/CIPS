@@ -70,9 +70,20 @@ from production_state import (
 )
 from production_logger import (
     ProductionLogger,
-    LogLevel,
 )
 
+# --------------------------------------------------
+# Fase 2: Stage Executor & Registry
+# --------------------------------------------------
+from stage_executor import (
+    StageExecutor,
+)
+from stage_executor_models import (
+    StageConfig,
+    StageExecutorContext,
+    StageFailurePolicy,
+)
+from stage_registry import StageRegistry
 
 class PipelineEngine:
     """
@@ -107,6 +118,19 @@ class PipelineEngine:
         # --------------------------------------------------
         self.state_manager: ProductionStateManager | None = None
         self.production_logger: ProductionLogger | None = None
+
+        # --------------------------------------------------
+        # Fase 2: Stage Executor
+        # --------------------------------------------------
+        self.stage_executor = StageExecutor(
+            default_max_retries=0
+        )
+
+        StageRegistry.register(
+            "pipeline_stage",
+            self._execute_stage_core,
+            force=True,
+        )
 
         # --------------------------------------------------
         # Intelligence Framework
@@ -177,58 +201,54 @@ class PipelineEngine:
                     },
                 )
 
-            # F1: Registrar inicio de Stage
-            if self.state_manager is not None:
-                self.state_manager.transition_stage(
-                    stage_name=executed_stage,
-                    new_status=StageStatus.RUNNING,
-                )
-            if self.production_logger is not None:
-                self.production_logger.info(
-                    stage=executed_stage,
-                    message=f"Stage '{executed_stage}' iniciado.",
-                    component=self.component_name,
-                    operation="execute_stage",
+            # --------------------------------------------------
+            # Fase 2: Ejecución mediante StageExecutor
+            # --------------------------------------------------
+            if (
+                self.state_manager is None
+                or self.production_logger is None
+            ):
+                raise RuntimeError(
+                    "ProductionState o ProductionLogger "
+                    "no fueron inicializados."
                 )
 
-            response_path = self._get_response_path(
-                project
+            runtime_context = RuntimeContext(
+                project=project
             )
 
-            response_content = self._read_response(
-                response_path
+            stage_config = StageConfig(
+                stage_name=executed_stage,
+                callable_name="pipeline_stage",
+                max_retries=0,
+                failure_policy=StageFailurePolicy.ABORT,
             )
 
-            if response_content:
-                result = self._process_manual_response(
-                    project=project,
-                    response_content=response_content,
-                    response_path=response_path,
-                )
+            stage_context = StageExecutorContext(
+                production_state=self.state_manager,
+                production_logger=self.production_logger,
+                runtime_context=runtime_context,
+            )
+
+            stage_result = self.stage_executor.execute(
+                config=stage_config,
+                context=stage_context,
+            )
+
+            if isinstance(stage_result.data, EngineResult):
+                result = stage_result.data
             else:
-                result = self._generate_and_request_response(
-                    project
+                result = EngineResult.fail(
+                    message=(
+                        "Error inesperado en PipelineEngine."
+                    ),
+                    errors=list(stage_result.errors),
+                    metadata={
+                        "component": self.component_name,
+                    },
                 )
-
-                if result.success and self.stage_delay_seconds > 0:
-                    time.sleep(self.stage_delay_seconds)
 
         except Exception as error:
-            # F1: Registrar fallo en estado y logger
-            if self.state_manager is not None and executed_stage:
-                self.state_manager.transition_stage(
-                    stage_name=executed_stage,
-                    new_status=StageStatus.FAILED,
-                    error_message=str(error),
-                )
-            if self.production_logger is not None and executed_stage:
-                self.production_logger.error(
-                    stage=executed_stage,
-                    message=f"Error inesperado en PipelineEngine: {error}",
-                    component=self.component_name,
-                    operation="execute_stage",
-                )
-
             result = EngineResult.fail(
                 message=(
                     "Error inesperado en PipelineEngine."
@@ -249,43 +269,6 @@ class PipelineEngine:
             time.perf_counter() - started_at,
             6,
         )
-
-        # --------------------------------------------------
-        # Fase 1: Registrar resultado del Stage
-        # --------------------------------------------------
-        if self.state_manager is not None and executed_stage:
-            if result.success:
-                self.state_manager.transition_stage(
-                    stage_name=executed_stage,
-                    new_status=StageStatus.COMPLETED,
-                    result_summary=result.message,
-                    warnings=list(result.warnings),
-                    metadata=dict(result.metadata),
-                )
-            else:
-                self.state_manager.transition_stage(
-                    stage_name=executed_stage,
-                    new_status=StageStatus.FAILED,
-                    error_message=result.message,
-                    warnings=list(result.warnings),
-                    metadata=dict(result.metadata),
-                )
-
-        if self.production_logger is not None and executed_stage:
-            level = LogLevel.INFO if result.success else LogLevel.ERROR
-            self.production_logger.log(
-                level=level,
-                stage=executed_stage,
-                message=result.message,
-                component=self.component_name,
-                operation="execute_stage",
-                duration_seconds=duration_seconds,
-                metadata={
-                    "success": result.success,
-                    "errors": list(result.errors),
-                    "warnings": list(result.warnings),
-                },
-            )
 
         result = self._attach_telemetry(
             project=project,
@@ -331,6 +314,60 @@ class PipelineEngine:
             legacy_logger=legacy_logger,
         )
         self.production_logger.rebuild_metrics()
+
+    # --------------------------------------------------
+    # Fase 2: Core legacy ejecutado por StageExecutor
+    # --------------------------------------------------
+    def _execute_stage_core(
+        self,
+        runtime_context: RuntimeContext,
+        production_state: ProductionStateManager,
+        production_logger: ProductionLogger,
+    ) -> dict[str, object]:
+        """
+        Ejecuta únicamente la lógica funcional legacy de un Stage.
+
+        Las transiciones de ProductionState y el logging estructurado
+        del ciclo de vida del Stage pertenecen a StageExecutor.
+        """
+
+        project = runtime_context.project
+
+        response_path = self._get_response_path(
+            project
+        )
+
+        response_content = self._read_response(
+            response_path
+        )
+
+        if response_content:
+            result = self._process_manual_response(
+                project=project,
+                response_content=response_content,
+                response_path=response_path,
+            )
+        else:
+            result = self._generate_and_request_response(
+                project
+            )
+
+            if (
+                result.success
+                and self.stage_delay_seconds > 0
+            ):
+                time.sleep(
+                    self.stage_delay_seconds
+                )
+
+        return {
+            "success": result.success,
+            "data": result,
+            "message": result.message,
+            "errors": list(result.errors),
+            "warnings": list(result.warnings),
+            "metadata": dict(result.metadata),
+        }
 
     def _generate_and_request_response(
         self,
