@@ -2,9 +2,9 @@
 
 F5.2 publica las capacidades multimedia ya modeladas por ``media_director`` en
 la capa estándar de adaptadores del Core. Este módulo no selecciona providers,
-no conoce SDKs externos, no persiste artifacts y no ejecuta post-proceso.
-La frontera de ejecución del provider se inyecta como callable y será conectada
-con F4 en F5.3.
+no conoce SDKs externos, no implementa persistencia F3 y no ejecuta post-proceso.
+Las fronteras de provider y artifact se inyectan como callables; el adapter solo
+traduce contratos y publica el resultado normalizado al Core.
 """
 from __future__ import annotations
 
@@ -27,6 +27,8 @@ from .exceptions import AdapterContractError, AdapterValidationError
 
 
 ProviderExecutor = Callable[[Any], Any]
+MediaArtifactHandler = Callable[[MediaResult, AdapterRequest], tuple[Mapping[str, Any], ...]]
+ARTIFACT_TARGET_KEY = "artifact_target"
 
 
 class MediaDirectorAdapter(BaseAgentAdapter):
@@ -39,11 +41,15 @@ class MediaDirectorAdapter(BaseAgentAdapter):
         *,
         provider_executor: ProviderExecutor,
         director: MediaDirector | None = None,
+        artifact_handler: MediaArtifactHandler | None = None,
     ) -> None:
         super().__init__()
         if not callable(provider_executor):
             raise AdapterContractError("provider_executor debe ser invocable.")
+        if artifact_handler is not None and not callable(artifact_handler):
+            raise AdapterContractError("artifact_handler debe ser invocable o None.")
         self._provider_executor = provider_executor
+        self._artifact_handler = artifact_handler
         self._director = director or self._build_director()
         if self._director.strategy.provider_capability != self.capability:
             raise AdapterContractError(
@@ -68,6 +74,9 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             raise AdapterValidationError(
                 f"{self.adapter_name} requiere input.prompt."
             )
+        artifact_target = payload.get(ARTIFACT_TARGET_KEY)
+        if artifact_target is not None:
+            self._validate_artifact_target(artifact_target)
 
     def run(self, request: AdapterRequest) -> MediaResult:
         media_request = self._to_media_request(request)
@@ -88,6 +97,7 @@ class MediaDirectorAdapter(BaseAgentAdapter):
                 "MediaDirector devolvió un resultado incompatible."
             )
         output = raw_output.to_dict()
+        artifacts = self._collect_artifacts(raw_output, request)
         return AdapterResult.success(
             adapter_name=self.adapter_name,
             capability=self.capability,
@@ -99,6 +109,7 @@ class MediaDirectorAdapter(BaseAgentAdapter):
                 "output_format": raw_output.output_format,
                 "post_process_step_count": len(raw_output.post_process_chain),
             },
+            artifacts=artifacts,
             started_at=started_at,
         )
 
@@ -112,6 +123,9 @@ class MediaDirectorAdapter(BaseAgentAdapter):
                 "media_type": strategy.media_type.value,
                 "output_format": strategy.output_format,
                 "post_process_mode": "declarative",
+                "artifact_persistence": (
+                    "runtime_opt_in" if self._artifact_handler is not None else "disabled"
+                ),
             }
         )
         return metadata
@@ -126,6 +140,7 @@ class MediaDirectorAdapter(BaseAgentAdapter):
         payload = self._payload(request)
         prompt = str(payload.pop("prompt")).strip()
         preferred_provider = payload.pop("preferred_provider", None)
+        payload.pop(ARTIFACT_TARGET_KEY, None)
 
         supplied_metadata = payload.pop("metadata", {})
         if supplied_metadata is None:
@@ -150,6 +165,45 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             metadata=metadata,
         )
 
+    def _collect_artifacts(
+        self,
+        result: MediaResult,
+        request: AdapterRequest,
+    ) -> tuple[Mapping[str, Any], ...]:
+        if self._artifact_handler is None:
+            return ()
+        artifacts = self._artifact_handler(result, request)
+        if artifacts is None:
+            return ()
+        try:
+            normalized = tuple(artifacts)
+        except TypeError as exc:
+            raise AdapterContractError(
+                "artifact_handler debe devolver una colección de Mapping."
+            ) from exc
+        if not all(isinstance(item, Mapping) for item in normalized):
+            raise AdapterContractError(
+                "artifact_handler solo puede devolver elementos Mapping."
+            )
+        return tuple(dict(item) for item in normalized)
+
+    @staticmethod
+    def _validate_artifact_target(value: Any) -> None:
+        if not isinstance(value, Mapping):
+            raise AdapterValidationError("artifact_target debe ser Mapping.")
+        for field_name in ("platform", "relative_path"):
+            field_value = value.get(field_name)
+            if field_value is None or not str(field_value).strip():
+                raise AdapterValidationError(
+                    f"artifact_target.{field_name} es obligatorio."
+                )
+        metadata = value.get("metadata")
+        if metadata is not None and not isinstance(metadata, Mapping):
+            raise AdapterValidationError(
+                "artifact_target.metadata debe ser Mapping o None."
+            )
+
+
 
 class VoiceMediaAdapter(MediaDirectorAdapter):
     adapter_name = "VoiceMediaAdapter"
@@ -173,7 +227,9 @@ class VideoMediaAdapter(MediaDirectorAdapter):
 
 
 __all__ = [
+    "ARTIFACT_TARGET_KEY",
     "ProviderExecutor",
+    "MediaArtifactHandler",
     "MediaDirectorAdapter",
     "VoiceMediaAdapter",
     "ImageMediaAdapter",

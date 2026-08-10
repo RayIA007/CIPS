@@ -14,7 +14,9 @@ from .registry import AdapterRegistry
 from .research import ResearchAdapterConfig, ResearchDirectorAdapter
 from .strategy import StrategyAdapterConfig, StrategyDirectorAdapter
 from .media import (
+    ARTIFACT_TARGET_KEY,
     ImageMediaAdapter,
+    MediaArtifactHandler,
     MediaDirectorAdapter,
     VideoMediaAdapter,
     VoiceMediaAdapter,
@@ -30,6 +32,8 @@ __all__ = [
     "ResearchDirectorAdapter",
     "StrategyAdapterConfig",
     "StrategyDirectorAdapter",
+    "ARTIFACT_TARGET_KEY",
+    "MediaArtifactHandler",
     "MediaDirectorAdapter",
     "VoiceMediaAdapter",
     "ImageMediaAdapter",
