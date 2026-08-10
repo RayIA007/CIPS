@@ -4,6 +4,11 @@ from .exceptions import (
     MediaRequestValidationError,
     MediaResultValidationError,
 )
+from .provider_integration import (
+    CapabilityProviderExecutor,
+    CapabilityResolverLike,
+    ProviderInvoker,
+)
 from .models import (
     MODEL_VERSION,
     MediaRequest,
@@ -19,6 +24,9 @@ __all__ = [
     "MediaDirector",
     "ProviderExecutor",
     "MediaDirectorError",
+    "CapabilityProviderExecutor",
+    "CapabilityResolverLike",
+    "ProviderInvoker",
     "MediaRequestValidationError",
     "MediaResultValidationError",
     "MediaRequest",
