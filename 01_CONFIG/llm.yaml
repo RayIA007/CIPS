@@ -83,12 +83,18 @@ providers:
 
   openai:
 
-    enabled: false
+    enabled: true
 
     description: >
-      Proveedor OpenAI pendiente de implementación.
+      Proveedor automático OpenAI mediante el SDK oficial, con
+      timeout explícito y reintentos administrados por CIPS.
 
-    options: {}
+    options:
+      model: gpt-5
+      api_key_env: OPENAI_API_KEY
+      temperature: 0.2
+      max_output_tokens: 4000
+      timeout_seconds: 120
 
 
   claude:

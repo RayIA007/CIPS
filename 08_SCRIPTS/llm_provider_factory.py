@@ -12,6 +12,8 @@ Crea proveedores LLM a partir de nombres configurables.
 Proveedores registrados:
 - manual
 - gemini
+- ollama
+- openai
 
 Los proveedores futuros podrán agregarse sin modificar
 LLMAdapter ni PipelineRunner.
@@ -22,8 +24,10 @@ from typing import Any
 
 from gemini_llm_provider import GeminiLLMProvider
 from llm_provider import LLMProvider
+from llm_provider_name import normalize_provider_name
 from manual_llm_provider import ManualLLMProvider
 from ollama_provider import OllamaLLMProvider
+from openai_provider import OpenAIProvider
 
 
 ProviderBuilder = Callable[..., LLMProvider]
@@ -48,6 +52,7 @@ class LLMProviderFactory:
         "manual": ManualLLMProvider,
         "gemini": GeminiLLMProvider,
         "ollama": OllamaLLMProvider,
+        "openai": OpenAIProvider,
     }
 
     @classmethod
@@ -86,9 +91,14 @@ class LLMProviderFactory:
                 f"Proveedores disponibles: {available}"
             )
 
+        normalized_options = cls._normalize_provider_options(
+            normalized_name,
+            provider_options,
+        )
+
         try:
             provider = provider_builder(
-                **provider_options
+                **normalized_options
             )
 
         except TypeError as error:
@@ -240,33 +250,41 @@ class LLMProviderFactory:
             in sorted(cls._providers.items())
         }
 
+    @classmethod
+    def _normalize_provider_options(
+        cls,
+        provider_name: str,
+        provider_options: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Normaliza aliases de configuración sin romper firmas históricas."""
+        options = dict(provider_options)
+
+        if provider_name == "openai":
+            if (
+                "timeout_seconds" in options
+                and "timeout" not in options
+            ):
+                options["timeout"] = options.pop(
+                    "timeout_seconds"
+                )
+            else:
+                options.pop("timeout_seconds", None)
+
+            if (
+                "max_output_tokens" in options
+                and "max_tokens" not in options
+            ):
+                options["max_tokens"] = options.pop(
+                    "max_output_tokens"
+                )
+            else:
+                options.pop("max_output_tokens", None)
+
+        return options
+
     @staticmethod
     def _normalize_name(
         provider_name: str,
     ) -> str:
-        """
-        Normaliza el nombre recibido.
-        """
-
-        if not isinstance(
-            provider_name,
-            str,
-        ):
-            raise TypeError(
-                "provider_name debe ser una cadena."
-            )
-
-        normalized_name = (
-            provider_name
-            .strip()
-            .lower()
-            .replace("-", "_")
-            .replace(" ", "_")
-        )
-
-        if not normalized_name:
-            raise ValueError(
-                "provider_name no puede estar vacío."
-            )
-
-        return normalized_name
+        """Normaliza el nombre recibido mediante la regla común LLM."""
+        return normalize_provider_name(provider_name)

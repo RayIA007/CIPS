@@ -23,6 +23,7 @@ from typing import Any
 
 from llm_provider import LLMProvider
 from llm_provider_factory import LLMProviderFactory
+from llm_provider_name import normalize_provider_name
 from utils import ROOT, read_yaml
 
 
@@ -136,10 +137,21 @@ class LLMConfigManager:
             )
         )
 
-        provider_options = self._get_provider_options(
+        provider_config = self._get_provider_config(
             raw_config=raw_config,
             provider_name=provider_name,
+        )
+
+        provider_options = self._get_provider_options(
+            provider_config=provider_config,
             runtime_config=runtime_config,
+        )
+
+        provider_enabled = self._normalize_bool(
+            provider_config.get(
+                "enabled",
+                True,
+            )
         )
 
         return LLMSettings(
@@ -154,6 +166,7 @@ class LLMConfigManager:
             metadata={
                 "config_path": str(self.config_path),
                 "config_exists": self.config_path.exists(),
+                "provider_enabled": provider_enabled,
             },
         )
 
@@ -179,6 +192,25 @@ class LLMConfigManager:
             provider_options = dict(
                 active_settings.provider_options
             )
+
+            if resolved_provider != "manual":
+                provider_options.setdefault(
+                    "model",
+                    active_settings.model,
+                )
+                provider_options.setdefault(
+                    "temperature",
+                    active_settings.temperature,
+                )
+                provider_options.setdefault(
+                    "timeout_seconds",
+                    active_settings.timeout_seconds,
+                )
+                if active_settings.max_output_tokens is not None:
+                    provider_options.setdefault(
+                        "max_output_tokens",
+                        active_settings.max_output_tokens,
+                    )
         else:
             provider_options = {}
 
@@ -206,6 +238,10 @@ class LLMConfigManager:
             "active_provider": active_provider,
             "model": settings.model,
             "enabled": settings.enabled,
+            "provider_enabled": settings.metadata.get(
+                "provider_enabled",
+                True,
+            ),
             "timeout_seconds": settings.timeout_seconds,
             "temperature": settings.temperature,
             "max_output_tokens": settings.max_output_tokens,
@@ -226,6 +262,12 @@ class LLMConfigManager:
         """
 
         if not settings.enabled:
+            return "manual"
+
+        if not settings.metadata.get(
+            "provider_enabled",
+            True,
+        ):
             return "manual"
 
         if not LLMProviderFactory.is_registered(
@@ -257,16 +299,46 @@ class LLMConfigManager:
 
         return raw_config
 
-    def _get_provider_options(
+    def _get_provider_config(
         self,
         raw_config: dict[str, Any],
         provider_name: str,
+    ) -> dict[str, Any]:
+        """Obtiene la sección del proveedor usando nombres normalizados."""
+        providers = raw_config.get(
+            "providers",
+            {},
+        )
+
+        if not isinstance(providers, dict):
+            return {}
+
+        direct = providers.get(provider_name)
+        if isinstance(direct, dict):
+            return direct
+
+        for configured_name, provider_config in providers.items():
+            try:
+                normalized_name = normalize_provider_name(
+                    configured_name
+                )
+            except (TypeError, ValueError):
+                continue
+
+            if (
+                normalized_name == provider_name
+                and isinstance(provider_config, dict)
+            ):
+                return provider_config
+
+        return {}
+
+    def _get_provider_options(
+        self,
+        provider_config: dict[str, Any],
         runtime_config: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Obtiene opciones específicas del proveedor configurado.
-        """
-
+        """Obtiene opciones específicas del proveedor configurado."""
         options: dict[str, Any] = {}
 
         runtime_options = runtime_config.get(
@@ -277,30 +349,13 @@ class LLMConfigManager:
         if isinstance(runtime_options, dict):
             options.update(runtime_options)
 
-        providers = raw_config.get(
-            "providers",
+        constructor_options = provider_config.get(
+            "options",
             {},
         )
 
-        if isinstance(providers, dict):
-            provider_config = providers.get(
-                provider_name,
-                {},
-            )
-
-            if isinstance(provider_config, dict):
-                constructor_options = provider_config.get(
-                    "options",
-                    {},
-                )
-
-                if isinstance(
-                    constructor_options,
-                    dict,
-                ):
-                    options.update(
-                        constructor_options
-                    )
+        if isinstance(constructor_options, dict):
+            options.update(constructor_options)
 
         return options
 
@@ -316,14 +371,10 @@ class LLMConfigManager:
         if not isinstance(value, str):
             return default
 
-        normalized = (
-            value.strip()
-            .lower()
-            .replace("-", "_")
-            .replace(" ", "_")
-        )
-
-        return normalized or default
+        try:
+            return normalize_provider_name(value)
+        except (TypeError, ValueError):
+            return default
 
     def _normalize_model_name(
         self,

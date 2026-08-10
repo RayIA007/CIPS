@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from llm_provider import LLMProvider
+from llm_provider_name import normalize_provider_name
 
 
 class ProviderRegistryError(RuntimeError):
@@ -323,18 +324,16 @@ class ProviderRegistry:
 
     @staticmethod
     def _normalize_name(name: str) -> str:
-        if not isinstance(name, str):
+        try:
+            return normalize_provider_name(name)
+        except TypeError as error:
             raise TypeError(
                 "El nombre del proveedor debe ser una cadena de texto."
-            )
-
-        normalized = name.strip().lower()
-        if not normalized:
+            ) from error
+        except ValueError as error:
             raise ValueError(
                 "El nombre del proveedor no puede estar vacío."
-            )
-
-        return normalized
+            ) from error
 
     @staticmethod
     def _extract_models(provider: LLMProvider) -> list[str]:
