@@ -675,14 +675,22 @@ class GeminiLLMProvider(LLMProvider):
 
         try:
             from google import genai
+            from google.genai import types
 
         except ImportError as error:
             raise ImportError(
                 "No está instalado el paquete google-genai."
             ) from error
 
+        timeout_milliseconds = (
+            self.timeout_seconds * 1000
+        )
+
         self._client = genai.Client(
-            api_key=self.api_key
+            api_key=self.api_key,
+            http_options=types.HttpOptions(
+                timeout=timeout_milliseconds,
+            ),
         )
 
         return self._client
