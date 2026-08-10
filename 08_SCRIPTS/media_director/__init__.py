@@ -1,3 +1,4 @@
+from .artifact_integration import MediaArtifactPersister
 from .director import MediaDirector, ProviderExecutor
 from .exceptions import (
     MediaDirectorError,
@@ -20,6 +21,7 @@ from .models import (
 from .strategy import ImageStrategy, MediaStrategy, VideoStrategy, VoiceStrategy
 
 __all__ = [
+    "MediaArtifactPersister",
     "MODEL_VERSION",
     "MediaDirector",
     "ProviderExecutor",
