@@ -6,19 +6,16 @@ from .context import ExecutionContext
 from .messages import Message, MessageBus, MessagePriority, MessageType
 from .tasks import TaskGraph, TaskResult, TaskStatus, WorkflowDefinition, WorkflowStatus
 from .utils import utc_now_iso
-
 @dataclass(slots=True)
 class WorkflowResult:
     workflow_id:str; run_id:str; status:WorkflowStatus; context:ExecutionContext; task_results:dict[str,TaskResult]; started_at:str; finished_at:str; error:str=""
     @property
     def succeeded(self): return self.status is WorkflowStatus.SUCCEEDED
-
 class WorkflowEngine:
     def __init__(self,registry,*,message_bus=None,checkpoint_store=None):
         self.registry=registry
         self.message_bus=message_bus or MessageBus()
         self.checkpoint_store=checkpoint_store or InMemoryCheckpointStore()
-
     def run(self,workflow,*,project_id,initial_data=None,metadata=None):
         graph=TaskGraph(workflow); started=utc_now_iso()
         ctx=ExecutionContext(project_id,workflow.workflow_id,data=dict(initial_data or {}),metadata=dict(metadata or {}))
@@ -39,7 +36,6 @@ class WorkflowEngine:
         finished=utc_now_iso(); self._checkpoint(workflow,status,ctx,results)
         self._pub("workflow.finished",MessageType.RESULT if status is WorkflowStatus.SUCCEEDED else MessageType.ERROR,{"status":status.value},"WorkflowEngine")
         return WorkflowResult(workflow.workflow_id,ctx.run_id,status,ctx,results,started,finished,fatal)
-
     def _execute(self,task,ctx):
         agent=self.registry.resolve(agent_name=task.agent_name,capability=task.capability)
         result=TaskResult(task.task_id,TaskStatus.RUNNING,started_at=utc_now_iso(),agent_name=agent.name)
@@ -65,6 +61,8 @@ class WorkflowEngine:
                     result.warnings=tuple(str(x) for x in raw_output.warnings)
                     result.artifacts=tuple(self._plain(x) for x in raw_output.artifacts)
                     ctx.set_output(task.task_id,plain_output)
+                    if result.artifacts:
+                        ctx.set_artifacts(task.task_id,result.artifacts)
                     self._pub(
                         "adapter.succeeded",
                         MessageType.RESULT,
@@ -90,7 +88,6 @@ class WorkflowEngine:
         result.error=last; result.finished_at=utc_now_iso()
         self._pub("task.failed",MessageType.ERROR,{"task_id":task.task_id,"error":last},agent.name,priority=MessagePriority.HIGH)
         return result
-
     @staticmethod
     def _plain(value):
         from collections.abc import Mapping
@@ -103,13 +100,10 @@ class WorkflowEngine:
         if isinstance(value, set):
             return sorted(WorkflowEngine._plain(v) for v in value)
         return value
-
     @staticmethod
     def _is_adapter_result(value):
         return all(hasattr(value, attr) for attr in ("adapter_name","capability","status","output","metrics","artifacts","succeeded"))
-
     def _checkpoint(self,workflow,status,ctx,results):
         self.checkpoint_store.save(Checkpoint(workflow.workflow_id,ctx.run_id,status,ctx,dict(results)))
-
     def _pub(self,topic,typ,payload,source,target="",priority=MessagePriority.NORMAL):
         self.message_bus.publish(Message(topic,payload,typ,priority,source,target))

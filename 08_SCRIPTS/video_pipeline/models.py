@@ -40,6 +40,68 @@ class VideoTransitionSpec(BaseModel):
         return value
 
 
+class VideoArtifactRefSpec(BaseModel):
+    """Logical reference to an artifact produced by another pipeline scene."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scene_id: str = Field(..., min_length=1)
+    artifact_index: int = Field(default=0, ge=0)
+    role: str | None = None
+
+    @field_validator("scene_id")
+    @classmethod
+    def _normalize_scene_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("artifact_ref.scene_id es obligatorio.")
+        return normalized
+
+    @field_validator("role")
+    @classmethod
+    def _normalize_role(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("artifact_ref.role no puede estar vacío.")
+        return normalized
+
+
+class VideoArtifactTargetSpec(BaseModel):
+    """Logical F5/F3 persistence target without filesystem implementation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    platform: str = Field(..., min_length=1)
+    relative_path: str = Field(..., min_length=1)
+    execution_id: str | None = None
+    mime_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    artifact_id: str | None = None
+
+    @field_validator("platform", "relative_path")
+    @classmethod
+    def _normalize_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("artifact_target.platform y relative_path son obligatorios.")
+        return normalized
+
+    @field_validator("execution_id", "mime_type", "artifact_id")
+    @classmethod
+    def _normalize_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Los campos opcionales de artifact_target no pueden estar vacíos.")
+        return normalized
+
+
+MediaRef = str | VideoArtifactRefSpec
+
+
 class VideoSceneSpec(BaseModel):
     """One declarative scene compiled later to a Core ``TaskDefinition``."""
 
@@ -50,10 +112,11 @@ class VideoSceneSpec(BaseModel):
     prompt: str = Field(..., min_length=1)
     duration: float = Field(..., gt=0.0)
     dependencies: tuple[str, ...] = ()
-    media_refs: tuple[str, ...] = ()
+    media_refs: tuple[MediaRef, ...] = ()
     transitions: tuple[VideoTransitionSpec, ...] = ()
     audio_track: str | None = None
     subtitle_track: str | None = None
+    artifact_target: VideoArtifactTargetSpec | None = None
 
     @field_validator("scene_id", "prompt")
     @classmethod
@@ -80,13 +143,27 @@ class VideoSceneSpec(BaseModel):
             raise ValueError("scene.duration debe ser numérico, no texto.")
         return value
 
-    @field_validator("dependencies", "media_refs")
+    @field_validator("dependencies")
     @classmethod
-    def _normalize_reference_list(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+    def _normalize_dependencies(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(str(value).strip() for value in values)
         if any(not value for value in normalized):
             raise ValueError("Las referencias no pueden contener valores vacíos.")
         return normalized
+
+    @field_validator("media_refs")
+    @classmethod
+    def _normalize_media_refs(cls, values: tuple[MediaRef, ...]) -> tuple[MediaRef, ...]:
+        normalized: list[MediaRef] = []
+        for value in values:
+            if isinstance(value, str):
+                text = value.strip()
+                if not text:
+                    raise ValueError("Las referencias no pueden contener valores vacíos.")
+                normalized.append(text)
+            else:
+                normalized.append(value)
+        return tuple(normalized)
 
     @model_validator(mode="after")
     def _validate_scene_references(self) -> "VideoSceneSpec":
@@ -102,7 +179,7 @@ class VideoSceneSpec(BaseModel):
                 f"La escena '{self.scene_id}' no puede depender de sí misma."
             )
 
-        duplicate_media_refs = _duplicates(self.media_refs)
+        duplicate_media_refs = _duplicates(_media_ref_identity(item) for item in self.media_refs)
         if duplicate_media_refs:
             raise ValueError(
                 "scene.media_refs contiene referencias duplicadas: "
@@ -141,14 +218,43 @@ class VideoPipelineSpec(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _validate_unique_scene_ids(self) -> "VideoPipelineSpec":
+    def _validate_pipeline_references(self) -> "VideoPipelineSpec":
+        scene_by_id = {scene.scene_id: scene for scene in self.scenes}
         duplicate_scene_ids = _duplicates(scene.scene_id for scene in self.scenes)
         if duplicate_scene_ids:
             raise ValueError(
                 "VideoPipelineSpec contiene scene_id duplicados: "
                 f"{', '.join(duplicate_scene_ids)}."
             )
+
+        for scene in self.scenes:
+            for media_ref in scene.media_refs:
+                if not isinstance(media_ref, VideoArtifactRefSpec):
+                    continue
+                source = scene_by_id.get(media_ref.scene_id)
+                if source is None:
+                    raise ValueError(
+                        f"La referencia de artifact de '{scene.scene_id}' apunta a "
+                        f"una escena inexistente: '{media_ref.scene_id}'."
+                    )
+                if media_ref.scene_id not in scene.dependencies:
+                    raise ValueError(
+                        f"La referencia de artifact de '{scene.scene_id}' a "
+                        f"'{media_ref.scene_id}' requiere declarar esa escena en dependencies."
+                    )
+                if source.artifact_target is None:
+                    raise ValueError(
+                        f"La escena fuente '{media_ref.scene_id}' debe declarar artifact_target "
+                        "para poder ser referenciada como artifact."
+                    )
         return self
+
+
+def _media_ref_identity(value: MediaRef) -> str:
+    if isinstance(value, str):
+        return f"external:{value}"
+    role = value.role or ""
+    return f"scene:{value.scene_id}:{value.artifact_index}:{role}"
 
 
 def _duplicates(values: Iterable[str]) -> tuple[str, ...]:
@@ -166,6 +272,9 @@ def _duplicates(values: Iterable[str]) -> tuple[str, ...]:
 
 __all__ = [
     "VIDEO_PIPELINE_SCHEMA_VERSION",
+    "MediaRef",
+    "VideoArtifactRefSpec",
+    "VideoArtifactTargetSpec",
     "VideoTransitionSpec",
     "VideoSceneSpec",
     "VideoPipelineSpec",

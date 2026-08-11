@@ -7,7 +7,6 @@ Las fronteras de provider y artifact se inyectan como callables; el adapter solo
 traduce contratos y publica el resultado normalizado al Core.
 """
 from __future__ import annotations
-
 from collections.abc import Callable
 from typing import Any, Mapping
 
@@ -22,7 +21,7 @@ from media_director import (
 )
 
 from .base import BaseAgentAdapter
-from .contracts import AdapterRequest, AdapterResult
+from .contracts import AdapterRequest, AdapterResult, TASK_ARTIFACT_REF_KEY
 from .exceptions import AdapterContractError, AdapterValidationError
 
 
@@ -35,7 +34,6 @@ class MediaDirectorAdapter(BaseAgentAdapter):
     """Base delgada que traduce contratos Core <-> MediaDirector."""
 
     strategy_factory: type[MediaStrategy] | None = None
-
     def __init__(
         self,
         *,
@@ -55,18 +53,15 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             raise AdapterContractError(
                 "La capability del adaptador no coincide con la estrategia multimedia."
             )
-
     @property
     def director(self) -> MediaDirector:
         return self._director
-
     def _build_director(self) -> MediaDirector:
         if self.strategy_factory is None:
             raise AdapterContractError(
                 f"{type(self).__name__} debe declarar strategy_factory."
             )
         return MediaDirector(self.strategy_factory())
-
     def validate_request(self, request: AdapterRequest) -> None:
         payload = self._payload(request)
         prompt = payload.get("prompt")
@@ -77,14 +72,13 @@ class MediaDirectorAdapter(BaseAgentAdapter):
         artifact_target = payload.get(ARTIFACT_TARGET_KEY)
         if artifact_target is not None:
             self._validate_artifact_target(artifact_target)
-
+        self._resolve_media_refs(payload.get("media_refs", ()), request.task_artifacts)
     def run(self, request: AdapterRequest) -> MediaResult:
         media_request = self._to_media_request(request)
         return self.director.execute(
             media_request,
             provider_executor=self._provider_executor,
         )
-
     def normalize_result(
         self,
         *,
@@ -112,7 +106,6 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             artifacts=artifacts,
             started_at=started_at,
         )
-
     def descriptor_metadata(self) -> dict[str, Any]:
         metadata = super().descriptor_metadata()
         strategy = self.director.strategy
@@ -129,25 +122,26 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             }
         )
         return metadata
-
     @staticmethod
     def _payload(request: AdapterRequest) -> dict[str, Any]:
         merged = dict(request.shared_data)
         merged.update(request.input_data)
         return merged
-
     def _to_media_request(self, request: AdapterRequest) -> MediaRequest:
         payload = self._payload(request)
         prompt = str(payload.pop("prompt")).strip()
         preferred_provider = payload.pop("preferred_provider", None)
         payload.pop(ARTIFACT_TARGET_KEY, None)
-
+        if "media_refs" in payload:
+            payload["media_refs"] = self._resolve_media_refs(
+                payload["media_refs"],
+                request.task_artifacts,
+            )
         supplied_metadata = payload.pop("metadata", {})
         if supplied_metadata is None:
             supplied_metadata = {}
         if not isinstance(supplied_metadata, Mapping):
             raise AdapterValidationError("input.metadata debe ser Mapping.")
-
         metadata = dict(request.context.metadata)
         metadata.update(dict(supplied_metadata))
         metadata.setdefault("project_id", request.context.project_id)
@@ -157,14 +151,67 @@ class MediaDirectorAdapter(BaseAgentAdapter):
         metadata.setdefault("correlation_id", request.context.correlation_id)
         if request.task_outputs:
             metadata.setdefault("task_outputs", dict(request.task_outputs))
-
+        if request.task_artifacts:
+            metadata.setdefault(
+                "task_artifacts",
+                {
+                    key: [dict(item) for item in artifacts]
+                    for key, artifacts in request.task_artifacts.items()
+                },
+            )
         return MediaRequest(
             prompt=prompt,
             input_data=payload,
             preferred_provider=preferred_provider,
             metadata=metadata,
         )
+    @staticmethod
+    def _resolve_media_refs(
+        values: Any,
+        task_artifacts: Mapping[str, tuple[Mapping[str, Any], ...]],
+    ) -> Any:
+        if values is None:
+            return []
+        if not isinstance(values, (list, tuple)):
+            return values
 
+        resolved: list[Any] = []
+        for value in values:
+            if not isinstance(value, Mapping) or TASK_ARTIFACT_REF_KEY not in value:
+                resolved.append(value)
+                continue
+
+            reference = value[TASK_ARTIFACT_REF_KEY]
+            if not isinstance(reference, Mapping):
+                raise AdapterValidationError(
+                    f"{TASK_ARTIFACT_REF_KEY} debe ser Mapping."
+                )
+            task_id = str(reference.get("task_id", "")).strip()
+            if not task_id:
+                raise AdapterValidationError("artifact_ref.task_id es obligatorio.")
+            raw_index = reference.get("artifact_index", 0)
+            if isinstance(raw_index, bool) or not isinstance(raw_index, int) or raw_index < 0:
+                raise AdapterValidationError("artifact_ref.artifact_index debe ser entero >= 0.")
+
+            artifacts = task_artifacts.get(task_id)
+            if not artifacts:
+                raise AdapterValidationError(
+                    f"No hay artifacts disponibles para la tarea '{task_id}'."
+                )
+            if raw_index >= len(artifacts):
+                raise AdapterValidationError(
+                    f"artifact_ref para '{task_id}' solicita índice {raw_index}, "
+                    f"pero solo existen {len(artifacts)} artifact(s)."
+                )
+
+            artifact = dict(artifacts[raw_index])
+            artifact["source_task_id"] = task_id
+            artifact["artifact_index"] = raw_index
+            role = reference.get("role")
+            if role is not None:
+                artifact["role"] = str(role)
+            resolved.append(artifact)
+        return resolved
     def _collect_artifacts(
         self,
         result: MediaResult,
@@ -186,7 +233,6 @@ class MediaDirectorAdapter(BaseAgentAdapter):
                 "artifact_handler solo puede devolver elementos Mapping."
             )
         return tuple(dict(item) for item in normalized)
-
     @staticmethod
     def _validate_artifact_target(value: Any) -> None:
         if not isinstance(value, Mapping):
@@ -202,7 +248,6 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             raise AdapterValidationError(
                 "artifact_target.metadata debe ser Mapping o None."
             )
-
 
 
 class VoiceMediaAdapter(MediaDirectorAdapter):

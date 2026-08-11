@@ -5,11 +5,17 @@ from types import MappingProxyType
 from typing import Any, Mapping, Optional
 import time, uuid
 
+
 def _new_id(prefix:str)->str: return f"{prefix}_{uuid.uuid4().hex[:16]}"
 def _utc_timestamp()->float: return time.time()
 
+
+TASK_ARTIFACT_REF_KEY = "__cips_task_artifact_ref__"
+
+
 class AdapterStatus(str,Enum):
     SUCCEEDED='succeeded'; FAILED='failed'; REJECTED='rejected'
+
 
 @dataclass(frozen=True, slots=True)
 class AdapterContext:
@@ -22,6 +28,7 @@ class AdapterContext:
         if missing: raise ValueError('AdapterContext requiere: '+', '.join(sorted(missing)))
         object.__setattr__(self,'metadata',MappingProxyType(dict(self.metadata)))
 
+
 @dataclass(frozen=True, slots=True)
 class AdapterRequest:
     capability:str; context:AdapterContext
@@ -30,6 +37,7 @@ class AdapterRequest:
     task_outputs:Mapping[str,Any]=field(default_factory=dict)
     request_id:str=field(default_factory=lambda:_new_id('areq'))
     created_at:float=field(default_factory=_utc_timestamp)
+    task_artifacts:Mapping[str,tuple[Mapping[str,Any],...]]=field(default_factory=dict)
     def __post_init__(self):
         cap=self.capability.strip()
         if not cap: raise ValueError('AdapterRequest.capability es obligatorio.')
@@ -37,13 +45,23 @@ class AdapterRequest:
         object.__setattr__(self,'input_data',MappingProxyType(dict(self.input_data)))
         object.__setattr__(self,'shared_data',MappingProxyType(dict(self.shared_data)))
         object.__setattr__(self,'task_outputs',MappingProxyType(dict(self.task_outputs)))
+        normalized_artifacts={}
+        for task_id, artifacts in dict(self.task_artifacts).items():
+            normalized=[]
+            for artifact in artifacts:
+                if not isinstance(artifact, Mapping):
+                    raise TypeError('task_artifacts solo puede contener artifacts Mapping.')
+                normalized.append(MappingProxyType(dict(artifact)))
+            normalized_artifacts[str(task_id)]=tuple(normalized)
+        object.__setattr__(self,'task_artifacts',MappingProxyType(normalized_artifacts))
     @classmethod
     def from_orchestrator_payload(cls,*,capability:str,payload:Mapping[str,Any])->'AdapterRequest':
         try:
             context=AdapterContext(project_id=str(payload['project_id']),workflow_id=str(payload['workflow_id']),run_id=str(payload['run_id']),task_id=str(payload['task_id']),correlation_id=str(payload.get('correlation_id') or _new_id('corr')),metadata=dict(payload.get('metadata') or {}))
         except KeyError as exc:
             raise ValueError(f"Falta el campo obligatorio del Orchestrator: {exc.args[0]}") from exc
-        return cls(capability=capability,context=context,input_data=dict(payload.get('input') or {}),shared_data=dict(payload.get('shared_data') or {}),task_outputs=dict(payload.get('task_outputs') or {}))
+        return cls(capability=capability,context=context,input_data=dict(payload.get('input') or {}),shared_data=dict(payload.get('shared_data') or {}),task_outputs=dict(payload.get('task_outputs') or {}),task_artifacts=dict(payload.get('task_artifacts') or {}))
+
 
 @dataclass(frozen=True, slots=True)
 class AdapterResult:
@@ -70,3 +88,12 @@ class AdapterResult:
     @classmethod
     def failure(cls,*,adapter_name:str,capability:str,error:str,output:Any=None,warnings:tuple[str,...]=(),metrics:Optional[Mapping[str,Any]]=None,started_at:Optional[float]=None):
         return cls(adapter_name=adapter_name,capability=capability,status=AdapterStatus.FAILED,output=output,error=error.strip() or 'Error no especificado.',warnings=warnings,metrics=dict(metrics or {}),started_at=started_at if started_at is not None else _utc_timestamp(),finished_at=_utc_timestamp())
+
+
+__all__ = [
+    "TASK_ARTIFACT_REF_KEY",
+    "AdapterStatus",
+    "AdapterContext",
+    "AdapterRequest",
+    "AdapterResult",
+]

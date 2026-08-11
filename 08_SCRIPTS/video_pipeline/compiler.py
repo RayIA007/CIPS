@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from cips_core.adapters.contracts import TASK_ARTIFACT_REF_KEY
 from cips_core.tasks import TaskDefinition, TaskGraph, WorkflowDefinition
 
-from .models import VideoPipelineSpec, VideoSceneSpec
+from .models import VideoArtifactRefSpec, VideoPipelineSpec, VideoSceneSpec
 
 
 VIDEO_RENDERING_CAPABILITY = "video_rendering"
+ARTIFACT_TARGET_KEY = "artifact_target"
 
 
 class VideoPipelineCompiler:
@@ -56,13 +58,21 @@ class VideoPipelineCompiler:
         input_data: dict[str, Any] = {
             "prompt": scene.prompt,
             "duration": scene.duration,
-            "media_refs": list(scene.media_refs),
+            "media_refs": [
+                VideoPipelineCompiler._compile_media_ref(item)
+                for item in scene.media_refs
+            ],
             "transitions": [item.model_dump(mode="json") for item in scene.transitions],
         }
         if scene.audio_track is not None:
             input_data["audio_track"] = scene.audio_track
         if scene.subtitle_track is not None:
             input_data["subtitle_track"] = scene.subtitle_track
+        if scene.artifact_target is not None:
+            input_data[ARTIFACT_TARGET_KEY] = scene.artifact_target.model_dump(
+                mode="json",
+                exclude_none=True,
+            )
 
         # Explicit identifiers prevent Core's generated defaults from making
         # the compiled workflow identity nondeterministic.
@@ -74,5 +84,22 @@ class VideoPipelineCompiler:
             input_data=input_data,
         )
 
+    @staticmethod
+    def _compile_media_ref(value: str | VideoArtifactRefSpec) -> Any:
+        if isinstance(value, str):
+            return value
 
-__all__ = ["VIDEO_RENDERING_CAPABILITY", "VideoPipelineCompiler"]
+        payload: dict[str, Any] = {
+            "task_id": value.scene_id,
+            "artifact_index": value.artifact_index,
+        }
+        if value.role is not None:
+            payload["role"] = value.role
+        return {TASK_ARTIFACT_REF_KEY: payload}
+
+
+__all__ = [
+    "ARTIFACT_TARGET_KEY",
+    "VIDEO_RENDERING_CAPABILITY",
+    "VideoPipelineCompiler",
+]
