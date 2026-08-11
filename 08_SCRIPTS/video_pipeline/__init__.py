@@ -2,6 +2,7 @@
 
 from .compiler import VIDEO_RENDERING_CAPABILITY, VideoPipelineCompiler
 from .loader import VideoPipelineLoader, VideoPipelineSourceError
+from .runner import CoreWorkflowRunner, VideoPipelineRunner
 from .models import (
     VIDEO_PIPELINE_SCHEMA_VERSION,
     VideoPipelineSpec,
@@ -12,9 +13,11 @@ from .models import (
 __all__ = [
     "VIDEO_PIPELINE_SCHEMA_VERSION",
     "VIDEO_RENDERING_CAPABILITY",
+    "CoreWorkflowRunner",
     "VideoPipelineCompiler",
     "VideoPipelineLoader",
     "VideoPipelineSourceError",
+    "VideoPipelineRunner",
     "VideoPipelineSpec",
     "VideoSceneSpec",
     "VideoTransitionSpec",
