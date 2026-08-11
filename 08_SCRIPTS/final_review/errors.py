@@ -50,6 +50,10 @@ class ReviewExportBlockedError(ReviewExportBoundaryError):
         self.redo_target = redo_target
 
 
+class ReviewPersistenceError(FinalReviewError):
+    """Raised when an F7 review audit record cannot be persisted or loaded."""
+
+
 __all__ = [
     "FinalReviewError",
     "InconsistentReviewArtifactError",
@@ -59,5 +63,6 @@ __all__ = [
     "ReviewExportBoundaryError",
     "ReviewGatewayError",
     "ReviewPolicyError",
+    "ReviewPersistenceError",
     "ReviewTargetBuildError",
 ]
