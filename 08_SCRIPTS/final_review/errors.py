@@ -1,4 +1,4 @@
-"""Domain-specific errors for the CIPS F7 final-review foundation."""
+"""Domain-specific errors for the CIPS F7 final-review domain."""
 
 
 class FinalReviewError(RuntimeError):
@@ -9,4 +9,17 @@ class InvalidReviewTransitionError(FinalReviewError):
     """Raised when a requested final-review state transition is invalid."""
 
 
-__all__ = ["FinalReviewError", "InvalidReviewTransitionError"]
+class ReviewTargetBuildError(FinalReviewError):
+    """Raised when an execution result cannot produce a valid review target."""
+
+
+class InconsistentReviewArtifactError(ReviewTargetBuildError):
+    """Raised when Core exposes conflicting artifact identities for the same task."""
+
+
+__all__ = [
+    "FinalReviewError",
+    "InconsistentReviewArtifactError",
+    "InvalidReviewTransitionError",
+    "ReviewTargetBuildError",
+]
