@@ -29,11 +29,34 @@ class ReviewPolicyError(ReviewGatewayError):
     """Raised when a review policy violates the gateway contract."""
 
 
+class ReviewExportBoundaryError(FinalReviewError):
+    """Base error for failures at the review-to-export boundary."""
+
+
+class ReviewExportBlockedError(ReviewExportBoundaryError):
+    """Raised when export is attempted without an approved review result."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        state: str,
+        decision_id: str,
+        redo_target: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.state = state
+        self.decision_id = decision_id
+        self.redo_target = redo_target
+
+
 __all__ = [
     "FinalReviewError",
     "InconsistentReviewArtifactError",
     "InvalidReviewTransitionError",
     "ReviewDecisionRequiredError",
+    "ReviewExportBlockedError",
+    "ReviewExportBoundaryError",
     "ReviewGatewayError",
     "ReviewPolicyError",
     "ReviewTargetBuildError",
