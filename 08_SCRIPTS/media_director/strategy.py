@@ -10,7 +10,6 @@ from .models import MediaRequest, MediaType, MediaWorkPackage, PostProcessStep
 
 class MediaStrategy(ABC):
     """Variación por medio sin selección de provider ni ejecución de pipeline."""
-
     strategy_name = "media"
     media_type = MediaType.IMAGE
     provider_capability = ""
@@ -86,6 +85,11 @@ class MediaStrategy(ABC):
         return payload
 
     def build_work_package(self, request: MediaRequest) -> MediaWorkPackage:
+        post_process_chain = (
+            self.post_process_chain
+            if request.post_process_chain is None
+            else request.post_process_chain
+        )
         return MediaWorkPackage(
             request_id=request.request_id,
             strategy_name=self.strategy_name,
@@ -94,7 +98,7 @@ class MediaStrategy(ABC):
             provider_payload=self.build_provider_request(request),
             output_format=self.output_format,
             preferred_provider=request.preferred_provider,
-            post_process_chain=self.post_process_chain,
+            post_process_chain=post_process_chain,
             metadata=request.metadata,
         )
 

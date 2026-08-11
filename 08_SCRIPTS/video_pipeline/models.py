@@ -7,7 +7,7 @@ execute workflows, select providers, resolve artifacts, or manage filesystems.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -38,6 +38,40 @@ class VideoTransitionSpec(BaseModel):
         if isinstance(value, bool) or isinstance(value, str):
             raise ValueError("transition.duration debe ser numérico, no texto.")
         return value
+
+
+class VideoRenderProfileSpec(BaseModel):
+    """Provider-agnostic render intent for preview/final video output."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: Literal["preview", "final"] = "final"
+    max_height: int | None = Field(default=None, gt=0)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _apply_profile_defaults(self) -> "VideoRenderProfileSpec":
+        if self.name == "preview" and self.max_height is None:
+            object.__setattr__(self, "max_height", 360)
+        return self
+
+
+class VideoPostProcessStepSpec(BaseModel):
+    """Declarative post-process step compiled to F5 ``PostProcessStep``."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(..., min_length=1)
+    required: bool = True
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def _normalize_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("post_process.name es obligatorio.")
+        return normalized
 
 
 class VideoArtifactRefSpec(BaseModel):
@@ -116,6 +150,8 @@ class VideoSceneSpec(BaseModel):
     transitions: tuple[VideoTransitionSpec, ...] = ()
     audio_track: str | None = None
     subtitle_track: str | None = None
+    render_profile: VideoRenderProfileSpec | None = None
+    post_process_chain: tuple[VideoPostProcessStepSpec, ...] | None = None
     artifact_target: VideoArtifactTargetSpec | None = None
 
     @field_validator("scene_id", "prompt")
@@ -135,6 +171,13 @@ class VideoSceneSpec(BaseModel):
         if not normalized:
             raise ValueError("Los campos de texto opcionales no pueden estar vacíos.")
         return normalized
+
+    @field_validator("render_profile", mode="before")
+    @classmethod
+    def _normalize_render_profile(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"name": value.strip()}
+        return value
 
     @field_validator("duration", mode="before")
     @classmethod
@@ -185,6 +228,13 @@ class VideoSceneSpec(BaseModel):
                 "scene.media_refs contiene referencias duplicadas: "
                 f"{', '.join(duplicate_media_refs)}."
             )
+        if self.post_process_chain is not None:
+            duplicate_post_process = _duplicates(step.name for step in self.post_process_chain)
+            if duplicate_post_process:
+                raise ValueError(
+                    "scene.post_process_chain contiene pasos duplicados: "
+                    f"{', '.join(duplicate_post_process)}."
+                )
         return self
 
 
@@ -275,6 +325,8 @@ __all__ = [
     "MediaRef",
     "VideoArtifactRefSpec",
     "VideoArtifactTargetSpec",
+    "VideoPostProcessStepSpec",
+    "VideoRenderProfileSpec",
     "VideoTransitionSpec",
     "VideoSceneSpec",
     "VideoPipelineSpec",

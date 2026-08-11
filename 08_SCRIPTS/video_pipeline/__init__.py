@@ -2,6 +2,8 @@
 
 from .compiler import (
     ARTIFACT_TARGET_KEY,
+    POST_PROCESS_CHAIN_KEY,
+    RENDER_PROFILE_KEY,
     VIDEO_RENDERING_CAPABILITY,
     VideoPipelineCompiler,
 )
@@ -12,6 +14,8 @@ from .models import (
     MediaRef,
     VideoArtifactRefSpec,
     VideoArtifactTargetSpec,
+    VideoPostProcessStepSpec,
+    VideoRenderProfileSpec,
     VideoPipelineSpec,
     VideoSceneSpec,
     VideoTransitionSpec,
@@ -21,10 +25,14 @@ __all__ = [
     "VIDEO_PIPELINE_SCHEMA_VERSION",
     "VIDEO_RENDERING_CAPABILITY",
     "ARTIFACT_TARGET_KEY",
+    "POST_PROCESS_CHAIN_KEY",
+    "RENDER_PROFILE_KEY",
     "CoreWorkflowRunner",
     "MediaRef",
     "VideoArtifactRefSpec",
     "VideoArtifactTargetSpec",
+    "VideoPostProcessStepSpec",
+    "VideoRenderProfileSpec",
     "VideoPipelineCompiler",
     "VideoPipelineLoader",
     "VideoPipelineSourceError",

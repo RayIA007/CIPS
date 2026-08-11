@@ -12,6 +12,8 @@ from .models import VideoArtifactRefSpec, VideoPipelineSpec, VideoSceneSpec
 
 VIDEO_RENDERING_CAPABILITY = "video_rendering"
 ARTIFACT_TARGET_KEY = "artifact_target"
+RENDER_PROFILE_KEY = "render_profile"
+POST_PROCESS_CHAIN_KEY = "post_process_chain"
 
 
 class VideoPipelineCompiler:
@@ -68,6 +70,15 @@ class VideoPipelineCompiler:
             input_data["audio_track"] = scene.audio_track
         if scene.subtitle_track is not None:
             input_data["subtitle_track"] = scene.subtitle_track
+        if scene.render_profile is not None:
+            input_data[RENDER_PROFILE_KEY] = scene.render_profile.model_dump(
+                mode="json",
+                exclude_none=True,
+            )
+        if scene.post_process_chain is not None:
+            input_data[POST_PROCESS_CHAIN_KEY] = [
+                item.model_dump(mode="json") for item in scene.post_process_chain
+            ]
         if scene.artifact_target is not None:
             input_data[ARTIFACT_TARGET_KEY] = scene.artifact_target.model_dump(
                 mode="json",
@@ -100,6 +111,8 @@ class VideoPipelineCompiler:
 
 __all__ = [
     "ARTIFACT_TARGET_KEY",
+    "POST_PROCESS_CHAIN_KEY",
+    "RENDER_PROFILE_KEY",
     "VIDEO_RENDERING_CAPABILITY",
     "VideoPipelineCompiler",
 ]

@@ -72,6 +72,7 @@ class MediaRequest(SerializableModel):
     preferred_provider: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
     request_id: str = field(default_factory=lambda: _new_id("media_req"))
+    post_process_chain: tuple[PostProcessStep, ...] | None = None
 
     def __post_init__(self) -> None:
         prompt = str(self.prompt).strip()
@@ -83,11 +84,17 @@ class MediaRequest(SerializableModel):
         preferred = None
         if self.preferred_provider is not None:
             preferred = str(self.preferred_provider).strip().lower() or None
+        post_process_chain = self.post_process_chain
+        if post_process_chain is not None:
+            post_process_chain = tuple(post_process_chain)
+            if not all(isinstance(step, PostProcessStep) for step in post_process_chain):
+                raise TypeError("MediaRequest.post_process_chain solo puede contener PostProcessStep.")
         object.__setattr__(self, "prompt", prompt)
         object.__setattr__(self, "request_id", request_id)
         object.__setattr__(self, "preferred_provider", preferred)
         object.__setattr__(self, "input_data", _freeze_mapping(self.input_data))
         object.__setattr__(self, "metadata", _freeze_mapping(self.metadata))
+        object.__setattr__(self, "post_process_chain", post_process_chain)
 
 
 @dataclass(frozen=True, slots=True)

@@ -16,6 +16,7 @@ from media_director import (
     MediaRequest,
     MediaResult,
     MediaStrategy,
+    PostProcessStep,
     VideoStrategy,
     VoiceStrategy,
 )
@@ -28,6 +29,7 @@ from .exceptions import AdapterContractError, AdapterValidationError
 ProviderExecutor = Callable[[Any], Any]
 MediaArtifactHandler = Callable[[MediaResult, AdapterRequest], tuple[Mapping[str, Any], ...]]
 ARTIFACT_TARGET_KEY = "artifact_target"
+POST_PROCESS_CHAIN_KEY = "post_process_chain"
 
 
 class MediaDirectorAdapter(BaseAgentAdapter):
@@ -72,6 +74,8 @@ class MediaDirectorAdapter(BaseAgentAdapter):
         artifact_target = payload.get(ARTIFACT_TARGET_KEY)
         if artifact_target is not None:
             self._validate_artifact_target(artifact_target)
+        if POST_PROCESS_CHAIN_KEY in payload:
+            self._parse_post_process_chain(payload[POST_PROCESS_CHAIN_KEY])
         self._resolve_media_refs(payload.get("media_refs", ()), request.task_artifacts)
     def run(self, request: AdapterRequest) -> MediaResult:
         media_request = self._to_media_request(request)
@@ -132,6 +136,11 @@ class MediaDirectorAdapter(BaseAgentAdapter):
         prompt = str(payload.pop("prompt")).strip()
         preferred_provider = payload.pop("preferred_provider", None)
         payload.pop(ARTIFACT_TARGET_KEY, None)
+        post_process_chain = None
+        if POST_PROCESS_CHAIN_KEY in payload:
+            post_process_chain = self._parse_post_process_chain(
+                payload.pop(POST_PROCESS_CHAIN_KEY)
+            )
         if "media_refs" in payload:
             payload["media_refs"] = self._resolve_media_refs(
                 payload["media_refs"],
@@ -164,7 +173,46 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             input_data=payload,
             preferred_provider=preferred_provider,
             metadata=metadata,
+            post_process_chain=post_process_chain,
         )
+    @staticmethod
+    def _parse_post_process_chain(value: Any) -> tuple[PostProcessStep, ...]:
+        if not isinstance(value, (list, tuple)):
+            raise AdapterValidationError("post_process_chain debe ser una lista o tupla.")
+        normalized: list[PostProcessStep] = []
+        for index, item in enumerate(value):
+            if isinstance(item, PostProcessStep):
+                normalized.append(item)
+                continue
+            if not isinstance(item, Mapping):
+                raise AdapterValidationError(
+                    f"post_process_chain[{index}] debe ser Mapping o PostProcessStep."
+                )
+            name = str(item.get("name", "")).strip()
+            if not name:
+                raise AdapterValidationError(
+                    f"post_process_chain[{index}].name es obligatorio."
+                )
+            required = item.get("required", True)
+            if not isinstance(required, bool):
+                raise AdapterValidationError(
+                    f"post_process_chain[{index}].required debe ser bool."
+                )
+            parameters = item.get("parameters", {})
+            if parameters is None:
+                parameters = {}
+            if not isinstance(parameters, Mapping):
+                raise AdapterValidationError(
+                    f"post_process_chain[{index}].parameters debe ser Mapping."
+                )
+            normalized.append(
+                PostProcessStep(
+                    name=name,
+                    required=required,
+                    parameters=dict(parameters),
+                )
+            )
+        return tuple(normalized)
     @staticmethod
     def _resolve_media_refs(
         values: Any,
@@ -273,6 +321,7 @@ class VideoMediaAdapter(MediaDirectorAdapter):
 
 __all__ = [
     "ARTIFACT_TARGET_KEY",
+    "POST_PROCESS_CHAIN_KEY",
     "ProviderExecutor",
     "MediaArtifactHandler",
     "MediaDirectorAdapter",
