@@ -6,9 +6,10 @@ execute workflows, select providers, resolve artifacts, or manage filesystems.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 VIDEO_PIPELINE_SCHEMA_VERSION = "1.0.0"
@@ -87,6 +88,28 @@ class VideoSceneSpec(BaseModel):
             raise ValueError("Las referencias no pueden contener valores vacíos.")
         return normalized
 
+    @model_validator(mode="after")
+    def _validate_scene_references(self) -> "VideoSceneSpec":
+        duplicate_dependencies = _duplicates(self.dependencies)
+        if duplicate_dependencies:
+            raise ValueError(
+                "scene.dependencies contiene referencias duplicadas: "
+                f"{', '.join(duplicate_dependencies)}."
+            )
+
+        if self.scene_id in self.dependencies:
+            raise ValueError(
+                f"La escena '{self.scene_id}' no puede depender de sí misma."
+            )
+
+        duplicate_media_refs = _duplicates(self.media_refs)
+        if duplicate_media_refs:
+            raise ValueError(
+                "scene.media_refs contiene referencias duplicadas: "
+                f"{', '.join(duplicate_media_refs)}."
+            )
+        return self
+
 
 class VideoPipelineSpec(BaseModel):
     """Validated declarative video pipeline independent of runtime engines."""
@@ -106,6 +129,39 @@ class VideoPipelineSpec(BaseModel):
         if not normalized:
             raise ValueError("Los identificadores y nombres del pipeline son obligatorios.")
         return normalized
+
+    @field_validator("version")
+    @classmethod
+    def _validate_schema_version(cls, value: str) -> str:
+        if value != VIDEO_PIPELINE_SCHEMA_VERSION:
+            raise ValueError(
+                "Versión de video pipeline no soportada: "
+                f"'{value}'. Esperada: '{VIDEO_PIPELINE_SCHEMA_VERSION}'."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _validate_unique_scene_ids(self) -> "VideoPipelineSpec":
+        duplicate_scene_ids = _duplicates(scene.scene_id for scene in self.scenes)
+        if duplicate_scene_ids:
+            raise ValueError(
+                "VideoPipelineSpec contiene scene_id duplicados: "
+                f"{', '.join(duplicate_scene_ids)}."
+            )
+        return self
+
+
+def _duplicates(values: Iterable[str]) -> tuple[str, ...]:
+    """Return duplicate string values once, sorted for deterministic errors."""
+
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        if value in seen:
+            duplicates.add(value)
+        else:
+            seen.add(value)
+    return tuple(sorted(duplicates))
 
 
 __all__ = [

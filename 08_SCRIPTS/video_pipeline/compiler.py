@@ -17,21 +17,39 @@ class VideoPipelineCompiler:
 
     @staticmethod
     def compile(spec: VideoPipelineSpec) -> WorkflowDefinition:
+        """Compile a validated spec and let Core validate its dependency graph."""
+
+        workflow = VideoPipelineCompiler._build_workflow(spec)
+
+        # Reuse Core's canonical dependency validation instead of introducing
+        # a parallel DAG implementation in F6.
+        TaskGraph(workflow)
+        return workflow
+
+    @staticmethod
+    def dependency_order(spec: VideoPipelineSpec) -> tuple[str, ...]:
+        """Return Core's deterministic topological order without executing tasks.
+
+        This is a read-only compilation aid. It intentionally does not reorder
+        ``WorkflowDefinition.tasks`` because declarative scene order can carry
+        composition meaning independently from dependency execution order.
+        """
+
+        workflow = VideoPipelineCompiler._build_workflow(spec)
+        return tuple(TaskGraph(workflow).topological_order())
+
+    @staticmethod
+    def _build_workflow(spec: VideoPipelineSpec) -> WorkflowDefinition:
         if not isinstance(spec, VideoPipelineSpec):
             raise TypeError("spec debe ser VideoPipelineSpec.")
 
-        workflow = WorkflowDefinition(
+        return WorkflowDefinition(
             name=spec.name,
             tasks=[VideoPipelineCompiler._compile_scene(scene) for scene in spec.scenes],
             workflow_id=spec.pipeline_id,
             version=spec.version,
             metadata=dict(spec.metadata),
         )
-
-        # Reuse Core's canonical dependency validation instead of introducing
-        # a parallel DAG implementation in F6.
-        TaskGraph(workflow)
-        return workflow
 
     @staticmethod
     def _compile_scene(scene: VideoSceneSpec) -> TaskDefinition:
@@ -46,6 +64,8 @@ class VideoPipelineCompiler:
         if scene.subtitle_track is not None:
             input_data["subtitle_track"] = scene.subtitle_track
 
+        # Explicit identifiers prevent Core's generated defaults from making
+        # the compiled workflow identity nondeterministic.
         return TaskDefinition(
             name=scene.name or scene.scene_id,
             capability=VIDEO_RENDERING_CAPABILITY,
