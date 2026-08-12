@@ -10,6 +10,7 @@ but never propagated back into workflow execution.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -43,6 +44,10 @@ _SAFE_PAYLOAD_METADATA: tuple[str, ...] = (
     "agent",
     "capability",
     "attempt",
+    "attempts",
+    "max_attempts",
+    "started_at",
+    "finished_at",
     "adapter",
     "result_id",
 )
@@ -132,6 +137,16 @@ class ObservabilityCollector:
             if isinstance(value, (str, int, float, bool)):
                 metadata[key] = value
 
+        attempt_count = ObservabilityCollector._non_negative_int(
+            payload.get("attempts", payload.get("attempt", 0))
+        )
+        max_attempts = ObservabilityCollector._non_negative_int(
+            payload.get("max_attempts", 0)
+        )
+        retry_enabled = max_attempts > 1
+        task_succeeded = message.topic == "task.succeeded"
+        task_failed = message.topic == "task.failed"
+
         return TelemetryEvent(
             event_id=message.message_id,
             timestamp=message.created_at,
@@ -140,9 +155,48 @@ class ObservabilityCollector:
             operation=message.topic,
             event_type=message.message_type.value,
             success=message.message_type is not MessageType.ERROR,
+            duration_seconds=ObservabilityCollector._duration_seconds(payload),
+            retry_enabled=retry_enabled,
+            retry_attempts=attempt_count,
+            retry_count=max(attempt_count - 1, 0),
+            retry_exhausted=(
+                task_failed
+                and retry_enabled
+                and attempt_count >= max_attempts
+            ),
+            succeeded_after_retry=(task_succeeded and attempt_count > 1),
+            exception_type=str(payload.get("exception_type", "") or ""),
             metadata=metadata,
             workflow_id=str(payload.get("workflow_id", "") or ""),
             run_id=str(payload.get("run_id", "") or ""),
             task_id=str(payload.get("task_id", "") or ""),
             correlation_id=str(message.correlation_id or ""),
         )
+
+    @staticmethod
+    def _duration_seconds(payload: dict[str, Any]) -> float:
+        duration_ms = payload.get("duration_ms")
+        if isinstance(duration_ms, (int, float)) and not isinstance(duration_ms, bool):
+            return max(float(duration_ms), 0.0) / 1000.0
+
+        started_at = str(payload.get("started_at", "") or "").strip()
+        finished_at = str(payload.get("finished_at", "") or "").strip()
+        if not started_at or not finished_at:
+            return 0.0
+
+        try:
+            started = datetime.fromisoformat(started_at)
+            finished = datetime.fromisoformat(finished_at)
+            duration = (finished - started).total_seconds()
+        except (TypeError, ValueError):
+            return 0.0
+
+        return max(duration, 0.0)
+
+    @staticmethod
+    def _non_negative_int(value: Any) -> int:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return max(number, 0)

@@ -20,7 +20,13 @@ class WorkflowEngine:
         graph=TaskGraph(workflow); started=utc_now_iso()
         ctx=ExecutionContext(project_id,workflow.workflow_id,data=dict(initial_data or {}),metadata=dict(metadata or {}))
         results={}; status=WorkflowStatus.RUNNING; fatal=""
-        self._pub("workflow.started",MessageType.EVENT,{"workflow_id":workflow.workflow_id,"run_id":ctx.run_id},"WorkflowEngine",context=ctx)
+        self._pub(
+            "workflow.started",
+            MessageType.EVENT,
+            {"workflow_id":workflow.workflow_id,"run_id":ctx.run_id,"status":WorkflowStatus.RUNNING.value,"started_at":started},
+            "WorkflowEngine",
+            context=ctx,
+        )
         for task in graph.tasks():
             if any(results[d].status is not TaskStatus.SUCCEEDED for d in task.dependencies):
                 results[task.task_id]=TaskResult(task.task_id,TaskStatus.SKIPPED,error="Dependencia no completada",finished_at=utc_now_iso())
@@ -34,13 +40,33 @@ class WorkflowEngine:
         if status is not WorkflowStatus.FAILED:
             status=WorkflowStatus.PARTIAL if any(r.status in (TaskStatus.FAILED,TaskStatus.SKIPPED) for r in results.values()) else WorkflowStatus.SUCCEEDED
         finished=utc_now_iso(); self._checkpoint(workflow,status,ctx,results)
-        self._pub("workflow.finished",MessageType.RESULT if status is WorkflowStatus.SUCCEEDED else MessageType.ERROR,{"status":status.value},"WorkflowEngine",context=ctx)
+        self._pub(
+            "workflow.finished",
+            MessageType.RESULT if status is WorkflowStatus.SUCCEEDED else MessageType.ERROR,
+            {"status":status.value,"started_at":started,"finished_at":finished},
+            "WorkflowEngine",
+            context=ctx,
+        )
         return WorkflowResult(workflow.workflow_id,ctx.run_id,status,ctx,results,started,finished,fatal)
     def _execute(self,task,ctx):
         agent=self.registry.resolve(agent_name=task.agent_name,capability=task.capability)
         result=TaskResult(task.task_id,TaskStatus.RUNNING,started_at=utc_now_iso(),agent_name=agent.name)
-        self._pub("task.started",MessageType.EVENT,{"task_id":task.task_id,"agent":agent.name,"capability":task.capability},"WorkflowEngine",agent.name,context=ctx)
-        last=""
+        self._pub(
+            "task.started",
+            MessageType.EVENT,
+            {
+                "task_id":task.task_id,
+                "agent":agent.name,
+                "capability":task.capability,
+                "status":TaskStatus.RUNNING.value,
+                "started_at":result.started_at,
+                "max_attempts":task.retry_policy.max_attempts,
+            },
+            "WorkflowEngine",
+            agent.name,
+            context=ctx,
+        )
+        last=""; last_exception_type=""
         for attempt in range(1,task.retry_policy.max_attempts+1):
             result.attempts=attempt
             try:
@@ -70,6 +96,8 @@ class WorkflowEngine:
                             "task_id":task.task_id,
                             "adapter":raw_output.adapter_name,
                             "result_id":raw_output.result_id,
+                            "status":getattr(raw_output.status, "value", str(raw_output.status)),
+                            "duration_ms":raw_output.duration_ms,
                             "metrics":self._plain(raw_output.metrics),
                             "warnings":[str(x) for x in raw_output.warnings],
                             "artifacts":[self._plain(x) for x in raw_output.artifacts],
@@ -81,13 +109,44 @@ class WorkflowEngine:
                     result.output=raw_output
                     ctx.set_output(task.task_id,raw_output)
                 result.status=TaskStatus.SUCCEEDED; result.finished_at=utc_now_iso()
-                self._pub("task.succeeded",MessageType.RESULT,{"task_id":task.task_id,"attempt":attempt},agent.name,context=ctx)
+                self._pub(
+                    "task.succeeded",
+                    MessageType.RESULT,
+                    {
+                        "task_id":task.task_id,
+                        "attempt":attempt,
+                        "attempts":result.attempts,
+                        "max_attempts":task.retry_policy.max_attempts,
+                        "status":result.status.value,
+                        "started_at":result.started_at,
+                        "finished_at":result.finished_at,
+                    },
+                    agent.name,
+                    context=ctx,
+                )
                 return result
             except task.retry_policy.retry_exceptions as exc:
                 last=f"{type(exc).__name__}: {exc}"
+                last_exception_type=type(exc).__name__
                 result.status=TaskStatus.RETRYING if attempt<task.retry_policy.max_attempts else TaskStatus.FAILED
         result.error=last; result.finished_at=utc_now_iso()
-        self._pub("task.failed",MessageType.ERROR,{"task_id":task.task_id,"error":last},agent.name,priority=MessagePriority.HIGH,context=ctx)
+        self._pub(
+            "task.failed",
+            MessageType.ERROR,
+            {
+                "task_id":task.task_id,
+                "error":last,
+                "exception_type":last_exception_type,
+                "attempts":result.attempts,
+                "max_attempts":task.retry_policy.max_attempts,
+                "status":result.status.value,
+                "started_at":result.started_at,
+                "finished_at":result.finished_at,
+            },
+            agent.name,
+            priority=MessagePriority.HIGH,
+            context=ctx,
+        )
         return result
     @staticmethod
     def _plain(value):
