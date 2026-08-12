@@ -282,6 +282,10 @@ class TelemetryEngine:
         success: bool | None = None,
         limit: int | None = None,
         newest_first: bool = False,
+        workflow_id: str | None = None,
+        run_id: str | None = None,
+        task_id: str | None = None,
+        correlation_id: str | None = None,
     ) -> EngineResult:
         """
         Lee eventos válidos y aplica filtros opcionales.
@@ -316,6 +320,10 @@ class TelemetryEngine:
                     component=component,
                     event_type=event_type,
                     success=success,
+                    workflow_id=workflow_id,
+                    run_id=run_id,
+                    task_id=task_id,
+                    correlation_id=correlation_id,
                 )
             ]
 
@@ -373,6 +381,10 @@ class TelemetryEngine:
                         "newest_first": (
                             newest_first
                         ),
+                        "workflow_id": workflow_id,
+                        "run_id": run_id,
+                        "task_id": task_id,
+                        "correlation_id": correlation_id,
                     },
                 },
             )
@@ -1063,6 +1075,10 @@ class TelemetryEngine:
         component: str | None,
         event_type: str | None,
         success: bool | None,
+        workflow_id: str | None = None,
+        run_id: str | None = None,
+        task_id: str | None = None,
+        correlation_id: str | None = None,
     ) -> bool:
         """
         Aplica filtros exactos normalizados.
@@ -1094,6 +1110,34 @@ class TelemetryEngine:
                 event_type,
                 event_data.get(
                     "event_type",
+                    "",
+                ),
+            ),
+            (
+                workflow_id,
+                event_data.get(
+                    "workflow_id",
+                    "",
+                ),
+            ),
+            (
+                run_id,
+                event_data.get(
+                    "run_id",
+                    "",
+                ),
+            ),
+            (
+                task_id,
+                event_data.get(
+                    "task_id",
+                    "",
+                ),
+            ),
+            (
+                correlation_id,
+                event_data.get(
+                    "correlation_id",
                     "",
                 ),
             ),
