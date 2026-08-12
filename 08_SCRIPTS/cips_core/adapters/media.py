@@ -96,20 +96,34 @@ class MediaDirectorAdapter(BaseAgentAdapter):
             )
         output = raw_output.to_dict()
         artifacts = self._collect_artifacts(raw_output, request)
+        metrics = {
+            "media_request_id": raw_output.request_id,
+            "strategy_name": raw_output.strategy_name,
+            "media_type": raw_output.media_type.value,
+            "output_format": raw_output.output_format,
+            "post_process_step_count": len(raw_output.post_process_chain),
+        }
+        provider = self._provider_signal(raw_output.output)
+        if provider:
+            metrics["provider"] = provider
         return AdapterResult.success(
             adapter_name=self.adapter_name,
             capability=self.capability,
             output=output,
-            metrics={
-                "media_request_id": raw_output.request_id,
-                "strategy_name": raw_output.strategy_name,
-                "media_type": raw_output.media_type.value,
-                "output_format": raw_output.output_format,
-                "post_process_step_count": len(raw_output.post_process_chain),
-            },
+            metrics=metrics,
             artifacts=artifacts,
             started_at=started_at,
         )
+    @staticmethod
+    def _provider_signal(value: Any) -> str:
+        """Extract only the logical provider id from an F4-style result."""
+        metadata = getattr(value, "metadata", None)
+        if metadata is None and isinstance(value, Mapping):
+            metadata = value.get("metadata")
+        if not isinstance(metadata, Mapping):
+            return ""
+        return str(metadata.get("provider", "") or "").strip().lower()
+
     def descriptor_metadata(self) -> dict[str, Any]:
         metadata = super().descriptor_metadata()
         strategy = self.director.strategy

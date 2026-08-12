@@ -1,15 +1,17 @@
-"""F8 execution-event collection over the existing CIPS MessageBus.
+"""F8 observability collection over the existing CIPS MessageBus.
 
 The collector is an observability adapter, not a second event bus. It subscribes
-only to established Core execution topics, maps messages into ``TelemetryEvent``
-records, applies a small allow-list for metadata, and delegates persistence to
-an injected recorder compatible with ``TelemetryEngine.record_event``.
+to established execution and review-audit topics, maps messages into
+``TelemetryEvent`` records, applies strict allow-lists for metadata/artifact
+references, and delegates persistence to an injected recorder compatible with
+``TelemetryEngine.record_event``.
 
 Collection is fail-open by design: telemetry persistence failures are counted
 but never propagated back into workflow execution.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -38,6 +40,10 @@ CORE_EXECUTION_TOPICS: tuple[str, ...] = (
     "task.failed",
     "adapter.succeeded",
 )
+REVIEW_AUDIT_TOPICS: tuple[str, ...] = (
+    "review.decision_recorded",
+)
+OBSERVABILITY_TOPICS: tuple[str, ...] = CORE_EXECUTION_TOPICS + REVIEW_AUDIT_TOPICS
 
 _SAFE_PAYLOAD_METADATA: tuple[str, ...] = (
     "status",
@@ -51,10 +57,33 @@ _SAFE_PAYLOAD_METADATA: tuple[str, ...] = (
     "adapter",
     "result_id",
 )
+_SAFE_REVIEW_METADATA: tuple[str, ...] = (
+    "schema_version",
+    "record_id",
+    "decision_id",
+    "action",
+    "state",
+    "policy_name",
+    "artifact_id",
+    "content_hash",
+)
+_SAFE_ARTIFACT_FIELDS: tuple[str, ...] = (
+    "artifact_id",
+    "content_hash",
+    "artifact_type",
+)
+_REQUIRED_REVIEW_FIELDS: tuple[str, ...] = (
+    "project_id",
+    "workflow_id",
+    "run_id",
+    "decision_id",
+    "action",
+    "state",
+)
 
 
 class ObservabilityCollector:
-    """Collect Core ``Message`` objects into the existing telemetry contract."""
+    """Collect supported ``Message`` objects into the existing telemetry contract."""
 
     def __init__(
         self,
@@ -87,18 +116,22 @@ class ObservabilityCollector:
             self.subscribe()
 
     def subscribe(self) -> None:
-        """Subscribe once to the established Core execution topics."""
+        """Subscribe once to the established observability topics."""
         if self._subscribed:
             return
-        for topic in CORE_EXECUTION_TOPICS:
+        for topic in OBSERVABILITY_TOPICS:
             self._message_bus.subscribe(topic, self.collect)
         self._subscribed = True
 
     def collect(self, message: Message) -> TelemetryEvent | None:
-        """Normalize and persist one supported Core message without raising."""
+        """Normalize and persist one supported message without raising."""
         if not isinstance(message, Message):
             raise TypeError("message debe ser Message.")
-        if message.topic not in CORE_EXECUTION_TOPICS:
+        if message.topic not in OBSERVABILITY_TOPICS:
+            return None
+        if message.topic in REVIEW_AUDIT_TOPICS and not self._valid_review_payload(
+            message.payload
+        ):
             return None
 
         try:
@@ -137,6 +170,25 @@ class ObservabilityCollector:
             if isinstance(value, (str, int, float, bool)):
                 metadata[key] = value
 
+        provider = ""
+        metrics = payload.get("metrics")
+        if isinstance(metrics, Mapping):
+            provider = ObservabilityCollector._normalized_identifier(
+                metrics.get("provider")
+            )
+
+        artifact_refs = ObservabilityCollector._artifact_refs(payload.get("artifacts"))
+        if artifact_refs:
+            metadata["artifact_count"] = len(artifact_refs)
+            metadata["artifact_refs"] = artifact_refs
+
+        is_review_audit = message.topic in REVIEW_AUDIT_TOPICS
+        if is_review_audit:
+            for key in _SAFE_REVIEW_METADATA:
+                value = payload.get(key)
+                if isinstance(value, (str, int, float, bool)):
+                    metadata[key] = value
+
         attempt_count = ObservabilityCollector._non_negative_int(
             payload.get("attempts", payload.get("attempt", 0))
         )
@@ -151,10 +203,11 @@ class ObservabilityCollector:
             event_id=message.message_id,
             timestamp=message.created_at,
             project_id=str(payload.get("project_id", "") or ""),
-            component="workflow_engine",
+            component="final_review" if is_review_audit else "workflow_engine",
             operation=message.topic,
             event_type=message.message_type.value,
             success=message.message_type is not MessageType.ERROR,
+            provider=provider,
             duration_seconds=ObservabilityCollector._duration_seconds(payload),
             retry_enabled=retry_enabled,
             retry_attempts=attempt_count,
@@ -172,6 +225,36 @@ class ObservabilityCollector:
             task_id=str(payload.get("task_id", "") or ""),
             correlation_id=str(message.correlation_id or ""),
         )
+
+    @staticmethod
+    def _artifact_refs(value: Any) -> list[dict[str, str]]:
+        if not isinstance(value, (list, tuple)):
+            return []
+        refs: list[dict[str, str]] = []
+        for item in value:
+            if not isinstance(item, Mapping):
+                continue
+            ref: dict[str, str] = {}
+            for key in _SAFE_ARTIFACT_FIELDS:
+                raw = item.get(key)
+                if raw is None:
+                    continue
+                normalized = str(raw).strip()
+                if normalized:
+                    ref[key] = normalized
+            if ref.get("artifact_id") or ref.get("content_hash"):
+                refs.append(ref)
+        return refs
+
+    @staticmethod
+    def _valid_review_payload(value: Any) -> bool:
+        if not isinstance(value, Mapping):
+            return False
+        return all(str(value.get(key, "") or "").strip() for key in _REQUIRED_REVIEW_FIELDS)
+
+    @staticmethod
+    def _normalized_identifier(value: Any) -> str:
+        return str(value or "").strip().lower()
 
     @staticmethod
     def _duration_seconds(payload: dict[str, Any]) -> float:

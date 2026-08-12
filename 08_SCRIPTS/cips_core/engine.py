@@ -98,6 +98,7 @@ class WorkflowEngine:
                             "result_id":raw_output.result_id,
                             "status":getattr(raw_output.status, "value", str(raw_output.status)),
                             "duration_ms":raw_output.duration_ms,
+                            "capability":raw_output.capability,
                             "metrics":self._plain(raw_output.metrics),
                             "warnings":[str(x) for x in raw_output.warnings],
                             "artifacts":[self._plain(x) for x in raw_output.artifacts],
