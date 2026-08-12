@@ -20,7 +20,7 @@ class WorkflowEngine:
         graph=TaskGraph(workflow); started=utc_now_iso()
         ctx=ExecutionContext(project_id,workflow.workflow_id,data=dict(initial_data or {}),metadata=dict(metadata or {}))
         results={}; status=WorkflowStatus.RUNNING; fatal=""
-        self._pub("workflow.started",MessageType.EVENT,{"workflow_id":workflow.workflow_id,"run_id":ctx.run_id},"WorkflowEngine")
+        self._pub("workflow.started",MessageType.EVENT,{"workflow_id":workflow.workflow_id,"run_id":ctx.run_id},"WorkflowEngine",context=ctx)
         for task in graph.tasks():
             if any(results[d].status is not TaskStatus.SUCCEEDED for d in task.dependencies):
                 results[task.task_id]=TaskResult(task.task_id,TaskStatus.SKIPPED,error="Dependencia no completada",finished_at=utc_now_iso())
@@ -34,12 +34,12 @@ class WorkflowEngine:
         if status is not WorkflowStatus.FAILED:
             status=WorkflowStatus.PARTIAL if any(r.status in (TaskStatus.FAILED,TaskStatus.SKIPPED) for r in results.values()) else WorkflowStatus.SUCCEEDED
         finished=utc_now_iso(); self._checkpoint(workflow,status,ctx,results)
-        self._pub("workflow.finished",MessageType.RESULT if status is WorkflowStatus.SUCCEEDED else MessageType.ERROR,{"status":status.value},"WorkflowEngine")
+        self._pub("workflow.finished",MessageType.RESULT if status is WorkflowStatus.SUCCEEDED else MessageType.ERROR,{"status":status.value},"WorkflowEngine",context=ctx)
         return WorkflowResult(workflow.workflow_id,ctx.run_id,status,ctx,results,started,finished,fatal)
     def _execute(self,task,ctx):
         agent=self.registry.resolve(agent_name=task.agent_name,capability=task.capability)
         result=TaskResult(task.task_id,TaskStatus.RUNNING,started_at=utc_now_iso(),agent_name=agent.name)
-        self._pub("task.started",MessageType.EVENT,{"task_id":task.task_id,"agent":agent.name,"capability":task.capability},"WorkflowEngine",agent.name)
+        self._pub("task.started",MessageType.EVENT,{"task_id":task.task_id,"agent":agent.name,"capability":task.capability},"WorkflowEngine",agent.name,context=ctx)
         last=""
         for attempt in range(1,task.retry_policy.max_attempts+1):
             result.attempts=attempt
@@ -75,18 +75,19 @@ class WorkflowEngine:
                             "artifacts":[self._plain(x) for x in raw_output.artifacts],
                         },
                         raw_output.adapter_name,
+                        context=ctx,
                     )
                 else:
                     result.output=raw_output
                     ctx.set_output(task.task_id,raw_output)
                 result.status=TaskStatus.SUCCEEDED; result.finished_at=utc_now_iso()
-                self._pub("task.succeeded",MessageType.RESULT,{"task_id":task.task_id,"attempt":attempt},agent.name)
+                self._pub("task.succeeded",MessageType.RESULT,{"task_id":task.task_id,"attempt":attempt},agent.name,context=ctx)
                 return result
             except task.retry_policy.retry_exceptions as exc:
                 last=f"{type(exc).__name__}: {exc}"
                 result.status=TaskStatus.RETRYING if attempt<task.retry_policy.max_attempts else TaskStatus.FAILED
         result.error=last; result.finished_at=utc_now_iso()
-        self._pub("task.failed",MessageType.ERROR,{"task_id":task.task_id,"error":last},agent.name,priority=MessagePriority.HIGH)
+        self._pub("task.failed",MessageType.ERROR,{"task_id":task.task_id,"error":last},agent.name,priority=MessagePriority.HIGH,context=ctx)
         return result
     @staticmethod
     def _plain(value):
@@ -105,5 +106,12 @@ class WorkflowEngine:
         return all(hasattr(value, attr) for attr in ("adapter_name","capability","status","output","metrics","artifacts","succeeded"))
     def _checkpoint(self,workflow,status,ctx,results):
         self.checkpoint_store.save(Checkpoint(workflow.workflow_id,ctx.run_id,status,ctx,dict(results)))
-    def _pub(self,topic,typ,payload,source,target="",priority=MessagePriority.NORMAL):
-        self.message_bus.publish(Message(topic,payload,typ,priority,source,target))
+    def _pub(self,topic,typ,payload,source,target="",priority=MessagePriority.NORMAL,context=None):
+        correlated_payload=dict(payload)
+        correlation_id=""
+        if context is not None:
+            correlated_payload.setdefault("project_id",context.project_id)
+            correlated_payload.setdefault("workflow_id",context.workflow_id)
+            correlated_payload.setdefault("run_id",context.run_id)
+            correlation_id=context.run_id
+        self.message_bus.publish(Message(topic,correlated_payload,typ,priority,source,target,correlation_id))
