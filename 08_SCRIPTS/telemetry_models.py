@@ -163,6 +163,13 @@ class TelemetryEvent:
     errors: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # F8 observability correlation. These fields are intentionally
+    # appended to preserve the legacy positional constructor contract.
+    workflow_id: str = ""
+    run_id: str = ""
+    task_id: str = ""
+    correlation_id: str = ""
+
     def __post_init__(self) -> None:
         self.event_id = str(self.event_id or "").strip()
         self.timestamp = str(self.timestamp or "").strip()
@@ -294,6 +301,12 @@ class TelemetryEvent:
         self.warnings = [str(item) for item in self.warnings]
         self.errors = [str(item) for item in self.errors]
         self.metadata = dict(self.metadata or {})
+        self.workflow_id = str(self.workflow_id or "").strip()
+        self.run_id = str(self.run_id or "").strip()
+        self.task_id = str(self.task_id or "").strip()
+        self.correlation_id = str(
+            self.correlation_id or ""
+        ).strip()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
