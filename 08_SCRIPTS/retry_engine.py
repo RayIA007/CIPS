@@ -366,12 +366,13 @@ class RetryEngine:
                     and retries_remaining > 0
                 )
 
-                delay = (
-                    self.policy.calculate_delay(
-                        attempt_number
-                    )
-                    if should_retry
-                    else 0.0
+                (
+                    delay,
+                    delay_metadata,
+                ) = self._calculate_retry_delay(
+                    retry_number=attempt_number,
+                    metadata=result_metadata,
+                    should_retry=should_retry,
                 )
 
                 attempt = RetryAttempt(
@@ -396,6 +397,7 @@ class RetryEngine:
                     ),
                     metadata={
                         **result_metadata,
+                        **delay_metadata,
                         "decision_reason": (
                             decision.reason
                         ),
@@ -458,12 +460,13 @@ class RetryEngine:
                     and retries_remaining > 0
                 )
 
-                delay = (
-                    self.policy.calculate_delay(
-                        attempt_number
-                    )
-                    if should_retry
-                    else 0.0
+                (
+                    delay,
+                    delay_metadata,
+                ) = self._calculate_retry_delay(
+                    retry_number=attempt_number,
+                    metadata={},
+                    should_retry=should_retry,
                 )
 
                 attempt = RetryAttempt(
@@ -481,6 +484,7 @@ class RetryEngine:
                         decision.matched_rule
                     ),
                     metadata={
+                        **delay_metadata,
                         "decision_reason": decision.reason,
                         "retries_remaining": (
                             retries_remaining
@@ -569,6 +573,117 @@ class RetryEngine:
     # --------------------------------------------------
     # Resolución de resultados
     # --------------------------------------------------
+
+    def _calculate_retry_delay(
+        self,
+        retry_number: int,
+        metadata: dict[str, Any] | None,
+        should_retry: bool,
+    ) -> tuple[float, dict[str, Any]]:
+        """
+        Calcula la espera efectiva antes de un reintento.
+
+        El backoff de RetryPolicy sigue siendo la base. Cuando un
+        proveedor publica ``retry_after_seconds``, ese valor se
+        interpreta como una espera mínima solicitada externamente.
+        """
+
+        if not should_retry:
+            return (
+                0.0,
+                {
+                    "policy_delay_seconds": 0.0,
+                    "delay_source": "no_retry",
+                },
+            )
+
+        policy_delay = self.policy.calculate_delay(
+            retry_number
+        )
+
+        retry_after_seconds = (
+            self._extract_retry_after_seconds(
+                metadata
+            )
+        )
+
+        if retry_after_seconds is None:
+            return (
+                policy_delay,
+                {
+                    "policy_delay_seconds": (
+                        policy_delay
+                    ),
+                    "delay_source": (
+                        "policy_backoff"
+                    ),
+                },
+            )
+
+        effective_delay = round(
+            max(
+                policy_delay,
+                retry_after_seconds,
+            ),
+            3,
+        )
+
+        delay_source = (
+            "provider_retry_after"
+            if retry_after_seconds > policy_delay
+            else "policy_backoff"
+        )
+
+        return (
+            effective_delay,
+            {
+                "policy_delay_seconds": policy_delay,
+                "provider_retry_after_seconds": (
+                    retry_after_seconds
+                ),
+                "delay_source": delay_source,
+            },
+        )
+
+    def _extract_retry_after_seconds(
+        self,
+        metadata: dict[str, Any] | None,
+    ) -> float | None:
+        """
+        Normaliza la espera opcional publicada por un proveedor.
+        """
+
+        safe_metadata = (
+            dict(metadata)
+            if isinstance(
+                metadata,
+                dict,
+            )
+            else {}
+        )
+
+        value = safe_metadata.get(
+            "retry_after_seconds"
+        )
+
+        if value is None:
+            return None
+
+        try:
+            seconds = float(
+                value
+            )
+
+        except (TypeError, ValueError):
+            return None
+
+        if seconds < 0:
+            return None
+
+        return round(
+            seconds,
+            3,
+        )
 
     def _resolve_success(
         self,

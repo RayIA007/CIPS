@@ -494,6 +494,22 @@ class GeminiLLMProvider(LLMProvider):
                 )
             )
 
+            retry_after_seconds = (
+                self._extract_retry_after_seconds(
+                    error
+                )
+            )
+
+            retry_after_metadata = (
+                {
+                    "retry_after_seconds": (
+                        retry_after_seconds
+                    )
+                }
+                if retry_after_seconds is not None
+                else {}
+            )
+
             return ProviderResult.fail(
                 message=(
                     "Google Gemini no pudo completar "
@@ -525,6 +541,7 @@ class GeminiLLMProvider(LLMProvider):
                             "reason"
                         ]
                     ),
+                    **retry_after_metadata,
                 },
             )
 
@@ -625,6 +642,92 @@ class GeminiLLMProvider(LLMProvider):
             if match:
                 return int(
                     match.group(1)
+                )
+
+        return None
+
+    def _extract_retry_after_seconds(
+        self,
+        error: Exception,
+    ) -> float | None:
+        """
+        Extrae una espera sugerida por Gemini para reintentar.
+
+        Normaliza señales compatibles con RetryInfo/retryDelay
+        y mensajes legibles como "Please retry in 7.5s".
+        """
+
+        for attribute_name in (
+            "retry_after_seconds",
+            "retry_after",
+            "retry_delay",
+        ):
+            value = getattr(
+                error,
+                attribute_name,
+                None,
+            )
+
+            if value is None:
+                continue
+
+            match = re.search(
+                r"([0-9]+(?:\.[0-9]+)?)",
+                str(value),
+            )
+
+            if match:
+                seconds = float(
+                    match.group(1)
+                )
+
+                if seconds >= 0:
+                    return round(
+                        seconds,
+                        3,
+                    )
+
+        message = str(
+            error
+        )
+
+        patterns = (
+            (
+                r"""["']?retryDelay["']?\s*[:=]\s*"""
+                r"""["']?([0-9]+(?:\.[0-9]+)?)\s*s"""
+            ),
+            (
+                r"""["']?retry_after_seconds["']?\s*[:=]\s*"""
+                r"""["']?([0-9]+(?:\.[0-9]+)?)"""
+            ),
+            (
+                r"\bplease\s+retry\s+in\s+"
+                r"([0-9]+(?:\.[0-9]+)?)\s*s\b"
+            ),
+            (
+                r"\bretry[-\s]?after\s*[:=]?\s*"
+                r"([0-9]+(?:\.[0-9]+)?)\s*s\b"
+            ),
+        )
+
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                message,
+                flags=re.IGNORECASE,
+            )
+
+            if not match:
+                continue
+
+            seconds = float(
+                match.group(1)
+            )
+
+            if seconds >= 0:
+                return round(
+                    seconds,
+                    3,
                 )
 
         return None

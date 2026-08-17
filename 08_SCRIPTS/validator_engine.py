@@ -1020,7 +1020,13 @@ class ValidatorEngine(RuntimeComponent):
         if re.match(r"^\d+\.\s+", last_line):
             return False
 
-        return True
+        # La ausencia de puntuación terminal, por sí sola, no
+        # demuestra que una respuesta esté truncada. Contenidos
+        # estructurados como etiquetas, palabras clave, campos de
+        # storyboard o cierres breves pueden terminar válidamente en
+        # texto alfanumérico. El truncamiento se rechaza únicamente
+        # cuando existe evidencia positiva en las reglas anteriores.
+        return False
 
     def _extract_headings(
         self,
