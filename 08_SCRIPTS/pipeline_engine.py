@@ -43,6 +43,8 @@ from metrics_engine import MetricsEngine
 from pipeline_runner import PipelineRunner
 from project_manager import ProjectManager
 from prompt_engine import PromptEngine
+from production_media_router import ProductionMediaRouter
+from production_final_review import ProductionFinalReviewBridge
 from runtime_constants import (
     FINAL_STAGE,
     STAGES,
@@ -53,6 +55,7 @@ from runtime_models import (
     EngineResult,
     LLMResponse,
     Project,
+    ValidationResult,
 )
 from telemetry_engine import TelemetryEngine
 from telemetry_models import (
@@ -112,6 +115,8 @@ class PipelineEngine:
         self.metrics_engine = MetricsEngine()
         self.export_engine = ExportEngine()
         self.telemetry_engine = TelemetryEngine()
+        self.production_media_router = ProductionMediaRouter()
+        self.production_final_review = ProductionFinalReviewBridge()
 
         # --------------------------------------------------
         # Fase 1: Estado y Logger de producción
@@ -150,10 +155,12 @@ class PipelineEngine:
             ]
         )
 
+        self.memory_engine = MemoryEngine()
+
         self.post_llm_runner = PipelineRunner(
             components=[
                 ValidatorEngine(),
-                MemoryEngine(),
+                self.memory_engine,
             ]
         )
 
@@ -278,7 +285,6 @@ class PipelineEngine:
         )
         if (
             result.success
-            and executed_stage == "publicacion"
             and result.metadata.get(
                 "next_stage"
             ) == FINAL_STAGE
@@ -333,32 +339,69 @@ class PipelineEngine:
 
         project = runtime_context.project
 
-        response_path = self._get_response_path(
-            project
-        )
-
-        response_content = self._read_response(
-            response_path
-        )
-
-        if response_content:
-            result = self._process_manual_response(
-                project=project,
-                response_content=response_content,
-                response_path=response_path,
+        if self.production_media_router.handles(
+            project.stage_actual
+        ):
+            result = self._execute_production_media_stage(
+                project
             )
         else:
-            result = self._generate_and_request_response(
+            if project.stage_actual == "control_calidad":
+                quality_gate = (
+                    self.production_media_router.validate_quality_gate(
+                        project
+                    )
+                )
+
+                if not quality_gate.success:
+                    return {
+                        "success": False,
+                        "data": EngineResult.fail(
+                            message=quality_gate.message,
+                            errors=list(quality_gate.errors),
+                            warnings=list(quality_gate.warnings),
+                            metadata={
+                                **self._base_metadata(project),
+                                **quality_gate.metadata,
+                                "artifact_paths": list(
+                                    quality_gate.artifact_paths
+                                ),
+                                "provider": quality_gate.provider,
+                                "capability": quality_gate.capability,
+                            },
+                        ),
+                        "message": quality_gate.message,
+                        "errors": list(quality_gate.errors),
+                        "warnings": list(quality_gate.warnings),
+                        "metadata": dict(quality_gate.metadata),
+                    }
+
+            response_path = self._get_response_path(
                 project
             )
 
-            if (
-                result.success
-                and self.stage_delay_seconds > 0
-            ):
-                time.sleep(
-                    self.stage_delay_seconds
+            response_content = self._read_response(
+                response_path
+            )
+
+            if response_content:
+                result = self._process_manual_response(
+                    project=project,
+                    response_content=response_content,
+                    response_path=response_path,
                 )
+            else:
+                result = self._generate_and_request_response(
+                    project
+                )
+
+                if (
+                    result.success
+                    and self.stage_delay_seconds > 0
+                ):
+                    time.sleep(
+                        self.stage_delay_seconds
+                    )
 
         return {
             "success": result.success,
@@ -368,6 +411,147 @@ class PipelineEngine:
             "warnings": list(result.warnings),
             "metadata": dict(result.metadata),
         }
+
+    def _execute_production_media_stage(
+        self,
+        project: Project,
+    ) -> EngineResult:
+        """Ejecuta un Stage multimedia sin pasar por LLM ni persistencia textual."""
+
+        completed_stage = project.stage_actual
+        media_result = self.production_media_router.execute(
+            project,
+            completed_stage,
+        )
+
+        if not media_result.success:
+            return EngineResult.fail(
+                message=media_result.message,
+                errors=list(media_result.errors),
+                warnings=list(media_result.warnings),
+                metadata={
+                    **self._base_metadata(project),
+                    **media_result.metadata,
+                    "provider": media_result.provider,
+                    "capability": media_result.capability,
+                    "response_path": media_result.response_path,
+                    "artifact_paths": list(media_result.artifact_paths),
+                    "media_routing": "production",
+                },
+            )
+
+        runtime_context = RuntimeContext(
+            project=project
+        )
+        validation_mode = str(
+            media_result.metadata.get("validation_mode", "binary_media")
+        )
+        if validation_mode == "timed_text":
+            observations = [
+                "Artifact SRT físico y marcas temporales validados.",
+                "Stage determinista ejecutado sin proveedor LLM.",
+            ]
+        else:
+            observations = [
+                "Artifacts multimedia físicos y firma binaria validados.",
+                "Persistencia F3/sidecar registrada mediante frontera F5.",
+            ]
+
+        validation_result = ValidationResult(
+            approved=True,
+            observations=observations,
+            warnings=list(media_result.warnings),
+            metadata={
+                "score": 100,
+                "passing_score": 100,
+                "approved": True,
+                "validation_mode": validation_mode,
+                "artifact_count": len(media_result.artifact_paths),
+            },
+        )
+        runtime_context.validation_result = validation_result
+
+        memory_result = self.memory_engine.execute(
+            runtime_context
+        )
+
+        if not memory_result.success:
+            return EngineResult.fail(
+                message=(
+                    f"El Stage multimedia '{completed_stage}' produjo artifacts válidos, "
+                    "pero no fue posible actualizar memoria."
+                ),
+                errors=list(memory_result.errors),
+                warnings=[
+                    *media_result.warnings,
+                    *memory_result.warnings,
+                ],
+                metadata={
+                    **self._base_metadata(project),
+                    **media_result.metadata,
+                    "provider": media_result.provider,
+                    "capability": media_result.capability,
+                    "response_path": media_result.response_path,
+                    "artifact_paths": list(media_result.artifact_paths),
+                    "artifact_records": list(media_result.artifact_records),
+                    "memory_update_failed": True,
+                },
+            )
+
+        next_stage = self._get_next_stage(
+            completed_stage
+        )
+        self.project_manager.update_project_stage(
+            project=project,
+            next_stage=next_stage,
+        )
+
+        return EngineResult.ok(
+            data={
+                "project_id": project.project_id,
+                "completed_stage": completed_stage,
+                "next_stage": next_stage,
+                "memory_data": runtime_context.memory_data,
+                "runtime_context": runtime_context,
+                "response_path": media_result.response_path,
+                "artifact_paths": list(media_result.artifact_paths),
+                "artifact_records": list(media_result.artifact_records),
+            },
+            message=(
+                f"Stage de producción local '{completed_stage}' validado. "
+                f"Nuevo Stage: '{next_stage}'."
+            ),
+            warnings=list(media_result.warnings),
+            metadata={
+                **self._base_metadata(project),
+                **media_result.metadata,
+                "completed_stage": completed_stage,
+                "next_stage": next_stage,
+                "response_path": media_result.response_path,
+                "response_persisted": True,
+                "artifact_paths": list(media_result.artifact_paths),
+                "artifact_records": list(media_result.artifact_records),
+                "provider": media_result.provider,
+                "model": (
+                    "deterministic_timed_text"
+                    if validation_mode == "timed_text"
+                    else "local_media_backend"
+                ),
+                "capability": media_result.capability,
+                "validation_score": 100,
+                "validation_passing_score": 100,
+                "validation_approved": True,
+                "reused_existing": media_result.reused_existing,
+                "executed_components": [
+                    "media_provider_adapters",
+                    "capability_resolver",
+                    "production_media_router",
+                    "media_artifact_persister",
+                    "artifact_store",
+                    "memory_engine",
+                ],
+            },
+        )
 
     def _generate_and_request_response(
         self,
@@ -482,6 +666,23 @@ class PipelineEngine:
 
         project = runtime_context.project
         llm_response = runtime_context.llm_response
+
+        if self.production_media_router.handles(
+            project.stage_actual
+        ):
+            return EngineResult.fail(
+                message=(
+                    "Persistencia textual bloqueada para Stage multimedia. "
+                    "Debe utilizarse ProductionMediaRouter."
+                ),
+                errors=[
+                    f"text_persistence_forbidden:{project.stage_actual}"
+                ],
+                metadata={
+                    **self._base_metadata(project),
+                    "media_routing": "production",
+                },
+            )
 
         if llm_response is None:
             return EngineResult.fail(
@@ -707,9 +908,9 @@ class PipelineEngine:
             if not finalization_result.success:
                 return EngineResult.fail(
                     message=(
-                        "El Stage 'publicacion' fue validado, "
+                        f"El Stage '{completed_stage}' fue validado, "
                         "pero falló la finalización y exportación. "
-                        "El proyecto permanecerá en 'publicacion'."
+                        f"El proyecto permanecerá en '{completed_stage}'."
                     ),
                     errors=list(
                         finalization_result.errors
@@ -828,7 +1029,9 @@ class PipelineEngine:
         """
 
         original_stage = project.stage_actual
+        original_status = project.estado
         project.stage_actual = FINAL_STAGE
+        project.estado = FINAL_STAGE
 
         # F1: Snapshot antes de finalización
         if self.state_manager is not None:
@@ -846,6 +1049,7 @@ class PipelineEngine:
 
         if not builder_result.success:
             project.stage_actual = original_stage
+            project.estado = original_status
             return self._build_finalization_failure(
                 project=project,
                 component="final_project_builder",
@@ -862,6 +1066,7 @@ class PipelineEngine:
 
         if not finalization_result.success:
             project.stage_actual = original_stage
+            project.estado = original_status
             return self._build_finalization_failure(
                 project=project,
                 component="finalization_engine",
@@ -869,6 +1074,42 @@ class PipelineEngine:
             )
 
         final_project = finalization_result.data
+
+        try:
+            review_result, review_persistence = (
+                self.production_final_review.review_and_persist(
+                    project
+                )
+            )
+        except Exception as error:
+            project.stage_actual = original_stage
+            project.estado = original_status
+            return EngineResult.fail(
+                message=(
+                    "Pipeline detenido durante la finalización "
+                    "en 'final_review'."
+                ),
+                errors=[str(error)],
+                metadata={
+                    **self._base_metadata(project),
+                    "failed_component": "final_review",
+                    "finalization_failed": True,
+                    "review_state": "failed",
+                    "export_authorized": False,
+                },
+            )
+
+        final_project.metadata["final_review"] = {
+            "review_state": review_result.state.value,
+            "review_action": review_result.decision.action.value,
+            "review_decision_id": review_result.decision.decision_id,
+            "review_policy": review_result.policy_name,
+            "review_actor": review_result.decision.actor,
+            "review_record_id": review_persistence.record.record_id,
+            "review_artifact_id": review_persistence.artifact_id,
+            "review_content_hash": review_persistence.content_hash,
+            "review_persisted": True,
+        }
 
         manifest_result = (
             self.manifest_engine.execute(
@@ -878,6 +1119,7 @@ class PipelineEngine:
 
         if not manifest_result.success:
             project.stage_actual = original_stage
+            project.estado = original_status
             return self._build_finalization_failure(
                 project=project,
                 component="manifest_engine",
@@ -894,6 +1136,7 @@ class PipelineEngine:
 
         if not metrics_result.success:
             project.stage_actual = original_stage
+            project.estado = original_status
             return self._build_finalization_failure(
                 project=project,
                 component="metrics_engine",
@@ -902,22 +1145,61 @@ class PipelineEngine:
 
         final_project = metrics_result.data
 
-        export_result = self.export_engine.execute(
-            final_project=final_project,
-            formats=[
-                "markdown",
-                "json",
-                "zip",
-            ],
-            output_directory=(
-                project.path
-                / "06_EXPORTACIONES"
-            ),
-            stop_on_error=True,
-        )
+        try:
+            export_authorization = (
+                self.production_final_review.authorize(
+                    review_result
+                )
+            )
+            final_project.metadata["final_review"].update(
+                {
+                    "export_authorized": True,
+                    "export_authorization": (
+                        export_authorization.model_dump(
+                            mode="json"
+                        )
+                    ),
+                }
+            )
+            export_result = (
+                self.production_final_review.execute_export(
+                    review_result,
+                    lambda: self.export_engine.execute(
+                        final_project=final_project,
+                        formats=[
+                            "markdown",
+                            "json",
+                            "zip",
+                        ],
+                        output_directory=(
+                            project.path
+                            / "06_EXPORTACIONES"
+                        ),
+                        stop_on_error=True,
+                    ),
+                )
+            )
+        except Exception as error:
+            project.stage_actual = original_stage
+            project.estado = original_status
+            return EngineResult.fail(
+                message=(
+                    "Pipeline detenido durante la finalización "
+                    "en 'review_export_boundary'."
+                ),
+                errors=[str(error)],
+                metadata={
+                    **self._base_metadata(project),
+                    "failed_component": "review_export_boundary",
+                    "finalization_failed": True,
+                    "review_state": review_result.state.value,
+                    "export_authorized": False,
+                },
+            )
 
         if not export_result.success:
             project.stage_actual = original_stage
+            project.estado = original_status
             return self._build_finalization_failure(
                 project=project,
                 component="export_engine",
@@ -950,6 +1232,13 @@ class PipelineEngine:
             metadata={
                 **self._base_metadata(project),
                 "finalized": True,
+                "review_state": review_result.state.value,
+                "review_action": review_result.decision.action.value,
+                "review_decision_id": review_result.decision.decision_id,
+                "review_policy": review_result.policy_name,
+                "review_record_id": review_persistence.record.record_id,
+                "review_persisted": True,
+                "export_authorized": True,
                 "exports": dict(
                     final_project.exports
                 ),
@@ -963,6 +1252,8 @@ class PipelineEngine:
                     "finalization_engine",
                     "manifest_engine",
                     "metrics_engine",
+                    "final_review",
+                    "review_export_boundary",
                     "export_engine",
                 ],
             },
@@ -1636,7 +1927,7 @@ class PipelineEngine:
         Lee la respuesta guardada para el Stage actual.
         """
 
-        if not response_path.exists():
+        if not response_path.is_file():
             return ""
 
         content = response_path.read_text(

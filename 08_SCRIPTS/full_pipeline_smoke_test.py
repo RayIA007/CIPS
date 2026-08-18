@@ -47,6 +47,7 @@ La prueba:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import os
 import sys
@@ -58,10 +59,12 @@ from typing import Any
 from gemini_llm_provider import GeminiLLMProvider
 from llm_adapter import LLMAdapter
 from pipeline_engine import PipelineEngine
+from production_media_router import ProductionMediaRouter
+from production_final_review import ProductionFinalReviewBridge
 from project_manager import ProjectManager
 from runtime_constants import FINAL_STAGE, STAGES, STAGE_FILES
 from runtime_models import LLMResponse, Project
-from utils import read_yaml
+from utils import read_yaml, write_yaml
 from validator_engine import ValidatorEngine
 
 
@@ -83,6 +86,7 @@ EXPECTED_PRODUCTION_STAGES = [
 ]
 
 MAX_EXECUTIONS = len(EXPECTED_PRODUCTION_STAGES)
+MEDIA_STAGES = frozenset(ProductionMediaRouter.handled_stages)
 
 
 @dataclass
@@ -103,6 +107,9 @@ class FullStageExecution:
 
     prompt_characters: int = 0
     response_characters: int = 0
+    response_size_bytes: int = 0
+    response_kind: str = "text"
+    artifact_paths: list[str] = field(default_factory=list)
 
     validation_score: int | None = None
     passing_score: int | None = None
@@ -241,16 +248,148 @@ def compare_snapshots(
 def read_text_safely(
     path: Path | None,
 ) -> str:
-    """
-    Lee un archivo UTF-8 sin lanzar error si no existe.
-    """
+    """Lee únicamente archivos UTF-8 regulares; nunca interpreta media binaria."""
 
-    if path is None or not path.exists():
+    if path is None or not path.is_file():
         return ""
 
-    return path.read_text(
-        encoding="utf-8"
-    ).strip()
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except UnicodeDecodeError:
+        return ""
+
+
+def response_size_bytes(path: Path | None) -> int:
+    """Devuelve bytes de un archivo o de todos los archivos de un directorio."""
+
+    if path is None or not path.exists():
+        return 0
+    if path.is_file():
+        return path.stat().st_size
+    if path.is_dir():
+        return sum(
+            item.stat().st_size
+            for item in path.rglob("*")
+            if item.is_file()
+        )
+    return 0
+
+
+def memory_completed_stages(project_path: Path) -> list[str]:
+    """Obtiene los Stages completados preservados en memoria.yaml."""
+
+    memory_data = read_yaml(project_path / "memoria.yaml")
+    history = memory_data.get("historial", [])
+    if not isinstance(history, list):
+        return []
+    return [
+        str(record.get("stage", "")).strip()
+        for record in history
+        if isinstance(record, dict) and str(record.get("stage", "")).strip()
+    ]
+
+
+def previous_stage(stage: str) -> str:
+    """Devuelve el Stage anterior de la secuencia oficial."""
+
+    if stage not in STAGES:
+        return ""
+    index = STAGES.index(stage)
+    return STAGES[index - 1] if index > 0 else ""
+
+
+def first_repair_stage(project_path: Path, current_stage: str) -> str | None:
+    """Detecta el primer Stage ya superado cuyo artifact preservado es inválido."""
+
+    router = ProductionMediaRouter()
+    current_index = STAGES.index(current_stage) if current_stage in STAGES else len(STAGES)
+
+    def already_required(stage: str) -> bool:
+        return STAGES.index(stage) < current_index or current_stage == FINAL_STAGE
+
+    def sidecar_invalid(path: Path) -> bool:
+        sidecar = Path(f"{path}.meta.json")
+        return (
+            not sidecar.is_file()
+            or bool(router._sidecar_integrity_error(path, sidecar))
+        )
+
+    audio = project_path / "voice" / "audio.mp3"
+    if already_required("voz"):
+        if router._validation_errors(audio, "audio") or sidecar_invalid(audio):
+            return "voz"
+
+    images_dir = project_path / "images"
+    images = (
+        sorted(
+            path for path in images_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+        )
+        if images_dir.is_dir()
+        else []
+    )
+    if already_required("imagenes"):
+        if not images:
+            return "imagenes"
+        if any(
+            router._validation_errors(path, "image") or sidecar_invalid(path)
+            for path in images
+        ):
+            return "imagenes"
+
+    subtitles = project_path / "subtitles" / "subtitles.srt"
+    if already_required("subtitulos"):
+        if not subtitles.is_file() or subtitles.stat().st_size <= 0:
+            return "subtitulos"
+        try:
+            subtitle_text = subtitles.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return "subtitulos"
+        if "-->" not in subtitle_text:
+            return "subtitulos"
+
+    raw_video = project_path / "video" / "raw_video.mp4"
+    final_video = project_path / "final" / "short.mp4"
+    if already_required("ensamblado"):
+        for path in (raw_video, final_video):
+            if router._validation_errors(path, "video") or sidecar_invalid(path):
+                return "ensamblado"
+
+    if (
+        current_stage == FINAL_STAGE
+        and not ProductionFinalReviewBridge.has_approved_review(project_path)
+    ):
+        return "control_calidad"
+
+    return None
+
+
+def prepare_project_for_resume(project_path: Path) -> str | None:
+    """Rebobina solo cuando un Stage ya superado dejó evidencia inválida."""
+
+    project = ProjectManager().load_project(project_path)
+    repair_stage = first_repair_stage(project_path, project.stage_actual)
+    if repair_stage is None:
+        return None
+
+    if project.stage_actual in STAGES and STAGES.index(repair_stage) >= STAGES.index(project.stage_actual):
+        return None
+
+    project_yaml = project_path / "proyecto.yaml"
+    project_data = read_yaml(project_yaml)
+    project_data["stage_actual"] = repair_stage
+    project_data["estado"] = repair_stage
+    project_data["ultimo_stage_validado"] = previous_stage(repair_stage)
+    write_yaml(project_yaml, project_data)
+
+    memory_yaml = project_path / "memoria.yaml"
+    memory_data = read_yaml(memory_yaml)
+    if not isinstance(memory_data, dict):
+        memory_data = {}
+    memory_data["ultimo_stage_validado"] = previous_stage(repair_stage)
+    memory_data["siguiente_stage"] = repair_stage
+    write_yaml(memory_yaml, memory_data)
+    return repair_stage
 
 
 def create_test_project() -> Path:
@@ -568,242 +707,106 @@ def execute_stage(
     pipeline: PipelineEngine,
     project_path: Path,
 ) -> FullStageExecution:
-    """
-    Ejecuta un único Stage y recopila sus métricas.
-    """
+    """Ejecuta un único Stage y recopila métricas textuales o multimedia."""
 
     manager = ProjectManager()
-
-    project_before = manager.load_project(
-        project_path
-    )
-
+    project_before = manager.load_project(project_path)
     stage = project_before.stage_actual
-
-    before_snapshot = snapshot_directory(
-        project_path
-    )
-
+    media_stage = stage in MEDIA_STAGES
+    before_snapshot = snapshot_directory(project_path)
     start_time = time.perf_counter()
+    result = pipeline.execute(project_path)
+    duration_seconds = round(time.perf_counter() - start_time, 2)
+    after_snapshot = snapshot_directory(project_path)
+    changes = compare_snapshots(before=before_snapshot, after=after_snapshot)
 
-    result = pipeline.execute(
-        project_path
-    )
-
-    duration_seconds = round(
-        time.perf_counter() - start_time,
-        2,
-    )
-
-    after_snapshot = snapshot_directory(
-        project_path
-    )
-
-    changes = compare_snapshots(
-        before=before_snapshot,
-        after=after_snapshot,
-    )
-
-    prompt_path = get_prompt_path(
-        project_path=project_path,
-        stage=stage,
-    )
-
-    response_path = get_response_path(
-        project_path=project_path,
-        stage=stage,
-    )
-
-    prompt_content = read_text_safely(
-        prompt_path
-    )
-
-    response_content = read_text_safely(
-        response_path
-    )
+    prompt_path = get_prompt_path(project_path=project_path, stage=stage)
+    response_path = get_response_path(project_path=project_path, stage=stage)
+    prompt_content = "" if media_stage else read_text_safely(prompt_path)
+    response_content = "" if media_stage else read_text_safely(response_path)
+    stored_bytes = response_size_bytes(response_path)
 
     next_stage = ""
-
-    if isinstance(
-        result.data,
-        dict,
-    ):
-        next_stage = str(
-            result.data.get(
-                "next_stage",
-                "",
-            )
-        )
-
+    if isinstance(result.data, dict):
+        next_stage = str(result.data.get("next_stage", ""))
     if not next_stage:
-        project_after = read_yaml(
-            project_path / "proyecto.yaml"
-        )
+        project_after = read_yaml(project_path / "proyecto.yaml")
+        next_stage = str(project_after.get("stage_actual", ""))
 
-        next_stage = str(
-            project_after.get(
-                "stage_actual",
-                "",
-            )
-        )
-
-    llm_metrics = extract_llm_metrics(
-        result
-    )
-
+    llm_metrics = extract_llm_metrics(result)
     validation_data: dict[str, Any] = {}
-
-    if response_content:
+    if media_stage:
+        validation_data = {
+            "success": bool(result.success),
+            "score": result.metadata.get("validation_score"),
+            "passing_score": result.metadata.get("validation_passing_score"),
+            "approved": result.metadata.get("validation_approved"),
+            "warnings": list(result.warnings),
+            "errors": list(result.errors),
+            "metadata": dict(result.metadata),
+        }
+    elif response_content:
         validation_data = reevaluate_response(
             project_path=project_path,
             stage=stage,
             response_content=response_content,
-            model=(
-                llm_metrics.get("model")
-                or TEST_MODEL
-            ),
+            model=(llm_metrics.get("model") or TEST_MODEL),
         )
 
-    errors = list(
-        result.errors
-    )
-
-    warnings = list(
-        result.warnings
-    )
-
-    if (
-        result.success
-        and validation_data
-        and not validation_data.get(
-            "success",
-            False,
-        )
-    ):
+    errors = list(result.errors)
+    warnings = list(result.warnings)
+    if result.success and validation_data and not validation_data.get("success", False):
         errors.append(
-            "La reevaluación independiente del "
-            "ValidatorEngine no fue aprobada."
+            "La validación independiente del Stage no fue aprobada."
         )
+        errors.extend(validation_data.get("errors", []))
 
-        errors.extend(
-            validation_data.get(
-                "errors",
-                [],
-            )
-        )
+    if result.success:
+        if media_stage and stored_bytes <= 0:
+            errors.append(f"El Stage multimedia '{stage}' no guardó artifacts físicos.")
+        elif not media_stage and not response_content:
+            errors.append(f"El Stage '{stage}' no guardó contenido en su archivo de respuesta.")
 
-    if result.success and not response_content:
-        errors.append(
-            f"El Stage '{stage}' no guardó contenido "
-            "en su archivo de respuesta."
-        )
+    artifact_paths: list[str] = []
+    if isinstance(result.data, dict):
+        raw_artifacts = result.data.get("artifact_paths", [])
+        if isinstance(raw_artifacts, list):
+            artifact_paths = [str(item) for item in raw_artifacts]
+    if not artifact_paths:
+        raw_artifacts = result.metadata.get("artifact_paths", [])
+        if isinstance(raw_artifacts, list):
+            artifact_paths = [str(item) for item in raw_artifacts]
 
     return FullStageExecution(
         stage=stage,
         next_stage=next_stage,
-        success=(
-            result.success
-            and not errors
-        ),
+        success=(result.success and not errors),
         message=result.message,
         duration_seconds=duration_seconds,
-        prompt_path=str(prompt_path),
-        response_path=(
-            str(response_path)
-            if response_path
-            else ""
-        ),
-        prompt_characters=len(
-            prompt_content
-        ),
-        response_characters=len(
-            response_content
-        ),
-        validation_score=validation_data.get(
-            "score"
-        ),
-        passing_score=validation_data.get(
-            "passing_score"
-        ),
-        validation_approved=validation_data.get(
-            "approved"
-        ),
-        prompt_tokens=llm_metrics.get(
-            "prompt_tokens"
-        ),
-        response_tokens=llm_metrics.get(
-            "response_tokens"
-        ),
-        thinking_tokens=llm_metrics.get(
-            "thinking_tokens"
-        ),
-        total_tokens=llm_metrics.get(
-            "total_tokens"
-        ),
-        provider=str(
-            llm_metrics.get(
-                "provider",
-                "",
-            )
-        ),
-        model=str(
-            llm_metrics.get(
-                "model",
-                "",
-            )
-        ),
-        finish_reason=str(
-            llm_metrics.get(
-                "finish_reason",
-                "",
-            )
-        ),
-        retry_enabled=bool(
-            llm_metrics.get(
-                "retry_enabled",
-                False,
-            )
-        ),
-
-        retry_attempts=int(
-            llm_metrics.get(
-                "retry_attempts",
-                0,
-            )
-        ),
-
-        retry_count=int(
-            llm_metrics.get(
-                "retry_count",
-                0,
-            )
-        ),
-
-        retry_exhausted=bool(
-            llm_metrics.get(
-                "retry_exhausted",
-                False,
-            )
-        ),
-
-        succeeded_after_retry=bool(
-            llm_metrics.get(
-                "succeeded_after_retry",
-                False,
-            )
-        ),
-
-        retry_total_duration=llm_metrics.get(
-            "retry_total_duration"
-        ),
-
-        retry_attempt_history=list(
-            llm_metrics.get(
-                "retry_attempt_history",
-                [],
-            )
-        ),
-        
+        prompt_path=("" if media_stage else str(prompt_path)),
+        response_path=(str(response_path) if response_path else ""),
+        prompt_characters=len(prompt_content),
+        response_characters=len(response_content),
+        response_size_bytes=stored_bytes,
+        response_kind=("binary_media" if media_stage else "text"),
+        artifact_paths=artifact_paths,
+        validation_score=validation_data.get("score"),
+        passing_score=validation_data.get("passing_score"),
+        validation_approved=validation_data.get("approved"),
+        prompt_tokens=llm_metrics.get("prompt_tokens"),
+        response_tokens=llm_metrics.get("response_tokens"),
+        thinking_tokens=llm_metrics.get("thinking_tokens"),
+        total_tokens=llm_metrics.get("total_tokens"),
+        provider=str(llm_metrics.get("provider", "")),
+        model=str(llm_metrics.get("model", "")),
+        finish_reason=str(llm_metrics.get("finish_reason", "")),
+        retry_enabled=bool(llm_metrics.get("retry_enabled", False)),
+        retry_attempts=int(llm_metrics.get("retry_attempts", 0)),
+        retry_count=int(llm_metrics.get("retry_count", 0)),
+        retry_exhausted=bool(llm_metrics.get("retry_exhausted", False)),
+        succeeded_after_retry=bool(llm_metrics.get("succeeded_after_retry", False)),
+        retry_total_duration=llm_metrics.get("retry_total_duration"),
+        retry_attempt_history=list(llm_metrics.get("retry_attempt_history", [])),
         warnings=warnings,
         errors=errors,
         added_files=changes["added"],
@@ -867,10 +870,14 @@ def print_stage_result(
         f"{execution.prompt_characters} caracteres"
     )
 
-    print(
-        f"Respuesta: "
-        f"{execution.response_characters} caracteres"
-    )
+    if execution.response_kind == "binary_media":
+        print(
+            f"Artifacts multimedia: {execution.response_size_bytes} bytes"
+        )
+    else:
+        print(
+            f"Respuesta: {execution.response_characters} caracteres"
+        )
 
     if execution.validation_score is not None:
         print(
@@ -1155,7 +1162,7 @@ def print_final_summary(
     )
 
     print(
-        f"Tema: {TEST_TOPIC}"
+        f"Tema: {project_data.get('tema') or TEST_TOPIC}"
     )
 
     print(
@@ -1276,45 +1283,31 @@ def validate_expected_files(
     project_path: Path,
     executions: list[FullStageExecution],
 ) -> list[str]:
-    """
-    Comprueba prompts y respuestas de cada Stage ejecutado.
-    """
+    """Comprueba respuestas históricas y artifacts físicos del proyecto."""
 
     errors: list[str] = []
+    completed = set(memory_completed_stages(project_path))
+    for stage in EXPECTED_PRODUCTION_STAGES:
+        if stage not in completed:
+            continue
+        if stage in MEDIA_STAGES:
+            continue
 
-    executed_stages = {
-        execution.stage
-        for execution in executions
-    }
+        prompt_path = get_prompt_path(project_path=project_path, stage=stage)
+        if not prompt_path.is_file() or prompt_path.stat().st_size <= 0:
+            errors.append(f"No existe un prompt válido para '{stage}'.")
 
-    for stage in executed_stages:
-        prompt_path = get_prompt_path(
-            project_path=project_path,
-            stage=stage,
-        )
+        response_path = get_response_path(project_path=project_path, stage=stage)
+        if response_path is None or not response_path.is_file() or response_path.stat().st_size <= 0:
+            errors.append(f"No existe una respuesta válida para '{stage}'.")
 
-        if (
-            not prompt_path.exists()
-            or prompt_path.stat().st_size <= 0
-        ):
-            errors.append(
-                f"No existe un prompt válido para '{stage}'."
-            )
-
-        response_path = get_response_path(
-            project_path=project_path,
-            stage=stage,
-        )
-
-        if (
-            response_path is None
-            or not response_path.exists()
-            or response_path.stat().st_size <= 0
-        ):
-            errors.append(
-                f"No existe una respuesta válida para '{stage}'."
-            )
-
+    try:
+        project = ProjectManager().load_project(project_path)
+        quality = ProductionMediaRouter().validate_quality_gate(project)
+    except Exception as error:
+        errors.append(f"No fue posible validar artifacts multimedia: {error}")
+    else:
+        errors.extend(quality.errors)
     return errors
 
 
@@ -1322,126 +1315,56 @@ def validate_final_state(
     project_path: Path,
     executions: list[FullStageExecution],
 ) -> tuple[bool, list[str]]:
-    """
-    Valida coherencia integral del proyecto terminado.
-    """
+    """Valida el proyecto completo, incluyendo Stages preservados de intentos previos."""
 
     errors: list[str] = []
-
-    project_data = read_yaml(
-        project_path / "proyecto.yaml"
-    )
-
-    memory_data = read_yaml(
-        project_path / "memoria.yaml"
-    )
-
-    executed_stages = [
-        execution.stage
-        for execution in executions
-    ]
+    project_data = read_yaml(project_path / "proyecto.yaml")
+    memory_data = read_yaml(project_path / "memoria.yaml")
+    completed_stages = set(memory_completed_stages(project_path))
 
     for expected_stage in EXPECTED_PRODUCTION_STAGES:
-        if expected_stage not in executed_stages:
-            errors.append(
-                f"No se ejecutó el Stage requerido: "
-                f"{expected_stage}."
-            )
+        if expected_stage not in completed_stages:
+            errors.append(f"No existe evidencia en memoria del Stage requerido: {expected_stage}.")
 
     for execution in executions:
         if not execution.success:
-            errors.append(
-                f"El Stage '{execution.stage}' falló."
-            )
-
-        if execution.response_characters <= 0:
-            errors.append(
-                f"El Stage '{execution.stage}' "
-                "no guardó respuesta."
-            )
-
+            errors.append(f"El Stage '{execution.stage}' falló.")
+        if execution.response_kind == "binary_media":
+            if execution.response_size_bytes <= 0:
+                errors.append(f"El Stage multimedia '{execution.stage}' no guardó artifacts.")
+        elif execution.response_characters <= 0:
+            errors.append(f"El Stage '{execution.stage}' no guardó respuesta.")
         if execution.validation_approved is not True:
-            errors.append(
-                f"El Stage '{execution.stage}' "
-                "no fue aprobado por ValidatorEngine."
-            )
-
+            errors.append(f"El Stage '{execution.stage}' no fue aprobado por su validador.")
         if (
             execution.validation_score is not None
             and execution.passing_score is not None
-            and execution.validation_score
-            < execution.passing_score
+            and execution.validation_score < execution.passing_score
         ):
-            errors.append(
-                f"El Stage '{execution.stage}' "
-                "obtuvo una puntuación insuficiente."
-            )
+            errors.append(f"El Stage '{execution.stage}' obtuvo una puntuación insuficiente.")
 
-    actual_stage = project_data.get(
-        "stage_actual"
-    )
-
+    actual_stage = project_data.get("stage_actual")
     if actual_stage != FINAL_STAGE:
-        errors.append(
-            "El proyecto no terminó en Stage final. "
-            f"Stage actual: {actual_stage}."
-        )
+        errors.append(f"El proyecto no terminó en Stage final. Stage actual: {actual_stage}.")
 
-    expected_last_stage = (
-        EXPECTED_PRODUCTION_STAGES[-1]
-        if EXPECTED_PRODUCTION_STAGES
-        else ""
-    )
-
-    actual_last_validated = memory_data.get(
-        "ultimo_stage_validado"
-    )
-
+    expected_last_stage = EXPECTED_PRODUCTION_STAGES[-1] if EXPECTED_PRODUCTION_STAGES else ""
+    actual_last_validated = memory_data.get("ultimo_stage_validado")
     if actual_last_validated != expected_last_stage:
         errors.append(
             "El último Stage validado no coincide. "
-            f"Esperado: {expected_last_stage}. "
-            f"Actual: {actual_last_validated}."
+            f"Esperado: {expected_last_stage}. Actual: {actual_last_validated}."
         )
-
-    memory_next_stage = memory_data.get(
-        "siguiente_stage"
-    )
-
-    if memory_next_stage != FINAL_STAGE:
+    if memory_data.get("siguiente_stage") != FINAL_STAGE:
         errors.append(
             "La memoria no apunta a final. "
-            f"Actual: {memory_next_stage}."
+            f"Actual: {memory_data.get('siguiente_stage')}."
         )
 
-    history = memory_data.get(
-        "historial",
-        [],
-    )
+    history = memory_data.get("historial", [])
+    if not isinstance(history, list):
+        errors.append("El historial de memoria no es una lista.")
 
-    if not isinstance(
-        history,
-        list,
-    ):
-        errors.append(
-            "El historial de memoria no es una lista."
-        )
-
-    elif len(history) < len(
-        EXPECTED_PRODUCTION_STAGES
-    ):
-        errors.append(
-            "El historial de memoria no contiene "
-            "todos los Stages ejecutados."
-        )
-
-    errors.extend(
-        validate_expected_files(
-            project_path=project_path,
-            executions=executions,
-        )
-    )
-
+    errors.extend(validate_expected_files(project_path=project_path, executions=executions))
     return not errors, errors
 
 
@@ -1486,203 +1409,128 @@ def verify_final_guard(
     )
 
 
-def main() -> int:
-    """
-    Ejecuta el pipeline completo.
-    """
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Ejecuta o reanuda el Full Pipeline Smoke real de CIPS."
+    )
+    parser.add_argument(
+        "--project-path",
+        type=Path,
+        default=None,
+        help=(
+            "Proyecto existente a reanudar. Si está marcado final pero el media "
+            "preflight falla, se reabre desde el primer Stage multimedia inválido."
+        ),
+    )
+    return parser.parse_args(argv)
 
+
+def main(argv: list[str] | None = None) -> int:
+    """Ejecuta un proyecto nuevo o reanuda el proyecto indicado."""
+
+    args = parse_args(argv)
     print("CIPS Full Pipeline Smoke Test")
     print("=" * 70)
-
-    print(
-        "Esta prueba realizará solicitudes reales "
-        "a Google Gemini."
-    )
-
-    print(
-        "No publicará contenido ni modificará "
-        "proyectos anteriores."
-    )
-
-    print(
-        "Stages de producción: "
-        + " → ".join(
-            EXPECTED_PRODUCTION_STAGES
-        )
-    )
-
-    print(
-        f"Estado final esperado: {FINAL_STAGE}"
-    )
-
-    print(
-        f"Modelo: {TEST_MODEL}"
-    )
-
-    print(
-        f"Thinking level: "
-        f"{TEST_THINKING_LEVEL}"
-    )
-
-    print(
-        "Máximo de salida por Stage: "
-        f"{TEST_MAX_OUTPUT_TOKENS} tokens"
-    )
-
+    print("Esta prueba realizará solicitudes reales a Google Gemini solo cuando un Stage LLM no tenga respuesta válida preservada.")
+    print("Los Stages voz, imágenes y ensamblado usan backends multimedia locales.")
+    print("Stages de producción: " + " → ".join(EXPECTED_PRODUCTION_STAGES))
+    print(f"Estado final esperado: {FINAL_STAGE}")
+    print(f"Modelo: {TEST_MODEL}")
+    print(f"Thinking level: {TEST_THINKING_LEVEL}")
+    print(f"Máximo de salida por Stage: {TEST_MAX_OUTPUT_TOKENS} tokens")
     print()
 
-    if not credentials_available():
-        print(
-            "ERROR: No se encontró GOOGLE_API_KEY "
-            "ni GEMINI_API_KEY."
-        )
+    if args.project_path is None:
+        if not credentials_available():
+            print("ERROR: No se encontró GOOGLE_API_KEY ni GEMINI_API_KEY.")
+            return 1
+        try:
+            project_path = create_test_project()
+        except Exception as error:
+            print(f"No fue posible crear el proyecto temporal: {error}")
+            return 1
+        print(f"Proyecto temporal: {project_path.name}")
+    else:
+        project_path = args.project_path.expanduser().resolve()
+        if not project_path.is_dir() or not (project_path / "proyecto.yaml").is_file():
+            print(f"ERROR: Proyecto no válido para reanudar: {project_path}")
+            return 1
+        try:
+            repair_stage = prepare_project_for_resume(project_path)
+        except Exception as error:
+            print(f"ERROR: No fue posible evaluar la reanudación del proyecto: {error}")
+            return 1
+        if repair_stage:
+            print(
+                "Se detectó evidencia inválida en un Stage ya superado; "
+                f"se preservó el proyecto y se reanudará desde: {repair_stage}."
+            )
+        else:
+            print(f"Reanudando proyecto existente: {project_path.name}")
+        current_stage = ProjectManager().load_project(project_path).stage_actual
+        if current_stage != FINAL_STAGE and not credentials_available():
+            print("ERROR: No se encontró GOOGLE_API_KEY ni GEMINI_API_KEY para los Stages LLM pendientes.")
+            return 1
 
-        return 1
-
-    try:
-        project_path = create_test_project()
-
-    except Exception as error:
-        print(
-            "No fue posible crear el proyecto temporal: "
-            f"{error}"
-        )
-
-        return 1
-
-    print(
-        f"Proyecto temporal: {project_path.name}"
-    )
-
-    print(
-        f"Ruta: {project_path}"
-    )
-
-    print(
-        f"Tema: {TEST_TOPIC}"
-    )
+    project_info = ProjectManager().load_project(project_path)
+    print(f"Ruta: {project_path}")
+    print(f"Tema: {project_info.tema or TEST_TOPIC}")
+    print(f"Stage de inicio/reanudación: {project_info.stage_actual}")
 
     pipeline = build_controlled_pipeline()
-
     executions: list[FullStageExecution] = []
 
-    for index in range(
-        1,
-        MAX_EXECUTIONS + 1,
-    ):
-        project = ProjectManager().load_project(
-            project_path
-        )
-
+    for _ in range(MAX_EXECUTIONS):
+        project = ProjectManager().load_project(project_path)
         if project.stage_actual == FINAL_STAGE:
             print()
-            print(
-                "El proyecto alcanzó el Stage final."
-            )
-
+            print("El proyecto alcanzó el Stage final.")
             break
-
+        stage_index = (
+            EXPECTED_PRODUCTION_STAGES.index(project.stage_actual) + 1
+            if project.stage_actual in EXPECTED_PRODUCTION_STAGES
+            else len(executions) + 1
+        )
         print()
-        print(
-            f"Ejecutando Stage {index}: "
-            f"{project.stage_actual}"
-        )
-
-        execution = execute_stage(
-            pipeline=pipeline,
-            project_path=project_path,
-        )
-
-        executions.append(
-            execution
-        )
-
-        print_stage_result(
-            index=index,
-            execution=execution,
-        )
-
+        print(f"Ejecutando Stage {stage_index}: {project.stage_actual}")
+        execution = execute_stage(pipeline=pipeline, project_path=project_path)
+        executions.append(execution)
+        print_stage_result(index=stage_index, execution=execution)
         if not execution.success:
             print()
-            print(
-                "Pipeline detenido para impedir "
-                "continuar después de un fallo."
-            )
-
+            print("Pipeline detenido. El proyecto se conserva y puede reanudarse desde este mismo Stage.")
             break
 
-    print_final_summary(
-        project_path=project_path,
-        executions=executions,
+    print_final_summary(project_path=project_path, executions=executions)
+    final_valid, final_errors = validate_final_state(
+        project_path=project_path, executions=executions
     )
-
-    final_valid, final_errors = (
-        validate_final_state(
-            project_path=project_path,
-            executions=executions,
-        )
-    )
-
     final_guard_valid = False
-    final_guard_message = (
-        "No ejecutado porque el proyecto "
-        "no alcanzó final."
-    )
-
+    final_guard_message = "No ejecutado porque el proyecto no alcanzó final."
     if final_valid:
-        (
-            final_guard_valid,
-            final_guard_message,
-        ) = verify_final_guard(
-            pipeline=pipeline,
-            project_path=project_path,
+        final_guard_valid, final_guard_message = verify_final_guard(
+            pipeline=pipeline, project_path=project_path
         )
-
         if not final_guard_valid:
-            final_errors.append(
-                final_guard_message
-            )
-
+            final_errors.append(final_guard_message)
             final_valid = False
 
     print()
     print("=" * 70)
     print("VALIDACIÓN FINAL")
     print("=" * 70)
-
-    print(
-        f"Resultado integral válido: "
-        f"{final_valid}"
-    )
-
-    print(
-        f"Protección de proyecto finalizado: "
-        f"{final_guard_valid}"
-    )
-
-    print(
-        f"Mensaje de protección: "
-        f"{final_guard_message}"
-    )
-
+    print(f"Resultado integral válido: {final_valid}")
+    print(f"Protección de proyecto finalizado: {final_guard_valid}")
+    print(f"Mensaje de protección: {final_guard_message}")
     if final_errors:
         print()
         print("Errores finales:")
-
         for error in final_errors:
-            print(
-                f"- {error}"
-            )
-
+            print(f"- {error}")
     if not final_valid:
         return 2
-
     print()
-    print(
-        "Full Pipeline Smoke Test "
-        "completado correctamente."
-    )
-
+    print("Full Pipeline Smoke Test completado correctamente.")
     return 0
 
 

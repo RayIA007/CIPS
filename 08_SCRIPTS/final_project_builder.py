@@ -13,7 +13,8 @@ reales de un proyecto CIPS.
 Responsabilidades:
 - cargar el proyecto;
 - localizar los entregables de cada Stage;
-- leer contenidos UTF-8;
+- leer contenidos textuales UTF-8;
+- registrar entregables multimedia sin decodificarlos;
 - registrar archivos fuente y prompts;
 - detectar Stages faltantes o vacíos;
 - consolidar el contenido editorial;
@@ -64,6 +65,19 @@ class FinalProjectBuilder:
         for stage in STAGES
         if stage != FINAL_STAGE
     ]
+
+    ARTIFACT_STAGES = {
+        "voz",
+        "imagenes",
+        "ensamblado",
+    }
+
+    IMAGE_SUFFIXES = {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+    }
 
     def __init__(
         self,
@@ -159,8 +173,8 @@ class FinalProjectBuilder:
                 *auxiliary_warnings,
             ]
 
-            missing_stages = final_project.missing_stages(
-                self.REQUIRED_PRODUCTION_STAGES
+            missing_stages = self._get_missing_required_stages(
+                final_project
             )
 
             empty_stage_files = (
@@ -241,7 +255,7 @@ class FinalProjectBuilder:
 
             metadata = {
                 **self._base_metadata(project),
-                "complete": final_project.is_complete(),
+                "complete": not missing_stages,
                 "required_stages": list(
                     self.REQUIRED_PRODUCTION_STAGES
                 ),
@@ -405,16 +419,19 @@ class FinalProjectBuilder:
         final_project: FinalProjectObject,
     ) -> list[str]:
         """
-        Lee todos los entregables definidos en STAGE_FILES.
+        Registra los entregables definidos en STAGE_FILES.
+
+        Los Stages textuales se leen como UTF-8. Los Stages
+        multimedia se registran como artifacts físicos y nunca
+        se decodifican como texto.
         """
 
         warnings: list[str] = []
         empty_stage_files: list[str] = []
+        artifact_stage_outputs: dict[str, dict[str, Any]] = {}
 
         for stage in self.REQUIRED_PRODUCTION_STAGES:
-            filename = STAGE_FILES.get(
-                stage
-            )
+            filename = STAGE_FILES.get(stage)
 
             if not filename:
                 warnings.append(
@@ -423,14 +440,23 @@ class FinalProjectBuilder:
                 )
                 continue
 
-            file_path = (
-                final_project.project.path
-                / filename
-            )
+            file_path = final_project.project.path / filename
+            final_project.source_files[stage] = str(file_path)
 
-            final_project.source_files[
-                stage
-            ] = str(file_path)
+            if stage in self.ARTIFACT_STAGES:
+                artifact_info = self._inspect_artifact_stage(
+                    stage=stage,
+                    artifact_path=file_path,
+                )
+                artifact_stage_outputs[stage] = artifact_info
+
+                if not artifact_info["present"]:
+                    empty_stage_files.append(str(file_path))
+                    warnings.append(
+                        f"El artifact del Stage '{stage}' "
+                        "no existe o está vacío."
+                    )
+                continue
 
             if not file_path.exists():
                 warnings.append(
@@ -439,20 +465,21 @@ class FinalProjectBuilder:
                 )
                 continue
 
-            content = self._read_text_file(
-                file_path
-            )
+            if not file_path.is_file():
+                empty_stage_files.append(str(file_path))
+                warnings.append(
+                    f"La ruta del Stage '{stage}' no es "
+                    "un archivo textual."
+                )
+                continue
 
-            if self._is_placeholder_content(
-                content
-            ):
+            content = self._read_text_file(file_path)
+
+            if self._is_placeholder_content(content):
                 content = ""
 
             if not content:
-                empty_stage_files.append(
-                    str(file_path)
-                )
-
+                empty_stage_files.append(str(file_path))
                 warnings.append(
                     f"El archivo del Stage '{stage}' "
                     "está vacío o contiene un marcador pendiente."
@@ -463,11 +490,93 @@ class FinalProjectBuilder:
                 content=content,
             )
 
-        final_project.metadata[
-            "empty_stage_files"
-        ] = empty_stage_files
+        final_project.metadata["empty_stage_files"] = (
+            empty_stage_files
+        )
+        final_project.metadata["artifact_stage_outputs"] = (
+            artifact_stage_outputs
+        )
 
         return warnings
+
+    def _inspect_artifact_stage(
+        self,
+        *,
+        stage: str,
+        artifact_path: Path,
+    ) -> dict[str, Any]:
+        """
+        Inspecciona presencia básica de un artifact sin leerlo
+        como texto. La validación estricta del formato multimedia
+        permanece en la capa de producción/acceptance.
+        """
+
+        if stage == "imagenes":
+            files: list[Path] = []
+
+            if artifact_path.is_dir():
+                files = sorted(
+                    path
+                    for path in artifact_path.iterdir()
+                    if (
+                        path.is_file()
+                        and path.suffix.lower() in self.IMAGE_SUFFIXES
+                        and path.stat().st_size > 0
+                    )
+                )
+
+            return {
+                "path": str(artifact_path),
+                "kind": "directory",
+                "present": bool(files),
+                "file_count": len(files),
+                "size_bytes": sum(
+                    path.stat().st_size for path in files
+                ),
+            }
+
+        present = (
+            artifact_path.is_file()
+            and artifact_path.stat().st_size > 0
+        )
+
+        return {
+            "path": str(artifact_path),
+            "kind": "file",
+            "present": present,
+            "file_count": 1 if present else 0,
+            "size_bytes": (
+                artifact_path.stat().st_size if present else 0
+            ),
+        }
+
+    def _get_missing_required_stages(
+        self,
+        final_project: FinalProjectObject,
+    ) -> list[str]:
+        """
+        Determina completitud sin exigir contenido textual a los
+        Stages cuyo entregable canónico es multimedia.
+        """
+
+        artifact_outputs = final_project.metadata.get(
+            "artifact_stage_outputs",
+            {},
+        )
+
+        missing: list[str] = []
+
+        for stage in self.REQUIRED_PRODUCTION_STAGES:
+            if stage in self.ARTIFACT_STAGES:
+                info = artifact_outputs.get(stage, {})
+                if not bool(info.get("present")):
+                    missing.append(stage)
+                continue
+
+            if not final_project.get_stage_content(stage):
+                missing.append(stage)
+
+        return missing
 
     def _load_prompt_files(
         self,
