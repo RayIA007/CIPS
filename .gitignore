@@ -32,3 +32,12 @@ Desktop.ini
 # Temporales
 *.tmp
 *.bak
+
+# Stable Diffusion local: binarios, modelos y renders de prueba
+stable-diffusion-cpp-win-*/
+stable-diffusion-cpp-win-*.zip
+stable-diffusion-models/
+stable-diffusion-test-*.png
+
+# Paquetes ZIP locales de trabajo CIPS
+CIPS_*.zip

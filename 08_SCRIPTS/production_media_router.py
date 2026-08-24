@@ -52,7 +52,7 @@ MEDIA_STAGE_CAPABILITIES: dict[str, str] = {
 
 _PROVIDER_NAMES: dict[str, str] = {
     "voz": "local_edge_tts",
-    "imagenes": "local_pillow",
+    "imagenes": "local_sdcpp",
     "subtitulos": "local_subtitle_timing",
     "ensamblado": "local_moviepy",
 }
