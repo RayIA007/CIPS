@@ -1,0 +1,396 @@
+{
+  "schema_name": "cips.production_manifest",
+  "schema_version": "1.0",
+  "manifest_id": "pm-7ca21a2565da86a062493357",
+  "project": {
+    "project_id": "CIPS_DEMO_001",
+    "production_id": "SHORT_001",
+    "title": "Cómo convertir una idea en un Short",
+    "revision": 1,
+    "campaign_id": "EDUCACION_2026"
+  },
+  "locale": "es-MX",
+  "style_profile": "educational-dynamic-v1",
+  "output": {
+    "platform": "youtube_shorts",
+    "width_px": 1080,
+    "height_px": 1920,
+    "aspect_ratio": "9:16",
+    "fps": 30.0,
+    "duration_seconds": 30.0,
+    "safe_area": {
+      "top": 0.05,
+      "right": 0.05,
+      "bottom": 0.12,
+      "left": 0.05
+    }
+  },
+  "narration": {
+    "full_text": "En menos de treinta segundos descubrirás cómo una idea se convierte en un video listo para producir. Primero, CIPS organiza el mensaje, decide cada escena y describe el recurso visual que necesita. Después, un motor de render interpreta la receta sin cambiar la historia. Así obtenemos calidad, trazabilidad y libertad para elegir la mejor herramienta.",
+    "hook": "En menos de treinta segundos descubrirás cómo una idea se convierte en un video listo para producir.",
+    "call_to_action": "Convierte tu próxima idea en una producción estructurada.",
+    "voice_characteristics": [
+      "clara",
+      "cercana",
+      "enérgica"
+    ],
+    "pace_words_per_minute": 155,
+    "estimated_duration_seconds": 27.5,
+    "delivery_notes": "Pausa breve después del hook y énfasis en calidad, trazabilidad y libertad."
+  },
+  "scenes": [
+    {
+      "scene_id": "scene-001-hook",
+      "sequence": 1,
+      "start_seconds": 0.0,
+      "duration_seconds": 5.5,
+      "narration_text": "En menos de treinta segundos descubrirás cómo una idea se convierte en un video listo para producir.",
+      "asset_request": {
+        "asset_type": "ai_video",
+        "creative_brief": "Transformación visual rápida desde una idea escrita hasta una timeline vertical.",
+        "video_prompt": "Vertical cinematic macro shot of a handwritten idea transforming into an organized video timeline, energetic editorial motion, no logos, no watermarks.",
+        "alternatives": [],
+        "quality_hint": "high",
+        "cost_hint": "balanced"
+      },
+      "visual_direction": {
+        "intent": "Abrir con transformación inmediata y sensación de descubrimiento.",
+        "composition": "La idea ocupa el centro y se expande hacia capas de una timeline vertical.",
+        "subjects": [
+          "nota manuscrita",
+          "timeline audiovisual"
+        ],
+        "environment": "Espacio de trabajo creativo abstracto.",
+        "lighting": "Contraste limpio con acentos luminosos.",
+        "color_palette": [
+          "#111827",
+          "#22D3EE",
+          "#F8FAFC"
+        ],
+        "negative_constraints": [
+          "sin logotipos",
+          "sin marcas de agua",
+          "sin texto ilegible"
+        ],
+        "continuity_notes": "Mantener el acento cian durante las tres escenas."
+      },
+      "motion": {
+        "camera_movement": "zoom",
+        "speed": "fast",
+        "intensity": 0.65,
+        "direction": "hacia el centro de la timeline",
+        "subject_movement": "La nota se divide en tarjetas de producción."
+      },
+      "on_screen_text": [
+        {
+          "text_id": "text-hook",
+          "text": "De idea a producción",
+          "start_offset_seconds": 0.25,
+          "duration_seconds": 4.5,
+          "placement": "center",
+          "style_role": "hook",
+          "respect_safe_area": true,
+          "accessibility_label": "Título principal: De idea a producción"
+        }
+      ],
+      "captions": {
+        "mode": "verbatim",
+        "emphasis_words": [
+          "idea",
+          "video"
+        ],
+        "max_characters_per_line": 30,
+        "max_lines": 2,
+        "placement": "lower_third",
+        "respect_safe_area": true
+      },
+      "transition_in": {
+        "kind": "cut",
+        "duration_seconds": 0.0
+      },
+      "transition_out": {
+        "kind": "dissolve",
+        "duration_seconds": 0.35
+      },
+      "source_reference_ids": [
+        "source-script"
+      ],
+      "metadata": {
+        "narrative_role": "hook"
+      }
+    },
+    {
+      "scene_id": "scene-002-process",
+      "sequence": 2,
+      "start_seconds": 5.5,
+      "duration_seconds": 12.0,
+      "narration_text": "Primero, CIPS organiza el mensaje, decide cada escena y describe el recurso visual que necesita.",
+      "asset_request": {
+        "asset_type": "stock_video",
+        "creative_brief": "B-roll dinámico de planificación audiovisual con capas editoriales legibles.",
+        "stock_query": "creative team planning vertical video storyboard timeline close up",
+        "alternatives": [],
+        "quality_hint": "high",
+        "cost_hint": "low"
+      },
+      "visual_direction": {
+        "intent": "Mostrar que la receta organiza decisiones concretas de producción.",
+        "composition": "Secuencia de planos detalle: guion, storyboard y tarjetas de assets.",
+        "subjects": [
+          "guion estructurado",
+          "storyboard",
+          "tarjetas de assets"
+        ],
+        "environment": "Mesa de producción contemporánea.",
+        "lighting": "Natural suave con interfaz de alto contraste.",
+        "color_palette": [
+          "#111827",
+          "#22D3EE",
+          "#F59E0B"
+        ],
+        "negative_constraints": [
+          "sin pantallas sobrecargadas",
+          "sin información privada"
+        ],
+        "continuity_notes": "Conservar tarjetas con bordes cian."
+      },
+      "motion": {
+        "camera_movement": "tracking",
+        "speed": "medium",
+        "intensity": 0.45,
+        "direction": "de izquierda a derecha",
+        "subject_movement": "Las tarjetas entran siguiendo el orden del proceso."
+      },
+      "on_screen_text": [
+        {
+          "text_id": "text-process-1",
+          "text": "Guion → escenas → assets",
+          "start_offset_seconds": 1.0,
+          "duration_seconds": 6.0,
+          "placement": "upper_third",
+          "style_role": "body",
+          "respect_safe_area": true
+        },
+        {
+          "text_id": "text-process-2",
+          "text": "Una receta audiovisual",
+          "start_offset_seconds": 7.5,
+          "duration_seconds": 3.5,
+          "placement": "center",
+          "style_role": "emphasis",
+          "respect_safe_area": true
+        }
+      ],
+      "captions": {
+        "mode": "verbatim",
+        "emphasis_words": [
+          "organiza",
+          "escena",
+          "visual"
+        ],
+        "max_characters_per_line": 32,
+        "max_lines": 2,
+        "placement": "lower_third",
+        "respect_safe_area": true
+      },
+      "transition_in": {
+        "kind": "dissolve",
+        "duration_seconds": 0.35
+      },
+      "transition_out": {
+        "kind": "slide",
+        "duration_seconds": 0.25,
+        "direction": "left"
+      },
+      "source_reference_ids": [
+        "source-research",
+        "source-script"
+      ],
+      "metadata": {
+        "narrative_role": "explanation"
+      }
+    },
+    {
+      "scene_id": "scene-003-result",
+      "sequence": 3,
+      "start_seconds": 17.5,
+      "duration_seconds": 12.5,
+      "narration_text": "Después, un motor de render interpreta la receta sin cambiar la historia. Así obtenemos calidad, trazabilidad y libertad para elegir la mejor herramienta.",
+      "asset_request": {
+        "asset_type": "existing_asset",
+        "creative_brief": "Cerrar con una comparación visual de múltiples destinos de render que reciben la misma receta.",
+        "existing_asset_id": "artifact-render-options-v1",
+        "alternatives": [],
+        "quality_hint": "high",
+        "cost_hint": "free"
+      },
+      "visual_direction": {
+        "intent": "Comunicar independencia del renderer y control de calidad.",
+        "composition": "Una receta central alimenta varias salidas visuales y termina en un video aprobado.",
+        "subjects": [
+          "receta audiovisual",
+          "salidas de render",
+          "sello de aprobación"
+        ],
+        "environment": "Diagrama editorial limpio integrado en una escena de producción.",
+        "lighting": "Fondo oscuro con cierre luminoso.",
+        "color_palette": [
+          "#111827",
+          "#22D3EE",
+          "#10B981"
+        ],
+        "negative_constraints": [
+          "sin nombres de proveedores",
+          "sin interfaces propietarias"
+        ],
+        "continuity_notes": "El sello final usa verde y conserva el borde cian."
+      },
+      "motion": {
+        "camera_movement": "dolly",
+        "speed": "slow",
+        "intensity": 0.35,
+        "direction": "alejamiento para revelar todas las salidas",
+        "subject_movement": "Las salidas convergen en el video aprobado."
+      },
+      "on_screen_text": [
+        {
+          "text_id": "text-result",
+          "text": "Calidad + trazabilidad + libertad",
+          "start_offset_seconds": 5.0,
+          "duration_seconds": 6.5,
+          "placement": "center",
+          "style_role": "cta",
+          "respect_safe_area": true
+        }
+      ],
+      "captions": {
+        "mode": "verbatim",
+        "emphasis_words": [
+          "calidad",
+          "trazabilidad",
+          "libertad"
+        ],
+        "max_characters_per_line": 32,
+        "max_lines": 2,
+        "placement": "lower_third",
+        "respect_safe_area": true
+      },
+      "transition_in": {
+        "kind": "slide",
+        "duration_seconds": 0.25,
+        "direction": "left"
+      },
+      "transition_out": {
+        "kind": "fade",
+        "duration_seconds": 0.5
+      },
+      "source_reference_ids": [
+        "source-script",
+        "source-storyboard"
+      ],
+      "metadata": {
+        "narrative_role": "resolution"
+      }
+    }
+  ],
+  "audio_design": {
+    "target_loudness_lufs": -14.0,
+    "true_peak_dbfs": -1.0,
+    "voice_gain_db": 0.0,
+    "music": {
+      "mood": "optimista y tecnológico",
+      "energy": 0.7,
+      "ducking_db": -9.0,
+      "instrumental_preferred": true,
+      "creative_brief": "Pulso electrónico moderno, limpio y sin melodía invasiva.",
+      "start_seconds": 0.0,
+      "duration_seconds": 30.0
+    },
+    "sound_effects": [
+      {
+        "cue_id": "sfx-reveal",
+        "scene_id": "scene-001-hook",
+        "description": "Whoosh corto al revelarse la timeline.",
+        "start_offset_seconds": 1.2,
+        "duration_seconds": 0.6,
+        "intensity": 0.55
+      },
+      {
+        "cue_id": "sfx-approved",
+        "scene_id": "scene-003-result",
+        "description": "Impacto suave al aparecer el sello de aprobación.",
+        "start_offset_seconds": 8.0,
+        "duration_seconds": 0.8,
+        "intensity": 0.45
+      }
+    ]
+  },
+  "publication": {
+    "title": "De una idea a una producción audiovisual",
+    "description": "Una receta estructurada permite producir mejor contenido sin depender de un solo motor de render.",
+    "hashtags": [
+      "ProduccionAudiovisual",
+      "Automatizacion",
+      "CIPS"
+    ],
+    "keywords": [
+      "producción audiovisual",
+      "video vertical",
+      "automatización de contenido"
+    ],
+    "call_to_action": "Convierte tu próxima idea en una producción estructurada."
+  },
+  "quality_requirements": [
+    {
+      "requirement_id": "qa-resolution",
+      "category": "technical",
+      "level": "must",
+      "description": "La salida debe conservar resolución vertical 1080x1920.",
+      "metric": "resolution",
+      "expected": "1080x1920"
+    },
+    {
+      "requirement_id": "qa-audio-loudness",
+      "category": "audio",
+      "level": "must",
+      "description": "La mezcla debe respetar el objetivo de loudness definido.",
+      "metric": "integrated_loudness_lufs",
+      "expected": -14.0
+    },
+    {
+      "requirement_id": "qa-caption-safe-area",
+      "category": "captions",
+      "level": "must",
+      "description": "Los captions deben permanecer dentro del área segura.",
+      "metric": "caption_safe_area_compliance",
+      "expected": true
+    }
+  ],
+  "source_references": [
+    {
+      "source_id": "source-research",
+      "source_type": "research",
+      "title": "Investigación editorial del proyecto",
+      "artifact_id": "artifact-research-001",
+      "locator": "research.summary"
+    },
+    {
+      "source_id": "source-script",
+      "source_type": "script",
+      "title": "Guion aprobado del Short",
+      "artifact_id": "artifact-script-001",
+      "locator": "script.final"
+    },
+    {
+      "source_id": "source-storyboard",
+      "source_type": "storyboard",
+      "title": "Storyboard editorial",
+      "artifact_id": "artifact-storyboard-001",
+      "locator": "storyboard.scenes"
+    }
+  ],
+  "metadata": {
+    "content_kind": "short_form_video",
+    "editorial_status": "approved_for_production"
+  }
+}
