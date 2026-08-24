@@ -1,0 +1,22 @@
+id: PROYECTO_PM2_0001
+tema: Cómo verificar información antes de compartirla
+estado: narracion
+stage_actual: narracion
+ultimo_stage_validado: publicacion
+production_manifest:
+  production_id: SHORT_PM2_0001
+  platform: youtube_shorts
+  locale: es-MX
+  style_profile: educational-editorial-v1
+  revision: 1
+  width_px: 1080
+  height_px: 1920
+  aspect_ratio: "9:16"
+  fps: 30.0
+  target_duration_seconds: 36.0
+  narration_pace_words_per_minute: 150
+  voice_characteristics:
+    - clara
+    - cercana
+    - firme
+  delivery_notes: Pausa breve después del hook y énfasis en verificar.
