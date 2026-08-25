@@ -556,7 +556,8 @@ def _validate_download_url(value: str) -> None:
     host = str(parsed.hostname or "").casefold()
     if parsed.scheme != "https" or not host:
         raise ValueError("La URL de descarga de Creatomate debe usar HTTPS.")
-    if host != "creatomate.com" and not host.endswith(".creatomate.com"):
+    allowed_hosts = ("creatomate.com", "backblazeb2.com")
+    if not any(host == item or host.endswith(f".{item}") for item in allowed_hosts):
         raise ValueError("La URL de descarga no pertenece a Creatomate.")
 
 

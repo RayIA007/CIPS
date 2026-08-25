@@ -36,7 +36,7 @@ class CreatomateHttpTransport(Protocol):
 class UrllibCreatomateTransport:
     """Standard-library transport so PM6 adds no runtime dependency."""
 
-    user_agent = "CIPS-Creatomate-PM6/1.0"
+    user_agent = "curl/8.0"
 
     def request(
         self,
