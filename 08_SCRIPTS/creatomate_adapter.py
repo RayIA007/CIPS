@@ -2,19 +2,24 @@
 
 The adapter translates one provider-neutral ``ProductionManifest`` into a
 deterministic, inspectable RenderScript payload.  It deliberately performs no
-network I/O, resolves no media assets, uses no credentials, and starts no
-render.  Media required by later phases is represented with reserved
-``assets.invalid`` URLs so the payload remains structurally explicit without
-pretending that an asset has already been resolved.
+network I/O, uses no credentials, and starts no render.  PM8 may inject a
+provider-neutral ``AssetResolutionBundle``; without it, the historical
+``assets.invalid`` placeholders remain byte-for-byte compatible.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections.abc import Mapping
 from typing import Any
 
+from asset_resolution.models import (
+    AssetResolutionBundle,
+    MediaFamily,
+    ResolutionStatus,
+)
 from production_manifest import (
     AssetType,
     CameraMovement,
@@ -27,6 +32,7 @@ from production_manifest import (
     TextStyleRole,
     TransitionKind,
     TransitionSpec,
+    serialize_manifest,
 )
 from render_adapter import (
     RenderAdapterContractError,
@@ -94,15 +100,25 @@ class CreatomateAdapter(RenderTargetAdapter):
     """Compile manifests to multi-format direct RenderScript without executing it."""
 
     adapter_name = "CreatomateAdapter"
-    adapter_version = "1.1"
+    adapter_version = "1.2"
     target_id = "creatomate.renderscript"
 
     def __init__(
         self,
         *,
         capabilities: RenderTargetCapabilities | None = None,
+        resolved_assets: AssetResolutionBundle | None = None,
     ) -> None:
+        if resolved_assets is not None and not isinstance(
+            resolved_assets, AssetResolutionBundle
+        ):
+            raise TypeError("resolved_assets debe ser AssetResolutionBundle o None.")
+        self._resolved_assets = resolved_assets
         super().__init__(capabilities=capabilities or creatomate_capabilities())
+
+    @property
+    def resolved_assets(self) -> AssetResolutionBundle | None:
+        return self._resolved_assets
 
     def validate_capabilities(self, manifest: ProductionManifest) -> None:
         """Apply PM4 validation without coupling output to one aspect ratio."""
@@ -120,6 +136,7 @@ class CreatomateAdapter(RenderTargetAdapter):
     def compile_payload(self, manifest: ProductionManifest) -> Mapping[str, Any]:
         """Build one direct RenderScript payload with deterministic layers."""
 
+        self._validate_resolution_bundle(manifest)
         style = get_style_profile(manifest.style_profile)
         elements: list[dict[str, Any]] = []
         for scene in manifest.scenes:
@@ -182,11 +199,21 @@ class CreatomateAdapter(RenderTargetAdapter):
             "width": "100%",
             "height": "100%",
         }
-        if asset_type in _IMAGE_ASSET_TYPES:
+        resolved_visual = (
+            self._resolved_assets.scene_visual(scene.scene_id)
+            if self._resolved_assets is not None
+            else None
+        )
+        existing_video = (
+            asset_type is AssetType.EXISTING_ASSET
+            and resolved_visual is not None
+            and resolved_visual.media_family is MediaFamily.VIDEO
+        )
+        if asset_type in _IMAGE_ASSET_TYPES and not existing_video:
             base.update(
                 {
                     "type": "image",
-                    "source": self._scene_asset_placeholder(
+                    "source": self._scene_asset_source(
                         manifest,
                         scene,
                         extension="jpg",
@@ -195,11 +222,11 @@ class CreatomateAdapter(RenderTargetAdapter):
                     "clip": True,
                 }
             )
-        elif asset_type in _VIDEO_ASSET_TYPES:
+        elif asset_type in _VIDEO_ASSET_TYPES or existing_video:
             base.update(
                 {
                     "type": "video",
-                    "source": self._scene_asset_placeholder(
+                    "source": self._scene_asset_source(
                         manifest,
                         scene,
                         extension="mp4",
@@ -406,10 +433,14 @@ class CreatomateAdapter(RenderTargetAdapter):
             "track": 4,
             "time": _json_number(scene.start_seconds),
             "duration": _json_number(scene.duration_seconds),
-            "source": _placeholder_url(
-                manifest.manifest_id,
-                "narration",
-                f"{scene.scene_id}.wav",
+            "source": self._resolved_source(
+                role="scene_narration",
+                identity=scene.scene_id,
+                placeholder=_placeholder_url(
+                    manifest.manifest_id,
+                    "narration",
+                    f"{scene.scene_id}.wav",
+                ),
             ),
             "volume": _db_to_percentage(manifest.audio_design.voice_gain_db),
         }
@@ -433,10 +464,14 @@ class CreatomateAdapter(RenderTargetAdapter):
             "track": 5,
             "time": _json_number(music.start_seconds),
             "duration": _json_number(duration),
-            "source": _placeholder_url(
-                manifest.manifest_id,
-                "music",
-                f"{identity}.mp3",
+            "source": self._resolved_source(
+                role="music",
+                identity="music",
+                placeholder=_placeholder_url(
+                    manifest.manifest_id,
+                    "music",
+                    f"{identity}.mp3",
+                ),
             ),
             "loop": True,
             "volume": _db_to_percentage(
@@ -464,10 +499,14 @@ class CreatomateAdapter(RenderTargetAdapter):
                         scene.start_seconds + effect.start_offset_seconds
                     ),
                     "duration": _json_number(effect.duration_seconds or 0.5),
-                    "source": _placeholder_url(
-                        manifest.manifest_id,
-                        "sfx",
-                        f"{identity}.wav",
+                    "source": self._resolved_source(
+                        role="sound_effect",
+                        identity=effect.cue_id,
+                        placeholder=_placeholder_url(
+                            manifest.manifest_id,
+                            "sfx",
+                            f"{identity}.wav",
+                        ),
                     ),
                     "volume": _unit_to_percentage(
                         effect.intensity * _sound_effect_multiplier(style)
@@ -476,19 +515,75 @@ class CreatomateAdapter(RenderTargetAdapter):
             )
         return elements
 
-    @staticmethod
-    def _scene_asset_placeholder(
+    def _scene_asset_source(
+        self,
         manifest: ProductionManifest,
         scene: SceneSpec,
         *,
         extension: str,
     ) -> str:
         identity = scene.asset_request.existing_asset_id or scene.scene_id
-        return _placeholder_url(
-            manifest.manifest_id,
-            "visual",
-            f"{identity}.{extension}",
+        return self._resolved_source(
+            role="scene_visual",
+            identity=scene.scene_id,
+            placeholder=_placeholder_url(
+                manifest.manifest_id,
+                "visual",
+                f"{identity}.{extension}",
+            ),
         )
+
+    def _resolved_source(
+        self,
+        *,
+        role: str,
+        identity: str,
+        placeholder: str,
+    ) -> str:
+        bundle = self._resolved_assets
+        if bundle is None:
+            return placeholder
+        try:
+            if role == "scene_visual":
+                record = bundle.scene_visual(identity)
+            elif role == "scene_narration":
+                record = bundle.scene_narration(identity)
+            elif role == "music":
+                record = bundle.music()
+            elif role == "sound_effect":
+                record = bundle.sound_effect(identity)
+            else:  # Defensive guard for adapter-owned call sites.
+                raise KeyError(role)
+        except KeyError as error:
+            raise RenderCompilationError(
+                f"PM8 no resolvió '{role}:{identity}' para Creatomate."
+            ) from error
+        if record.status is not ResolutionStatus.PERSISTED:
+            raise RenderCompilationError(
+                f"'{role}:{identity}' no contiene un artifact F3 persistido."
+            )
+        if record.delivery_uri is None:
+            raise RenderCompilationError(
+                f"'{role}:{identity}' no tiene delivery_uri HTTPS para Creatomate."
+            )
+        return record.delivery_uri
+
+    def _validate_resolution_bundle(self, manifest: ProductionManifest) -> None:
+        bundle = self._resolved_assets
+        if bundle is None:
+            return
+        manifest_sha256 = hashlib.sha256(
+            serialize_manifest(manifest).encode("utf-8")
+        ).hexdigest()
+        if (
+            bundle.manifest_id != manifest.manifest_id
+            or bundle.manifest_sha256 != manifest_sha256
+            or bundle.project_id != manifest.project.project_id
+            or bundle.production_id != manifest.project.production_id
+        ):
+            raise RenderCompilationError(
+                "AssetResolutionBundle no corresponde al ProductionManifest compilado."
+            )
 
 
 def serialize_creatomate_payload(
