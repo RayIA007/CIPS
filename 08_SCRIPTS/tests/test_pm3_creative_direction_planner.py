@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 
 import pytest
-
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
@@ -19,13 +18,13 @@ from creative_direction_planner import (  # noqa: E402
 from production_manifest import (  # noqa: E402
     AssetType,
     CameraMovement,
+    OutputSpec,
     ProductionManifest,
     deserialize_manifest,
     serialize_manifest,
 )
 from production_manifest_compiler import ProductionManifestCompiler  # noqa: E402
 from workspace_resolver import WorkspaceResolver  # noqa: E402
-
 
 FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm2" / "editorial_project"
 PM1_MANIFEST = Path(__file__).parent / "fixtures" / "pm1" / "production_manifest.json"
@@ -58,7 +57,9 @@ def _compile_and_plan(planning_env) -> tuple[ProductionManifest, ProductionManif
     return source, planner.plan(source)
 
 
-def test_pm2_manifest_becomes_a_dynamic_provider_neutral_shot_plan(planning_env) -> None:
+def test_pm2_manifest_becomes_a_dynamic_provider_neutral_shot_plan(
+    planning_env,
+) -> None:
     _, planned = _compile_and_plan(planning_env)
 
     assert [scene.asset_request.asset_type for scene in planned.scenes] == [
@@ -69,9 +70,14 @@ def test_pm2_manifest_becomes_a_dynamic_provider_neutral_shot_plan(planning_env)
     assert planned.scenes[0].asset_request.creative_brief
     assert planned.scenes[1].asset_request.stock_query
     assert planned.scenes[2].asset_request.creative_brief
-    assert all(scene.motion.camera_movement is not CameraMovement.STATIC for scene in planned.scenes)
+    assert all(
+        scene.motion.camera_movement is not CameraMovement.STATIC
+        for scene in planned.scenes
+    )
     assert all(scene.on_screen_text for scene in planned.scenes)
-    assert all(scene.captions and scene.captions.emphasis_words for scene in planned.scenes)
+    assert all(
+        scene.captions and scene.captions.emphasis_words for scene in planned.scenes
+    )
     assert [scene.metadata["music_energy"] for scene in planned.scenes] == [
         0.72,
         0.58,
@@ -242,10 +248,63 @@ def test_planner_rejects_wrong_manifest_type(planning_env) -> None:
         planner.plan({})  # type: ignore[arg-type]
 
 
+def test_planner_adapts_prompts_and_composition_to_horizontal_output(
+    planning_env,
+) -> None:
+    project_path, compiler, planner = planning_env
+    source = compiler.compile(project_path)
+    horizontal = OutputSpec(
+        platform=source.output.platform,
+        width_px=1920,
+        height_px=1080,
+        aspect_ratio="16:9",
+        fps=source.output.fps,
+        duration_seconds=source.output.duration_seconds,
+        safe_area=source.output.safe_area,
+    )
+    planned = planner.plan(source.model_copy(update={"output": horizontal}))
+
+    assert all(
+        "horizontal" in (scene.visual_direction.environment or "")
+        for scene in planned.scenes
+    )
+    assert all(
+        "encuadre horizontal" in scene.visual_direction.composition
+        for scene in planned.scenes
+    )
+    stock_requests = [
+        scene.asset_request
+        for scene in planned.scenes
+        if scene.asset_request.asset_type
+        in {AssetType.STOCK_IMAGE, AssetType.STOCK_VIDEO}
+    ]
+    assert stock_requests
+    assert all(
+        "horizontal" in (request.stock_query or "") for request in stock_requests
+    )
+    assert all(
+        "vertical"
+        not in " ".join(
+            filter(
+                None,
+                (
+                    scene.asset_request.creative_brief,
+                    scene.asset_request.image_prompt,
+                    scene.asset_request.video_prompt,
+                    scene.asset_request.stock_query,
+                ),
+            )
+        ).casefold()
+        for scene in planned.scenes
+    )
+
+
 def test_planner_contains_no_external_asset_or_render_integration() -> None:
-    source = (SCRIPTS_DIR / "creative_direction_planner.py").read_text(
-        encoding="utf-8"
-    ).casefold()
+    source = (
+        (SCRIPTS_DIR / "creative_direction_planner.py")
+        .read_text(encoding="utf-8")
+        .casefold()
+    )
     forbidden = (
         "creatomate",
         "renderscript",

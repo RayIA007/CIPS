@@ -37,9 +37,10 @@ from render_adapter import (  # noqa: E402
 )
 from workspace_resolver import WorkspaceResolver  # noqa: E402
 
-
 FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm2" / "editorial_project"
-PAYLOAD_FIXTURE = Path(__file__).parent / "fixtures" / "pm5" / CREATOMATE_PAYLOAD_FILENAME
+PAYLOAD_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "pm5" / CREATOMATE_PAYLOAD_FILENAME
+)
 
 
 @pytest.fixture()
@@ -64,8 +65,7 @@ def _visual_elements(payload: dict) -> list[dict]:
     return [
         element
         for element in payload["elements"]
-        if element["name"].startswith("Scene:")
-        and ":visual:" in element["name"]
+        if element["name"].startswith("Scene:") and ":visual:" in element["name"]
     ]
 
 
@@ -115,9 +115,7 @@ def test_text_and_captions_preserve_scene_content_and_safe_area(
         element for element in payload["elements"] if ":text:" in element["name"]
     ]
     captions = [
-        element
-        for element in payload["elements"]
-        if ":captions:" in element["name"]
+        element for element in payload["elements"] if ":captions:" in element["name"]
     ]
 
     assert [item["text"] for item in text_layers] == [
@@ -149,7 +147,9 @@ def test_narration_music_and_sound_effects_map_to_offline_audio_layers(
     assert {item["track"] for item in narration} == {4}
     assert music[0]["track"] == 5
     assert {item["track"] for item in sound_effects} == {6}
-    assert all("assets.invalid" in item["source"] for item in narration + music + sound_effects)
+    assert all(
+        "assets.invalid" in item["source"] for item in narration + music + sound_effects
+    )
 
 
 def test_scene_motion_and_transitions_use_inspectable_animations(
@@ -172,7 +172,10 @@ def test_scene_motion_and_transitions_use_inspectable_animations(
     assert transitions[0][-1]["enable"] == "first-only"
     assert transitions[1][0]["enable"] == "second-only"
     assert all(
-        any(animation.get("transition") is not True for animation in visual["animations"])
+        any(
+            animation.get("transition") is not True
+            for animation in visual["animations"]
+        )
         for visual in visuals
     )
 
@@ -238,25 +241,26 @@ def test_capabilities_are_explicit_and_reject_unsupported_requirements(
     assert captured.value.unsupported == ("transition:dissolve",)
 
 
-def test_vertical_output_none_assets_and_custom_motion_fail_explicitly(
+def test_multiple_output_formats_compile_while_none_assets_and_custom_motion_fail(
     planned_manifest: ProductionManifest,
 ) -> None:
-    output = OutputSpec(
-        platform=planned_manifest.output.platform,
-        width_px=720,
-        height_px=1280,
-        aspect_ratio="9:16",
-        fps=planned_manifest.output.fps,
-        duration_seconds=planned_manifest.output.duration_seconds,
-        safe_area=planned_manifest.output.safe_area,
-    )
-    changed_output = planned_manifest.model_copy(update={"output": output})
-    with pytest.raises(RenderCapabilityError) as captured_output:
-        CreatomateAdapter().compile(changed_output)
-    assert captured_output.value.unsupported == (
-        "output:height_px=1280!=1920",
-        "output:width_px=720!=1080",
-    )
+    for width, height, ratio in (
+        (720, 1280, "9:16"),
+        (1920, 1080, "16:9"),
+        (1080, 1080, "1:1"),
+    ):
+        output = OutputSpec(
+            platform=planned_manifest.output.platform,
+            width_px=width,
+            height_px=height,
+            aspect_ratio=ratio,
+            fps=planned_manifest.output.fps,
+            duration_seconds=planned_manifest.output.duration_seconds,
+            safe_area=planned_manifest.output.safe_area,
+        )
+        changed_output = planned_manifest.model_copy(update={"output": output})
+        payload = CreatomateAdapter().compile(changed_output).target_payload
+        assert (payload["width"], payload["height"]) == (width, height)
 
     none_scene = planned_manifest.scenes[0].model_copy(
         update={"asset_request": AssetRequest(asset_type=AssetType.NONE)}
@@ -302,9 +306,9 @@ def test_payload_validation_rejects_invalid_or_inconsistent_data(
 
 
 def test_pm5_is_confined_offline_and_does_not_contaminate_universal_domain() -> None:
-    source = (SCRIPTS_DIR / "creatomate_adapter.py").read_text(
-        encoding="utf-8"
-    ).casefold()
+    source = (
+        (SCRIPTS_DIR / "creatomate_adapter.py").read_text(encoding="utf-8").casefold()
+    )
     forbidden_execution = (
         "requests.",
         "httpx.",

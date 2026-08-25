@@ -8,12 +8,12 @@ media.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
 import hashlib
-from pathlib import Path
 import re
 import unicodedata
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from artifact_store import ArtifactWriteResult, CollisionPolicy
@@ -24,7 +24,6 @@ from production_manifest import (
     AssetType,
     AudioDesignSpec,
     CameraMovement,
-    CaptionMode,
     CaptionSpec,
     CostHint,
     MotionSpec,
@@ -43,8 +42,8 @@ from production_manifest import (
     deserialize_manifest,
     serialize_manifest,
 )
+from style_profiles import OutputLayoutFamily, classify_output_layout
 from workspace_resolver import WorkspaceResolver
-
 
 _WORD_PATTERN = re.compile(r"[\wÁÉÍÓÚÜÑáéíóúüñ'-]+", re.UNICODE)
 _STOP_WORDS = {
@@ -259,12 +258,9 @@ class CreativeDirectionPlanner:
                 )
 
             preserve_existing = (
-                (
-                    scene.metadata.get("creative_planner") == self.planner_name
-                    or scene.asset_request.asset_type is not AssetType.NONE
-                )
-                and scene.scene_id not in type_overrides
-            )
+                scene.metadata.get("creative_planner") == self.planner_name
+                or scene.asset_request.asset_type is not AssetType.NONE
+            ) and scene.scene_id not in type_overrides
             visual_direction = self._visual_direction(
                 manifest,
                 scene,
@@ -516,24 +512,47 @@ class CreativeDirectionPlanner:
         preserve_existing: bool,
     ) -> VisualDirection:
         existing = scene.visual_direction
-        placeholder = "pendiente de direccion creativa" in cls._fold(existing.composition)
+        placeholder = "pendiente de direccion creativa" in cls._fold(
+            existing.composition
+        )
         if preserve_existing and not placeholder:
             return existing
 
-        compositions = {
-            "hook": (
-                "Elemento focal de alto contraste en el centro del encuadre vertical, "
-                "con espacio inferior limpio para captions."
-            ),
-            "explanation": (
-                "Progresión visual en profundidad y lectura de arriba hacia abajo, "
-                "con acciones claramente separadas dentro del encuadre vertical."
-            ),
-            "resolution": (
-                "Resultado visual dominante en el centro y cierre ascendente hacia el CTA, "
-                "manteniendo libre la zona inferior de captions."
-            ),
-        }
+        layout_family = classify_output_layout(
+            manifest.output.width_px,
+            manifest.output.height_px,
+        )
+        format_label = cls._format_label(layout_family)
+        if layout_family is OutputLayoutFamily.VERTICAL:
+            compositions = {
+                "hook": (
+                    "Elemento focal de alto contraste en el centro del encuadre vertical, "
+                    "con espacio inferior limpio para captions."
+                ),
+                "explanation": (
+                    "Progresión visual en profundidad y lectura de arriba hacia abajo, "
+                    "con acciones claramente separadas dentro del encuadre vertical."
+                ),
+                "resolution": (
+                    "Resultado visual dominante en el centro y cierre ascendente hacia el CTA, "
+                    "manteniendo libre la zona inferior de captions."
+                ),
+            }
+        else:
+            compositions = {
+                "hook": (
+                    f"Elemento focal de alto contraste en el centro del encuadre {format_label}, "
+                    "con una zona segura limpia para captions."
+                ),
+                "explanation": (
+                    f"Progresión visual en profundidad adaptada al encuadre {format_label}, "
+                    "con acciones claramente separadas y lectura natural."
+                ),
+                "resolution": (
+                    f"Resultado visual dominante y cierre hacia el CTA en encuadre {format_label}, "
+                    "manteniendo libre la zona segura de captions."
+                ),
+            }
         palettes = {
             "hook": ("#111827", "#F59E0B", "#F8FAFC"),
             "explanation": ("#111827", "#22D3EE", "#F8FAFC"),
@@ -549,10 +568,14 @@ class CreativeDirectionPlanner:
             composition=compositions[narrative_role],
             subjects=subjects or ("concepto editorial principal",),
             environment=(
-                f"Escena vertical coherente con el perfil {manifest.style_profile} "
+                f"Escena {format_label} coherente con el perfil {manifest.style_profile} "
                 f"y resuelta como {asset_label}."
             ),
-            lighting="Alto contraste legible en pantalla móvil, con profundidad controlada.",
+            lighting=(
+                "Alto contraste legible en pantalla móvil, con profundidad controlada."
+                if layout_family is OutputLayoutFamily.VERTICAL
+                else "Contraste legible en el formato de salida, con profundidad controlada."
+            ),
             color_palette=palettes[narrative_role],
             negative_constraints=(
                 "sin logotipos de proveedores",
@@ -649,6 +672,7 @@ class CreativeDirectionPlanner:
             common["video_prompt"] = cls._video_prompt(manifest, visual, motion)
         elif asset_type in {AssetType.STOCK_IMAGE, AssetType.STOCK_VIDEO}:
             common["stock_query"] = cls._stock_query(
+                manifest,
                 scene,
                 visual,
                 asset_type,
@@ -672,8 +696,13 @@ class CreativeDirectionPlanner:
 
     @staticmethod
     def _image_prompt(manifest: ProductionManifest, visual: VisualDirection) -> str:
+        family = classify_output_layout(
+            manifest.output.width_px,
+            manifest.output.height_px,
+        )
+        format_label = CreativeDirectionPlanner._format_label(family)
         return (
-            f"Imagen vertical {manifest.output.aspect_ratio}. {visual.intent} "
+            f"Imagen {format_label} {manifest.output.aspect_ratio}. {visual.intent} "
             f"Composición: {visual.composition} Sujetos: {', '.join(visual.subjects)}. "
             f"Ambiente: {visual.environment} Iluminación: {visual.lighting} "
             f"Paleta: {', '.join(visual.color_palette)}. "
@@ -698,6 +727,7 @@ class CreativeDirectionPlanner:
     @classmethod
     def _stock_query(
         cls,
+        manifest: ProductionManifest,
         scene: SceneSpec,
         visual: VisualDirection,
         asset_type: AssetType,
@@ -713,7 +743,19 @@ class CreativeDirectionPlanner:
             limit=8,
         )
         medium = "video" if asset_type is AssetType.STOCK_VIDEO else "fotografía"
-        return " ".join((*keywords, "vertical", medium))
+        family = classify_output_layout(
+            manifest.output.width_px,
+            manifest.output.height_px,
+        )
+        return " ".join((*keywords, cls._format_label(family), medium))
+
+    @staticmethod
+    def _format_label(family: OutputLayoutFamily) -> str:
+        return {
+            OutputLayoutFamily.VERTICAL: "vertical",
+            OutputLayoutFamily.HORIZONTAL: "horizontal",
+            OutputLayoutFamily.SQUARE: "cuadrado",
+        }[family]
 
     @classmethod
     def _on_screen_text(
@@ -856,9 +898,7 @@ class CreativeDirectionPlanner:
 
     @staticmethod
     def _scene_music_energy(narrative_role: str) -> float:
-        return {"hook": 0.72, "explanation": 0.58, "resolution": 0.68}[
-            narrative_role
-        ]
+        return {"hook": 0.72, "explanation": 0.58, "resolution": 0.68}[narrative_role]
 
     @staticmethod
     def _scene_music_mood(narrative_role: str) -> str:

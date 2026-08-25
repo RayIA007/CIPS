@@ -36,7 +36,15 @@ from render_adapter import (
     RenderTargetAdapter,
     RenderTargetCapabilities,
 )
-
+from style_profiles import (
+    CaptionTiming,
+    LayoutPolicy,
+    StyleProfile,
+    TransitionCharacter,
+    VisualDensity,
+    classify_output_layout,
+    get_style_profile,
+)
 
 CREATOMATE_PAYLOAD_FILENAME = "creatomate_payload.json"
 CREATOMATE_PLACEHOLDER_ORIGIN = "https://assets.invalid/cips"
@@ -66,7 +74,7 @@ _TIMING_TOLERANCE = 1e-6
 
 
 def creatomate_capabilities() -> RenderTargetCapabilities:
-    """Declare the PM5 compile-only subset supported by this adapter."""
+    """Declare the compile-only subset supported by this adapter."""
 
     return RenderTargetCapabilities(
         supported_asset_types=tuple(
@@ -79,16 +87,14 @@ def creatomate_capabilities() -> RenderTargetCapabilities:
         supports_captions=True,
         supports_music=True,
         supports_sound_effects=True,
-        max_width_px=1080,
-        max_height_px=1920,
     )
 
 
 class CreatomateAdapter(RenderTargetAdapter):
-    """Compile PM3 manifests to direct RenderScript without executing it."""
+    """Compile manifests to multi-format direct RenderScript without executing it."""
 
     adapter_name = "CreatomateAdapter"
-    adapter_version = "1.0"
+    adapter_version = "1.1"
     target_id = "creatomate.renderscript"
 
     def __init__(
@@ -99,17 +105,10 @@ class CreatomateAdapter(RenderTargetAdapter):
         super().__init__(capabilities=capabilities or creatomate_capabilities())
 
     def validate_capabilities(self, manifest: ProductionManifest) -> None:
-        """Apply PM4 validation plus the exact vertical PM5 contract."""
+        """Apply PM4 validation without coupling output to one aspect ratio."""
 
         super().validate_capabilities(manifest)
         unsupported: set[str] = set()
-        output = manifest.output
-        if output.width_px != 1080:
-            unsupported.add(f"output:width_px={output.width_px}!=1080")
-        if output.height_px != 1920:
-            unsupported.add(f"output:height_px={output.height_px}!=1920")
-        if output.aspect_ratio != "9:16":
-            unsupported.add(f"output:aspect_ratio={output.aspect_ratio}!=9:16")
         for scene in manifest.scenes:
             if scene.asset_request.asset_type is AssetType.NONE:
                 unsupported.add("asset_type:none")
@@ -121,21 +120,22 @@ class CreatomateAdapter(RenderTargetAdapter):
     def compile_payload(self, manifest: ProductionManifest) -> Mapping[str, Any]:
         """Build one direct RenderScript payload with deterministic layers."""
 
+        style = get_style_profile(manifest.style_profile)
         elements: list[dict[str, Any]] = []
         for scene in manifest.scenes:
-            elements.append(self._compile_visual(manifest, scene))
-            elements.extend(self._compile_on_screen_text(manifest, scene))
-            caption = self._compile_caption(manifest, scene)
+            elements.append(self._compile_visual(manifest, scene, style=style))
+            elements.extend(self._compile_on_screen_text(manifest, scene, style=style))
+            caption = self._compile_caption(manifest, scene, style=style)
             if caption is not None:
                 elements.append(caption)
             narration = self._compile_narration(manifest, scene)
             if narration is not None:
                 elements.append(narration)
 
-        music = self._compile_music(manifest)
+        music = self._compile_music(manifest, style=style)
         if music is not None:
             elements.append(music)
-        elements.extend(self._compile_sound_effects(manifest))
+        elements.extend(self._compile_sound_effects(manifest, style=style))
 
         payload = {
             "output_format": "mp4",
@@ -168,6 +168,8 @@ class CreatomateAdapter(RenderTargetAdapter):
         self,
         manifest: ProductionManifest,
         scene: SceneSpec,
+        *,
+        style: StyleProfile | None,
     ) -> dict[str, Any]:
         asset_type = scene.asset_request.asset_type
         base: dict[str, Any] = {
@@ -189,7 +191,7 @@ class CreatomateAdapter(RenderTargetAdapter):
                         scene,
                         extension="jpg",
                     ),
-                    "fit": "cover",
+                    "fit": (style.composition.visual_fit.value if style else "cover"),
                     "clip": True,
                 }
             )
@@ -202,7 +204,7 @@ class CreatomateAdapter(RenderTargetAdapter):
                         scene,
                         extension="mp4",
                     ),
-                    "fit": "cover",
+                    "fit": (style.composition.visual_fit.value if style else "cover"),
                     "clip": True,
                     "volume": "0%",
                 }
@@ -213,7 +215,11 @@ class CreatomateAdapter(RenderTargetAdapter):
                 {
                     "type": "shape",
                     "path": _RECTANGLE_PATH,
-                    "fill_color": palette[0] if palette else "#111827",
+                    "fill_color": (
+                        style.composition.canvas_color
+                        if style
+                        else (palette[0] if palette else "#111827")
+                    ),
                     "clip": True,
                 }
             )
@@ -222,27 +228,38 @@ class CreatomateAdapter(RenderTargetAdapter):
                 f"asset_type no compilable para '{scene.scene_id}': {asset_type.value}."
             )
 
-        animations = self._compile_animations(scene)
+        animations = self._compile_animations(scene, style=style)
         if animations:
             base["animations"] = animations
         return base
 
-    def _compile_animations(self, scene: SceneSpec) -> list[dict[str, Any]]:
+    def _compile_animations(
+        self,
+        scene: SceneSpec,
+        *,
+        style: StyleProfile | None,
+    ) -> list[dict[str, Any]]:
         animations: list[dict[str, Any]] = []
         incoming = _transition_animation(
             scene.transition_in,
             phase="in",
             element_duration=scene.duration_seconds,
+            style=style,
         )
         if incoming is not None:
             animations.append(incoming)
-        motion = _motion_animation(scene.motion, scene.duration_seconds)
+        motion = _motion_animation(
+            scene.motion,
+            scene.duration_seconds,
+            style=style,
+        )
         if motion is not None:
             animations.append(motion)
         outgoing = _transition_animation(
             scene.transition_out,
             phase="out",
             element_duration=scene.duration_seconds,
+            style=style,
         )
         if outgoing is not None:
             animations.append(outgoing)
@@ -252,11 +269,13 @@ class CreatomateAdapter(RenderTargetAdapter):
         self,
         manifest: ProductionManifest,
         scene: SceneSpec,
+        *,
+        style: StyleProfile | None,
     ) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         for text in scene.on_screen_text:
             placement = _text_geometry(text.placement, manifest)
-            style = _text_style(text.style_role)
+            rendered_style = _text_style(text.style_role, style=style)
             items.append(
                 {
                     "name": f"Scene:{scene.scene_id}:text:{text.text_id}",
@@ -268,7 +287,7 @@ class CreatomateAdapter(RenderTargetAdapter):
                     "duration": _json_number(text.duration_seconds),
                     "text": text.text,
                     **placement,
-                    **style,
+                    **rendered_style,
                 }
             )
         return items
@@ -277,6 +296,8 @@ class CreatomateAdapter(RenderTargetAdapter):
         self,
         manifest: ProductionManifest,
         scene: SceneSpec,
+        *,
+        style: StyleProfile | None,
     ) -> dict[str, Any] | None:
         caption = scene.captions
         if caption is None:
@@ -290,27 +311,87 @@ class CreatomateAdapter(RenderTargetAdapter):
             raise RenderCompilationError(
                 f"La escena '{scene.scene_id}' requiere texto para captions."
             )
-        return {
+        if style is None:
+            return {
+                "name": f"Scene:{scene.scene_id}:captions:{caption.mode.value}",
+                "type": "text",
+                "track": 3,
+                "time": _json_number(scene.start_seconds),
+                "duration": _json_number(scene.duration_seconds),
+                "text": text,
+                **_text_geometry(caption.placement, manifest),
+                "fill_color": "#FFFFFF",
+                "font_family": "Montserrat",
+                "font_weight": 700,
+                "font_size": "5 vmin",
+                "line_height": "115%",
+                "text_wrap": True,
+                "x_alignment": "50%",
+                "y_alignment": "50%",
+                "background_color": "rgba(0,0,0,0.62)",
+                "background_x_padding": "18%",
+                "background_y_padding": "14%",
+                "background_border_radius": "10%",
+            }
+
+        layout = style.composition.layout_for(
+            classify_output_layout(
+                manifest.output.width_px,
+                manifest.output.height_px,
+            )
+        )
+        caption_policy = style.captions
+        if not caption_policy.visible:
+            return None
+        rendered: dict[str, Any] = {
             "name": f"Scene:{scene.scene_id}:captions:{caption.mode.value}",
             "type": "text",
             "track": 3,
             "time": _json_number(scene.start_seconds),
             "duration": _json_number(scene.duration_seconds),
-            "text": text,
-            **_text_geometry(caption.placement, manifest),
-            "fill_color": "#FFFFFF",
-            "font_family": "Montserrat",
-            "font_weight": 700,
-            "font_size": "5 vmin",
-            "line_height": "115%",
+            **_profile_caption_geometry(layout, manifest),
+            "fill_color": caption_policy.fill_color,
+            "font_family": caption_policy.font_family,
+            "font_weight": caption_policy.font_weight,
+            "font_size": _vmin(
+                caption_policy.font_size_fraction * layout.caption_font_scale
+            ),
+            "line_height": _ratio_percent(caption_policy.line_height),
             "text_wrap": True,
             "x_alignment": "50%",
             "y_alignment": "50%",
-            "background_color": "rgba(0,0,0,0.62)",
-            "background_x_padding": "18%",
-            "background_y_padding": "14%",
-            "background_border_radius": "10%",
+            "text_transform": "uppercase" if caption_policy.uppercase else "none",
+            "background_color": caption_policy.background_color,
+            "background_x_padding": _percent(caption_policy.background_x_padding),
+            "background_y_padding": _percent(caption_policy.background_y_padding),
+            "background_border_radius": _percent(
+                caption_policy.background_border_radius
+            ),
         }
+        if caption_policy.stroke_color is not None:
+            rendered["stroke_color"] = caption_policy.stroke_color
+            rendered["stroke_width"] = _vmin(caption_policy.stroke_width_fraction)
+        if (
+            caption_policy.timing is CaptionTiming.SYNCHRONIZED_WORDS
+            and caption.mode is not CaptionMode.CUSTOM
+            and scene.narration_text is not None
+        ):
+            rendered.update(
+                {
+                    "transcript_source": f"Scene:{scene.scene_id}:narration",
+                    "transcript_effect": "highlight",
+                    "transcript_split": "word",
+                    "transcript_placement": "animate",
+                    "transcript_color": caption_policy.emphasis_color,
+                    "transcript_maximum_length": min(
+                        caption.max_characters_per_line,
+                        caption_policy.maximum_characters,
+                    ),
+                }
+            )
+        else:
+            rendered["text"] = text
+        return rendered
 
     def _compile_narration(
         self,
@@ -333,7 +414,12 @@ class CreatomateAdapter(RenderTargetAdapter):
             "volume": _db_to_percentage(manifest.audio_design.voice_gain_db),
         }
 
-    def _compile_music(self, manifest: ProductionManifest) -> dict[str, Any] | None:
+    def _compile_music(
+        self,
+        manifest: ProductionManifest,
+        *,
+        style: StyleProfile | None,
+    ) -> dict[str, Any] | None:
         music = manifest.audio_design.music
         if music is None:
             return None
@@ -353,12 +439,16 @@ class CreatomateAdapter(RenderTargetAdapter):
                 f"{identity}.mp3",
             ),
             "loop": True,
-            "volume": _db_to_percentage(music.ducking_db),
+            "volume": _db_to_percentage(
+                style.audio.ducking_db if style else music.ducking_db
+            ),
         }
 
     def _compile_sound_effects(
         self,
         manifest: ProductionManifest,
+        *,
+        style: StyleProfile | None,
     ) -> list[dict[str, Any]]:
         scenes = {scene.scene_id: scene for scene in manifest.scenes}
         elements: list[dict[str, Any]] = []
@@ -379,7 +469,9 @@ class CreatomateAdapter(RenderTargetAdapter):
                         "sfx",
                         f"{identity}.wav",
                     ),
-                    "volume": _unit_to_percentage(effect.intensity),
+                    "volume": _unit_to_percentage(
+                        effect.intensity * _sound_effect_multiplier(style)
+                    ),
                 }
             )
         return elements
@@ -431,12 +523,14 @@ def deserialize_creatomate_payload(
     try:
         decoded = json.loads(payload)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise RenderCompilationError(f"JSON de Creatomate inválido: {error}.") from error
+        raise RenderCompilationError(
+            f"JSON de Creatomate inválido: {error}."
+        ) from error
     return validate_creatomate_payload(decoded)
 
 
 def validate_creatomate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate the direct-RenderScript subset emitted by PM5."""
+    """Validate the direct-RenderScript subset emitted by the CIPS adapter."""
 
     if not isinstance(payload, Mapping):
         raise TypeError("payload debe ser un Mapping.")
@@ -487,12 +581,40 @@ def validate_creatomate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                 raise RenderCompilationError(f"source HTTPS obligatorio en '{name}'.")
         elif element_type == "text":
             text = element.get("text")
-            if not isinstance(text, str) or not text.strip():
-                raise RenderCompilationError(f"text es obligatorio en '{name}'.")
+            transcript_source = element.get("transcript_source")
+            has_text = isinstance(text, str) and bool(text.strip())
+            if not has_text and transcript_source is None:
+                raise RenderCompilationError(
+                    f"text o transcript_source es obligatorio en '{name}'."
+                )
+            if transcript_source is not None:
+                _validate_transcript_source(transcript_source, name)
         elif element_type == "shape":
             path = element.get("path")
             if not isinstance(path, str) or not path.strip():
                 raise RenderCompilationError(f"path es obligatorio en '{name}'.")
+
+    element_by_name = {
+        str(element["name"]): element
+        for element in elements
+        if isinstance(element, Mapping)
+    }
+    for element in elements:
+        if not isinstance(element, Mapping) or element.get("type") != "text":
+            continue
+        transcript_source = element.get("transcript_source")
+        if not isinstance(transcript_source, str):
+            continue
+        source_element = element_by_name.get(transcript_source)
+        if source_element is None:
+            raise RenderCompilationError(
+                f"transcript_source inexistente en '{element['name']}': "
+                f"{transcript_source}."
+            )
+        if source_element.get("type") not in {"audio", "video"}:
+            raise RenderCompilationError(
+                f"transcript_source debe referir audio o video en '{element['name']}'."
+            )
 
     try:
         json.dumps(normalized, ensure_ascii=False, allow_nan=False)
@@ -508,6 +630,7 @@ def _transition_animation(
     *,
     phase: str,
     element_duration: float,
+    style: StyleProfile | None,
 ) -> dict[str, Any] | None:
     if transition.kind is TransitionKind.CUT:
         return None
@@ -515,17 +638,30 @@ def _transition_animation(
         raise RenderCompilationError(
             f"Transición Creatomate no soportada: {transition.kind.value}."
         )
-    duration = min(transition.duration_seconds, element_duration)
+    duration = min(
+        (
+            style.transitions.preferred_duration_seconds
+            if style and style.transitions.preferred_duration_seconds > 0.0
+            else transition.duration_seconds
+        ),
+        element_duration,
+    )
+    rendered_kind = transition.kind
+    if style and style.transitions.character in {
+        TransitionCharacter.SOFT,
+        TransitionCharacter.DISSOLVE,
+    }:
+        rendered_kind = TransitionKind.FADE
     animation: dict[str, Any] = {
         "time": _json_number(0.0 if phase == "in" else element_duration - duration),
         "duration": _json_number(duration),
-        "easing": "cubic-in-out",
+        "easing": style.motion.preferred_easing if style else "cubic-in-out",
         "transition": True,
         "enable": "second-only" if phase == "in" else "first-only",
     }
-    if transition.kind is TransitionKind.FADE:
+    if rendered_kind is TransitionKind.FADE:
         animation["type"] = "fade"
-    elif transition.kind is TransitionKind.SLIDE:
+    elif rendered_kind is TransitionKind.SLIDE:
         animation.update(
             {
                 "type": "slide",
@@ -533,7 +669,7 @@ def _transition_animation(
                 "direction": _direction_degrees(transition.direction),
             }
         )
-    elif transition.kind is TransitionKind.ZOOM:
+    elif rendered_kind is TransitionKind.ZOOM:
         animation.update(
             {
                 "type": "scale",
@@ -546,19 +682,32 @@ def _transition_animation(
     return animation
 
 
-def _motion_animation(motion: MotionSpec, duration: float) -> dict[str, Any] | None:
+def _motion_animation(
+    motion: MotionSpec,
+    duration: float,
+    *,
+    style: StyleProfile | None,
+) -> dict[str, Any] | None:
     movement = motion.camera_movement
     if movement is CameraMovement.STATIC:
         return None
     if movement is CameraMovement.CUSTOM:
         raise RenderCompilationError("camera_movement='custom' no está soportado.")
-    easing = "linear" if motion.speed is MotionSpeed.SLOW else "quadratic-in-out"
+    easing = (
+        style.motion.preferred_easing
+        if style
+        else ("linear" if motion.speed is MotionSpeed.SLOW else "quadratic-in-out")
+    )
+    intensity = min(
+        1.0,
+        motion.intensity * (style.motion.intensity_multiplier if style else 1.0),
+    )
     if movement in {
         CameraMovement.DOLLY,
         CameraMovement.ORBIT,
         CameraMovement.ZOOM,
     }:
-        scale_delta = max(3, round(20 * motion.intensity))
+        scale_delta = max(2 if style else 3, round(20 * intensity))
         return {
             "time": 0,
             "duration": _json_number(duration),
@@ -605,8 +754,36 @@ def _text_geometry(
     }
 
 
-def _text_style(role: TextStyleRole) -> dict[str, Any]:
+def _text_style(
+    role: TextStyleRole,
+    *,
+    style: StyleProfile | None,
+) -> dict[str, Any]:
     large_roles = {TextStyleRole.HOOK, TextStyleRole.TITLE, TextStyleRole.CTA}
+    if style is not None:
+        caption = style.captions
+        role_scale = 1.25 if role in large_roles else 1.0
+        rendered = {
+            "fill_color": caption.fill_color,
+            "font_family": caption.font_family,
+            "font_weight": max(caption.font_weight, 700)
+            if role in large_roles
+            else caption.font_weight,
+            "font_size": _vmin(caption.font_size_fraction * role_scale),
+            "line_height": _ratio_percent(caption.line_height),
+            "text_wrap": True,
+            "x_alignment": "50%",
+            "y_alignment": "50%",
+            "text_transform": "uppercase" if caption.uppercase else "none",
+            "background_color": caption.background_color,
+            "background_x_padding": _percent(caption.background_x_padding),
+            "background_y_padding": _percent(caption.background_y_padding),
+            "background_border_radius": _percent(caption.background_border_radius),
+        }
+        if caption.stroke_color is not None:
+            rendered["stroke_color"] = caption.stroke_color
+            rendered["stroke_width"] = _vmin(caption.stroke_width_fraction)
+        return rendered
     return {
         "fill_color": "#FFFFFF",
         "font_family": "Montserrat",
@@ -621,6 +798,82 @@ def _text_style(role: TextStyleRole) -> dict[str, Any]:
         "background_y_padding": "16%",
         "background_border_radius": "10%",
     }
+
+
+def _profile_caption_geometry(
+    layout: LayoutPolicy,
+    manifest: ProductionManifest,
+) -> dict[str, Any]:
+    """Clamp a profile layout inside the manifest's normalized safe area."""
+
+    safe = manifest.output.safe_area
+    available_width = 1.0 - safe.left - safe.right
+    available_height = 1.0 - safe.top - safe.bottom
+    width = min(layout.caption_width, available_width)
+    height = min(layout.caption_height, available_height)
+    x = min(
+        1.0 - safe.right - width / 2.0,
+        max(safe.left + width / 2.0, layout.caption_x),
+    )
+    y = min(
+        1.0 - safe.bottom - height / 2.0,
+        max(safe.top + height / 2.0, layout.caption_y),
+    )
+    return {
+        "x": _percent(x),
+        "y": _percent(y),
+        "width": _percent(width),
+        "height": _percent(height),
+        "x_anchor": "50%",
+        "y_anchor": "50%",
+    }
+
+
+def _validate_transcript_source(source: Any, element_name: str) -> None:
+    if isinstance(source, str):
+        if not source.strip():
+            raise RenderCompilationError(
+                f"transcript_source vacío en '{element_name}'."
+            )
+        return
+    if not isinstance(source, list) or not source:
+        raise RenderCompilationError(f"transcript_source inválido en '{element_name}'.")
+    for index, keyframe in enumerate(source):
+        if not isinstance(keyframe, Mapping):
+            raise RenderCompilationError(
+                f"transcript_source[{index}] inválido en '{element_name}'."
+            )
+        _require_non_negative_number(
+            keyframe.get("time"),
+            f"{element_name}.transcript_source[{index}].time",
+        )
+        _require_positive_number(
+            keyframe.get("duration"),
+            f"{element_name}.transcript_source[{index}].duration",
+        )
+        value = keyframe.get("value")
+        if not isinstance(value, str) or not value.strip():
+            raise RenderCompilationError(
+                f"value obligatorio en transcript_source[{index}] de '{element_name}'."
+            )
+
+
+def _sound_effect_multiplier(style: StyleProfile | None) -> float:
+    if style is None:
+        return 1.0
+    return {
+        VisualDensity.LOW: 0.55,
+        VisualDensity.MEDIUM: 0.8,
+        VisualDensity.HIGH: 1.0,
+    }[style.audio.sound_effect_density]
+
+
+def _vmin(fraction: float) -> str:
+    return f"{round(fraction * 100.0, 3):g} vmin"
+
+
+def _ratio_percent(value: float) -> str:
+    return f"{round(value * 100.0, 3):g}%"
 
 
 def _placeholder_url(manifest_id: str, category: str, filename: str) -> str:
