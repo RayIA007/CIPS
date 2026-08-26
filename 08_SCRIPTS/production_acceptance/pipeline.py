@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from asset_resolution import AssetResolutionRun, ManifestAssetResolver, ResolutionStatus
+from asset_resolution import (
+    AssetResolutionBundle,
+    AssetResolutionRun,
+    ManifestAssetResolver,
+    ResolutionStatus,
+)
 from artifact_store import CollisionPolicy
 from creative_direction_planner import CreativeDirectionPlanner
 from creatomate_adapter import CreatomateAdapter
@@ -24,7 +30,13 @@ from metadata_store import MetadataStore
 from observability_query import ObservabilityQuery, RunDiagnosticSnapshot
 from production_manifest import AssetType, ProductionManifest
 from production_manifest_compiler import ProductionManifestCompiler
-from render_adapter import RenderPlan, RenderResult, RenderStatus, RenderSubmission
+from render_adapter import (
+    RenderPlan,
+    RenderResult,
+    RenderStatus,
+    RenderSubmission,
+    RenderTargetAdapter,
+)
 from telemetry_engine import TelemetryEngine
 from telemetry_models import TelemetryEvent
 from video_store import VideoStore
@@ -111,6 +123,10 @@ class FullProductionAcceptance:
         *,
         asset_types_by_sequence: Mapping[int, AssetType | str] | None = None,
         existing_asset_ids_by_sequence: Mapping[int, str] | None = None,
+        adapter_factory: (
+            Callable[[AssetResolutionBundle], RenderTargetAdapter] | None
+        ) = None,
+        payload_relative_path: str | Path = PAYLOAD_RELATIVE_PATH,
     ) -> PreparedProduction:
         """Compile, plan, resolve, and persist a real-render submission."""
 
@@ -148,14 +164,22 @@ class FullProductionAcceptance:
             planned.manifest,
             workspace_root=project,
         )
-        adapter = CreatomateAdapter(resolved_assets=asset_run.bundle)
+        adapter = (
+            CreatomateAdapter(resolved_assets=asset_run.bundle)
+            if adapter_factory is None
+            else adapter_factory(asset_run.bundle)
+        )
+        if not isinstance(adapter, RenderTargetAdapter):
+            raise TypeError(
+                "adapter_factory debe devolver una instancia RenderTargetAdapter."
+            )
         plan = adapter.compile(planned.manifest)
         submission = adapter.prepare_submission(plan)
         payload_write = self.metadata_store.persist_metadata(
             workspace_root=project,
-            relative_path=PAYLOAD_RELATIVE_PATH,
+            relative_path=payload_relative_path,
             content=plan.target_payload,
-            artifact_type="creatomate_payload",
+            artifact_type=f"{_provider_name(plan)}_payload",
             artifact_id=f"payload-{submission.submission_id}",
             metadata={
                 "adapter_name": plan.adapter_name,
@@ -327,7 +351,7 @@ class FullProductionAcceptance:
                 ReviewArtifactRef(
                     artifact_id=render_artifact_id,
                     content_hash=probe.file_sha256,
-                    task_id="creatomate-render",
+                    task_id=f"{_provider_name(prepared.plan)}-render",
                     role="final_video_candidate",
                     metadata={
                         "mime_type": "video/mp4",
@@ -396,6 +420,7 @@ class FullProductionAcceptance:
                     "qa_approved": True,
                     "human_approved": True,
                     "publication_performed": False,
+                    "render_provider": _provider_name(prepared.plan),
                 },
                 collision_policy=CollisionPolicy.REPLACE,
             )
@@ -424,13 +449,13 @@ class FullProductionAcceptance:
             operation="adapter.succeeded",
             stage="export",
             success=True,
-            provider="creatomate",
+            provider=_provider_name(prepared.plan),
             estimated_cost=estimated_cost,
             metadata={
                 "status": "succeeded",
                 "task_id": "export",
                 "capability": "video_rendering",
-                "adapter": "CreatomateAdapter",
+                "adapter": prepared.plan.adapter_name,
                 "result_id": render_result.job_id,
                 "artifact_refs": [
                     {
@@ -483,8 +508,8 @@ class FullProductionAcceptance:
                     prepared.manifest.source_references
                 ),
                 "asset_count": len(prepared.asset_run.bundle.assets),
-                "payload_element_count": len(
-                    prepared.plan.target_payload.get("elements", [])
+                "payload_element_count": _payload_element_count(
+                    prepared.plan.target_payload
                 ),
             },
         )
@@ -665,6 +690,33 @@ def _scene_overrides(
             + ", ".join(str(item) for item in unknown)
         )
     return {by_sequence[int(sequence)]: value for sequence, value in values.items()}
+
+
+def _provider_name(plan: RenderPlan) -> str:
+    """Derive a stable telemetry/provider label from the render target."""
+
+    provider = str(plan.target_id).split(".", 1)[0].strip().lower()
+    if not provider:
+        raise ProductionAcceptanceError("RenderPlan.target_id no identifica proveedor.")
+    return provider
+
+
+def _payload_element_count(payload: Mapping[str, Any]) -> int:
+    """Count both movie-level and scene-level elements across render targets."""
+
+    count = 0
+    elements = payload.get("elements", [])
+    if isinstance(elements, list):
+        count += len(elements)
+    scenes = payload.get("scenes", [])
+    if isinstance(scenes, list):
+        for scene in scenes:
+            if not isinstance(scene, Mapping):
+                continue
+            scene_elements = scene.get("elements", [])
+            if isinstance(scene_elements, list):
+                count += len(scene_elements)
+    return count
 
 
 def _preparation_blockers(

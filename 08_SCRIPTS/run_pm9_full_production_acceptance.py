@@ -30,6 +30,18 @@ from creatomate_api import (
     CreatomateRenderService,
     estimate_render_credits,
 )
+from json2video_adapter import (
+    JSON2VIDEO_PAYLOAD_FILENAME,
+    JSON2VideoAdapter,
+    estimate_json2video_credits,
+)
+from json2video_api import (
+    JSON2VIDEO_API_KEY_ENV,
+    JSON2VideoApiClient,
+    JSON2VideoApiConfig,
+    JSON2VideoApiError,
+    JSON2VideoRenderService,
+)
 from final_review import ReviewAction, ReviewDecision
 from media_provider_registry import MediaProviderRegistry
 from metadata_store import MetadataStore
@@ -56,6 +68,11 @@ CONFIRMATION_VALUE = "I_AUTHORIZE_REAL_RENDER"
 PROJECT_CONFIG_FILENAME = "production_acceptance_config.json"
 INVENTORY_RELATIVE_PATH = Path("acceptance") / "asset_requirements.json"
 RENDER_RESULT_RELATIVE_PATH = Path("render") / "creatomate_result.json"
+JSON2VIDEO_RENDER_RESULT_RELATIVE_PATH = (
+    Path("render") / "json2video_result.json"
+)
+JSON2VIDEO_PAYLOAD_RELATIVE_PATH = Path("render") / JSON2VIDEO_PAYLOAD_FILENAME
+_PROVIDERS = ("creatomate", "json2video")
 
 _VISUAL_CAPABILITIES: dict[AssetType, tuple[str, str]] = {
     AssetType.AI_VIDEO: ("ai_video_generation", "video"),
@@ -118,6 +135,12 @@ def _parser() -> argparse.ArgumentParser:
         help="Regenera assets existentes que ya coincidan con el manifiesto.",
     )
     parser.add_argument(
+        "--provider",
+        choices=_PROVIDERS,
+        default="creatomate",
+        help="Proveedor de render; Creatomate permanece como valor compatible.",
+    )
+    parser.add_argument(
         "--max-credits",
         type=int,
         default=0,
@@ -163,19 +186,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             existing_asset_ids_by_sequence=config[
                 "existing_asset_ids_by_sequence"
             ],
+            adapter_factory=_adapter_factory(args.provider),
+            payload_relative_path=_payload_relative_path(args.provider),
         )
         if args.command == "prepare":
+            estimated = _estimated_credits(prepared.plan, args.provider)
+            prepared_output = {
+                "success": prepared.evidence.ready_for_real_render,
+                "command": "prepare",
+                "provider": args.provider,
+                "evidence": prepared.evidence.model_dump(mode="json"),
+                "estimated_render_credits": estimated,
+                "network_called": False,
+                "publication_performed": False,
+            }
+            if args.provider == "creatomate":
+                prepared_output["estimated_creatomate_credits"] = estimated
             _print_json(
-                {
-                    "success": prepared.evidence.ready_for_real_render,
-                    "command": "prepare",
-                    "evidence": prepared.evidence.model_dump(mode="json"),
-                    "estimated_creatomate_credits": estimate_render_credits(
-                        prepared.plan
-                    ),
-                    "network_called": False,
-                    "publication_performed": False,
-                }
+                prepared_output
             )
             return 0 if prepared.evidence.ready_for_real_render else 2
         if args.command == "render":
@@ -183,8 +211,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 prepared,
                 acceptance,
                 max_credits=args.max_credits,
+                provider=args.provider,
             )
-        return _accept_command(prepared, acceptance, args)
+        return _accept_command(prepared, acceptance, args, provider=args.provider)
     except (
         ProductionAcceptanceBlockedError,
         ProductionAcceptanceError,
@@ -197,6 +226,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             {
                 "success": False,
                 "category": error.category.value,
+                "operation": error.operation,
+                "retryable": error.retryable,
+                "ambiguous_submission": error.ambiguous_submission,
+                "status_code": error.status_code,
+                "error": str(error),
+            }
+        )
+        return 1
+    except JSON2VideoApiError as error:
+        _print_json(
+            {
+                "success": False,
+                "category": error.category,
                 "operation": error.operation,
                 "retryable": error.retryable,
                 "ambiguous_submission": error.ambiguous_submission,
@@ -600,12 +642,50 @@ def _asset_inventory(manifest: ProductionManifest) -> dict[str, Any]:
     }
 
 
-def _render_command(prepared: Any, acceptance: FullProductionAcceptance, *, max_credits: int) -> int:
-    estimated = estimate_render_credits(prepared.plan)
+def _adapter_factory(provider: str):
+    if provider == "creatomate":
+        return lambda bundle: CreatomateAdapter(resolved_assets=bundle)
+    if provider == "json2video":
+        return lambda bundle: JSON2VideoAdapter(resolved_assets=bundle)
+    raise ValueError(f"Proveedor no soportado: {provider}.")
+
+
+def _payload_relative_path(provider: str) -> Path:
+    return (
+        RENDER_RESULT_RELATIVE_PATH.with_name("creatomate_payload.json")
+        if provider == "creatomate"
+        else JSON2VIDEO_PAYLOAD_RELATIVE_PATH
+    )
+
+
+def _result_relative_path(provider: str) -> Path:
+    return (
+        RENDER_RESULT_RELATIVE_PATH
+        if provider == "creatomate"
+        else JSON2VIDEO_RENDER_RESULT_RELATIVE_PATH
+    )
+
+
+def _estimated_credits(plan: Any, provider: str) -> int:
+    if provider == "creatomate":
+        return estimate_render_credits(plan)
+    if provider == "json2video":
+        return estimate_json2video_credits(plan.output.duration_seconds)
+    raise ValueError(f"Proveedor no soportado: {provider}.")
+
+
+def _render_command(
+    prepared: Any,
+    acceptance: FullProductionAcceptance,
+    *,
+    max_credits: int,
+    provider: str = "creatomate",
+) -> int:
+    estimated = _estimated_credits(prepared.plan, provider)
     if os.environ.get(CONFIRMATION_ENV, "").strip() != CONFIRMATION_VALUE:
         raise ProductionAcceptanceBlockedError(
             f"Define {CONFIRMATION_ENV}={CONFIRMATION_VALUE} sólo tras autorizar "
-            f"el render real estimado en {estimated} créditos."
+            f"el render real de {provider} estimado en {estimated} créditos."
         )
     if isinstance(max_credits, bool) or max_credits < estimated:
         raise ProductionAcceptanceBlockedError(
@@ -613,49 +693,68 @@ def _render_command(prepared: Any, acceptance: FullProductionAcceptance, *, max_
         )
     if not prepared.evidence.ready_for_real_render:
         raise ProductionAcceptanceBlockedError(
-            "La preparación contiene blockers y no puede enviarse a Creatomate."
+            f"La preparación contiene blockers y no puede enviarse a {provider}."
         )
-    api_config = CreatomateApiConfig.from_environment()
-    service = CreatomateRenderService(
-        client=CreatomateApiClient(api_config),
-        workspace_resolver=acceptance.workspace_resolver,
-        adapter=CreatomateAdapter(resolved_assets=prepared.asset_run.bundle),
-        telemetry_recorder=acceptance.telemetry_engine,
-    )
-    result = service.execute(
-        prepared.manifest,
-        workspace_root=prepared.project_path,
-        context=CreatomateExecutionContext(
-            workflow_id=prepared.evidence.workflow_id,
-            run_id=prepared.evidence.run_id,
-            task_id="creatomate-render",
-            correlation_id=prepared.evidence.run_id,
-        ),
-    )
+    if provider == "creatomate":
+        api_config = CreatomateApiConfig.from_environment()
+        service = CreatomateRenderService(
+            client=CreatomateApiClient(api_config),
+            workspace_resolver=acceptance.workspace_resolver,
+            adapter=CreatomateAdapter(resolved_assets=prepared.asset_run.bundle),
+            telemetry_recorder=acceptance.telemetry_engine,
+        )
+        result = service.execute(
+            prepared.manifest,
+            workspace_root=prepared.project_path,
+            context=CreatomateExecutionContext(
+                workflow_id=prepared.evidence.workflow_id,
+                run_id=prepared.evidence.run_id,
+                task_id="creatomate-render",
+                correlation_id=prepared.evidence.run_id,
+            ),
+        )
+        credential_source = CREATOMATE_API_KEY_ENV
+    elif provider == "json2video":
+        api_config = JSON2VideoApiConfig.from_environment()
+        service = JSON2VideoRenderService(
+            client=JSON2VideoApiClient(api_config),
+            workspace_resolver=acceptance.workspace_resolver,
+            adapter=JSON2VideoAdapter(resolved_assets=prepared.asset_run.bundle),
+        )
+        result = service.execute(
+            prepared.manifest,
+            workspace_root=prepared.project_path,
+        )
+        credential_source = JSON2VIDEO_API_KEY_ENV
+    else:
+        raise ValueError(f"Proveedor no soportado: {provider}.")
     write = MetadataStore(acceptance.workspace_resolver).persist_metadata(
         workspace_root=prepared.project_path,
-        relative_path=RENDER_RESULT_RELATIVE_PATH,
+        relative_path=_result_relative_path(provider),
         content=result.model_dump(mode="json"),
         artifact_type="render_result",
         artifact_id=f"pm9-render-result-{prepared.submission.submission_id}",
         metadata={
             "submission_id": prepared.submission.submission_id,
             "estimated_credits": estimated,
-            "provider": "creatomate",
+            "provider": provider,
         },
         collision_policy=CollisionPolicy.REPLACE,
     )
-    render_path = _render_path(prepared.project_path, prepared.submission.submission_id)
+    render_path = _render_path(
+        prepared.project_path, prepared.submission.submission_id, provider
+    )
     _print_json(
         {
             "success": result.status is RenderStatus.SUCCEEDED,
             "command": "render",
+            "provider": provider,
             "status": result.status.value,
             "result_path": str(Path(write.artifact.path).resolve()),
             "render_path": str(render_path.resolve()),
             "estimated_credits": estimated,
             "credits_used": result.metadata.get("credits_used"),
-            "credential_source": CREATOMATE_API_KEY_ENV,
+            "credential_source": credential_source,
             "publication_performed": False,
         }
     )
@@ -666,6 +765,8 @@ def _accept_command(
     prepared: Any,
     acceptance: FullProductionAcceptance,
     args: argparse.Namespace,
+    *,
+    provider: str,
 ) -> int:
     if not args.action or not args.actor or not args.comments:
         raise ProductionAcceptanceBlockedError(
@@ -680,11 +781,12 @@ def _accept_command(
         raise ProductionAcceptanceBlockedError(
             "--redo-target sólo corresponde a request_changes."
         )
-    result_path = prepared.project_path / RENDER_RESULT_RELATIVE_PATH
+    result_path = prepared.project_path / _result_relative_path(provider)
     result = RenderResult.model_validate_json(result_path.read_bytes())
     render_path = _render_path(
         prepared.project_path,
         prepared.submission.submission_id,
+        provider,
     )
     timestamp = datetime.now(timezone.utc).isoformat()
     decision_basis = "\x1f".join(
@@ -726,8 +828,14 @@ def _accept_command(
     return 0
 
 
-def _render_path(project: Path, submission_id: str) -> Path:
-    return project / "video" / "creatomate" / f"{submission_id}.mp4"
+def _render_path(
+    project: Path,
+    submission_id: str,
+    provider: str = "creatomate",
+) -> Path:
+    if provider not in _PROVIDERS:
+        raise ValueError(f"Proveedor no soportado: {provider}.")
+    return project / "video" / provider / f"{submission_id}.mp4"
 
 
 def _print_json(payload: Mapping[str, Any]) -> None:
