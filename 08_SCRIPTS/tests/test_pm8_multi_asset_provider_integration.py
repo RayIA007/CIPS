@@ -266,7 +266,7 @@ def test_creatomate_consumes_resolved_https_sources_without_provider_metadata(
         if item["type"] in {"audio", "image", "video"}
     ]
 
-    assert CreatomateAdapter.adapter_version == "1.3"
+    assert CreatomateAdapter.adapter_version == "1.4"
     assert media
     assert all(item["source"].startswith("https://cdn.example.test/") for item in media)
     assert all("assets.invalid" not in item["source"] for item in media)

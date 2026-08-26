@@ -4,7 +4,7 @@
   "asset_types_by_sequence": {
     "1": "stock_video",
     "2": "ai_image",
-    "3": "motion_graphic",
+    "3": "ai_image",
     "4": "existing_asset"
   },
   "existing_asset_ids_by_sequence": {

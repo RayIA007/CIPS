@@ -78,6 +78,7 @@ def test_adapter_compiles_pm3_manifest_to_direct_vertical_renderscript(
     assert plan.target_id == "creatomate.renderscript"
     assert plan.adapter_name == "CreatomateAdapter"
     assert payload["output_format"] == "mp4"
+    assert payload["render_scale"] == 1.0
     assert payload["width"] == 1080
     assert payload["height"] == 1920
     assert payload["frame_rate"] == 30
@@ -294,6 +295,11 @@ def test_payload_validation_rejects_invalid_or_inconsistent_data(
     planned_manifest: ProductionManifest,
 ) -> None:
     payload = CreatomateAdapter().compile(planned_manifest).target_payload
+    preview_scale = dict(payload)
+    preview_scale["render_scale"] = 0.25
+    with pytest.raises(RenderCompilationError, match="render_scale"):
+        validate_creatomate_payload(preview_scale)
+
     invalid = dict(payload)
     invalid["elements"] = [dict(payload["elements"][0])]
     invalid["elements"][0]["duration"] = 1000

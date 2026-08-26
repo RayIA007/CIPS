@@ -101,7 +101,7 @@ class CreatomateAdapter(RenderTargetAdapter):
     """Compile manifests to multi-format direct RenderScript without executing it."""
 
     adapter_name = "CreatomateAdapter"
-    adapter_version = "1.3"
+    adapter_version = "1.4"
     target_id = "creatomate.renderscript"
 
     def __init__(
@@ -157,6 +157,9 @@ class CreatomateAdapter(RenderTargetAdapter):
 
         payload = {
             "output_format": "mp4",
+            # Creatomate may otherwise choose a reduced preview scale.  PM9
+            # requires the physical output dimensions declared below.
+            "render_scale": 1.0,
             "width": manifest.output.width_px,
             "height": manifest.output.height_px,
             "frame_rate": _json_number(manifest.output.fps),
@@ -633,6 +636,15 @@ def validate_creatomate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized = dict(payload)
     if normalized.get("output_format") != "mp4":
         raise RenderCompilationError("output_format debe ser 'mp4'.")
+    render_scale = normalized.get("render_scale")
+    if (
+        isinstance(render_scale, bool)
+        or not isinstance(render_scale, (int, float))
+        or float(render_scale) != 1.0
+    ):
+        raise RenderCompilationError(
+            "render_scale debe ser 1.0 para conservar la resolución física."
+        )
     for field in ("width", "height"):
         value = normalized.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:

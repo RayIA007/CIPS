@@ -1,10 +1,10 @@
 """Build and verify the zero-cost physical source assets used by PM9.
 
 The builder deliberately keeps media acquisition separate from the paid
-Creatomate boundary.  It uses one attributed Wikimedia photograph, original
-procedural SVG/audio, and local Piper speech synthesis.  The generated catalog
-contains stable public HTTPS delivery locations but never uploads or publishes
-anything itself.
+Creatomate boundary.  It uses one attributed Wikimedia photograph, curated
+high-resolution scientific imagery, original procedural audio, and local Piper
+speech synthesis.  The generated catalog contains stable public HTTPS delivery
+locations but never uploads or publishes anything itself.
 """
 
 from __future__ import annotations
@@ -134,13 +134,14 @@ class PM9SourceAssetBuilder:
 
             files: dict[str, Path] = {}
             files["scene_visual_1"] = self._build_hook_video(photo_path)
-            files["scene_visual_2"] = self._write_svg(
-                "visual/scene-002-biomedical.svg",
-                _biomedical_svg(),
+            files["scene_visual_2"] = self._curated_visual(
+                "visual/scene-002-biomedical-v2.png",
             )
-            files["scene_visual_4"] = self._write_svg(
-                "visual/scene-004-aligned-plank.svg",
-                _aligned_plank_svg(),
+            files["scene_visual_3"] = self._curated_visual(
+                "visual/scene-003-motor-units-v2.png",
+            )
+            files["scene_visual_4"] = self._curated_visual(
+                "visual/scene-004-aligned-plank-v2.png",
             )
 
             model_path = self._ensure_voice_model()
@@ -213,7 +214,7 @@ class PM9SourceAssetBuilder:
             if (
                 report.get("manifest_id") != self.manifest.manifest_id
                 or report.get("delivery_base_uri") != self.delivery_base_uri
-                or len(catalog.entries) != 12
+                or len(catalog.entries) != 13
             ):
                 return None
             for entry in catalog.entries:
@@ -283,11 +284,19 @@ class PM9SourceAssetBuilder:
         _require_nonempty(destination, "video de hook")
         return destination
 
-    def _write_svg(self, relative_path: str, content: str) -> Path:
-        destination = self.assets_root / relative_path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(content, encoding="utf-8", newline="\n")
-        _require_nonempty(destination, "SVG PM9")
+    def _curated_visual(self, relative_path: str) -> Path:
+        destination = (self.assets_root / relative_path).resolve(strict=False)
+        try:
+            destination.relative_to(self.assets_root)
+        except ValueError as error:
+            raise SourceAssetBuildError(
+                "La ruta del visual curado escapa de assets_root."
+            ) from error
+        _require_nonempty(destination, "visual científico curado PM9")
+        if destination.suffix.lower() != ".png":
+            raise SourceAssetBuildError(
+                f"El visual curado debe ser PNG: {destination.name}."
+            )
         return destination
 
     def _ensure_voice_model(self) -> Path:
@@ -368,7 +377,7 @@ class PM9SourceAssetBuilder:
             filters=(
                 "highpass=f=45",
                 "lowpass=f=9000",
-                "loudnorm=I=-25:TP=-3:LRA=5",
+                "loudnorm=I=-16.5:TP=-2:LRA=5",
                 "afade=t=in:st=0:d=0.25",
                 f"afade=t=out:st={_decimal(max(0.0, duration - 0.7))}:d=0.7",
             ),
@@ -450,25 +459,46 @@ class PM9SourceAssetBuilder:
                 capability="image_generation",
                 role="scene_visual",
                 path=files["scene_visual_2"],
-                mime_type="image/svg+xml",
+                mime_type="image/png",
                 media_family="image",
                 scene_id=scenes[2].scene_id,
                 source_url=self._project_source_url(files["scene_visual_2"]),
-                license_name="Original CIPS procedural artwork",
-                attribution="Ilustración vectorial original generada localmente por CIPS.",
+                license_name="Original CIPS commissioned AI artwork",
+                attribution=(
+                    "Visual científico original generado para CIPS con OpenAI "
+                    "ImageGen; sin texto, logotipos ni marcas de agua."
+                ),
+            ),
+            self._entry(
+                entry_id="scene-003-motor-units",
+                capability="image_generation",
+                role="scene_visual",
+                path=files["scene_visual_3"],
+                mime_type="image/png",
+                media_family="image",
+                scene_id=scenes[3].scene_id,
+                source_url=self._project_source_url(files["scene_visual_3"]),
+                license_name="Original CIPS commissioned AI artwork",
+                attribution=(
+                    "Visual científico original generado para CIPS con OpenAI "
+                    "ImageGen; sin texto, logotipos ni marcas de agua."
+                ),
             ),
             self._entry(
                 entry_id="scene-004-aligned-plank",
                 capability="existing_asset_resolution",
                 role="scene_visual",
                 path=files["scene_visual_4"],
-                mime_type="image/svg+xml",
+                mime_type="image/png",
                 media_family="image",
                 scene_id=scenes[4].scene_id,
                 existing_asset_id="aligned-plank",
                 source_url=self._project_source_url(files["scene_visual_4"]),
-                license_name="Original CIPS procedural artwork",
-                attribution="Ilustración vectorial original generada localmente por CIPS.",
+                license_name="Original CIPS commissioned AI artwork",
+                attribution=(
+                    "Fotografía deportiva sintética original generada para CIPS "
+                    "con OpenAI ImageGen; sin texto, logotipos ni marcas de agua."
+                ),
             ),
         ]
         for scene in self.manifest.scenes:
@@ -522,9 +552,9 @@ class PM9SourceAssetBuilder:
                     attribution="Efecto sonoro original sintetizado localmente por CIPS.",
                 )
             )
-        if len(entries) != 12:
+        if len(entries) != 13:
             raise SourceAssetBuildError(
-                f"PM9 esperaba exactamente 12 entradas de catálogo; obtuvo {len(entries)}."
+                f"PM9 esperaba exactamente 13 entradas de catálogo; obtuvo {len(entries)}."
             )
         return ApprovedAssetCatalog(entries=tuple(entries))
 
@@ -852,33 +882,6 @@ def _write_procedural_audio(path: Path, duration_seconds: float, *, kind: str) -
                 buffer.clear()
         if buffer:
             stream.writeframesraw(buffer)
-
-
-def _biomedical_svg() -> str:
-    return """<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
-<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#071523"/><stop offset="1" stop-color="#102c3b"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="16" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<rect width="1080" height="1920" fill="url(#bg)"/><circle cx="540" cy="560" r="360" fill="#0d5261" opacity=".2"/>
-<text x="540" y="150" fill="#e8fbff" font-family="Arial,sans-serif" font-size="60" font-weight="700" text-anchor="middle">CONTRACCIÓN ISOMÉTRICA</text>
-<g fill="#153b4b" stroke="#8dd9e8" stroke-width="8"><circle cx="540" cy="350" r="95"/><path d="M430 470 Q540 420 650 470 L710 1040 Q620 1170 540 1170 Q460 1170 370 1040Z"/><path d="M410 500 L245 1000"/><path d="M670 500 L835 1000"/></g>
-<g fill="#ff4f81" stroke="#ff9eb9" stroke-width="5" filter="url(#glow)"><path d="M470 590 Q540 540 610 590 L605 905 Q540 965 475 905Z"/><path d="M455 600 Q390 690 420 930 L475 900Z"/><path d="M625 600 Q690 690 660 930 L605 900Z"/></g>
-<g fill="#42e8d5" opacity=".9" filter="url(#glow)"><path d="M388 540 Q350 720 390 1010 L420 930Z"/><path d="M692 540 Q730 720 690 1010 L660 930Z"/></g>
-<line x1="275" y1="1180" x2="805" y2="1180" stroke="#ffe66d" stroke-width="12" stroke-linecap="round"/><circle cx="275" cy="1180" r="18" fill="#ffe66d"/><circle cx="805" cy="1180" r="18" fill="#ffe66d"/>
-<g font-family="Arial,sans-serif" font-size="46" font-weight="700"><text x="540" y="1320" fill="#ff9eb9" text-anchor="middle">ABDOMEN + OBLICUOS</text><text x="540" y="1390" fill="#61f3e2" text-anchor="middle">ESPALDA ESTABILIZADORA</text></g>
-<rect x="110" y="1495" width="860" height="220" rx="42" fill="#07111c" stroke="#2a7184" stroke-width="4"/><text x="540" y="1585" fill="#e8fbff" font-family="Arial,sans-serif" font-size="44" text-anchor="middle">La fuerza cambia.</text><text x="540" y="1660" fill="#ffe66d" font-family="Arial,sans-serif" font-size="50" font-weight="700" text-anchor="middle">LA POSTURA NO.</text>
-</svg>"""
-
-
-def _aligned_plank_svg() -> str:
-    return """<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
-<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#071523"/><stop offset="1" stop-color="#162334"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<rect width="1080" height="1920" fill="url(#bg)"/><text x="540" y="150" fill="#f5fbff" font-family="Arial,sans-serif" font-size="66" font-weight="700" text-anchor="middle">TÉCNICA PRIMERO</text>
-<line x1="110" y1="950" x2="970" y2="950" stroke="#263d50" stroke-width="18" stroke-linecap="round"/>
-<g stroke="#d7edf4" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M245 725 L470 650 L760 710"/><path d="M470 650 L390 930"/><path d="M760 710 L900 930"/></g><circle cx="175" cy="742" r="74" fill="#d7edf4"/>
-<line x1="175" y1="742" x2="760" y2="710" stroke="#55f0ce" stroke-width="14" stroke-linecap="round" filter="url(#glow)"/><g fill="#55f0ce"><circle cx="175" cy="742" r="20"/><circle cx="470" cy="726" r="20"/><circle cx="760" cy="710" r="20"/></g>
-<text x="540" y="1080" fill="#55f0ce" font-family="Arial,sans-serif" font-size="43" font-weight="700" text-anchor="middle">CABEZA · TRONCO · CADERA</text>
-<g font-family="Arial,sans-serif"><rect x="90" y="1200" width="900" height="185" rx="42" fill="#123b35" stroke="#55f0ce" stroke-width="5"/><circle cx="180" cy="1292" r="45" fill="#55f0ce"/><path d="M158 1290 l16 18 32 -39" fill="none" stroke="#073326" stroke-width="13" stroke-linecap="round"/><text x="260" y="1285" fill="#f5fbff" font-size="45" font-weight="700">CONTINÚA</text><text x="260" y="1345" fill="#b9ddd5" font-size="35">si conservas control y postura</text>
-<rect x="90" y="1435" width="900" height="260" rx="42" fill="#491d2a" stroke="#ff668a" stroke-width="5"/><circle cx="180" cy="1530" r="45" fill="#ff668a"/><path d="M160 1510 l40 40 M200 1510 l-40 40" stroke="#491d2a" stroke-width="13" stroke-linecap="round"/><text x="260" y="1515" fill="#f5fbff" font-size="45" font-weight="700">DETENTE</text><text x="260" y="1575" fill="#ffd0dc" font-size="33">ante dolor, mareo o náusea</text><text x="260" y="1625" fill="#ffd0dc" font-size="33">o si pierdes la posición</text></g>
-</svg>"""
 
 
 def _require_nonempty(path: Path, label: str) -> None:

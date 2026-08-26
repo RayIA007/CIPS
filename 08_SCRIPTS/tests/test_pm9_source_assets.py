@@ -31,7 +31,7 @@ FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm9" / "editorial_projec
 ASSET_TYPES = {
     1: AssetType.STOCK_VIDEO,
     2: AssetType.AI_IMAGE,
-    3: AssetType.MOTION_GRAPHIC,
+    3: AssetType.AI_IMAGE,
     4: AssetType.EXISTING_ASSET,
 }
 
@@ -114,6 +114,14 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     project, outputs_root, manifest = _planned_manifest(tmp_path)
     assets_root = project / "source_assets"
     model_dir = outputs_root / "pm9_models" / "piper"
+    visual_root = assets_root / "visual"
+    visual_root.mkdir(parents=True)
+    for name in (
+        "scene-002-biomedical-v2.png",
+        "scene-003-motor-units-v2.png",
+        "scene-004-aligned-plank-v2.png",
+    ):
+        (visual_root / name).write_bytes(b"\x89PNG\r\n\x1a\ncurated-pm9")
 
     monkeypatch.setattr(source_assets.shutil, "which", lambda name: f"/bin/{name}")
     monkeypatch.setattr(source_assets.importlib.util, "find_spec", lambda name: object())
@@ -158,8 +166,8 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     first = builder.build()
     second = builder.build()
 
-    assert len(first.catalog.entries) == 12
-    assert first.generated_count == 12
+    assert len(first.catalog.entries) == 13
+    assert first.generated_count == 13
     assert first.network_called is True
     assert first.reused_existing is False
     assert second.generated_count == 0
@@ -176,7 +184,7 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     assert report["actual_cost_usd"] == 0.0
     assert report["paid_provider_called"] is False
     assert report["publication_performed"] is False
-    assert len(report["files"]) == 12
+    assert len(report["files"]) == 13
     assert any("piper.download_voices" in command for command in calls)
 
 
@@ -230,14 +238,7 @@ def test_verify_catalog_delivery_compares_exact_bytes(
         )
 
 
-def test_procedural_svgs_and_audio_are_physical(tmp_path: Path) -> None:
-    biomedical = source_assets._biomedical_svg()
-    aligned = source_assets._aligned_plank_svg()
-    assert biomedical.startswith("<svg")
-    assert "CONTRACCIÓN ISOMÉTRICA" in biomedical
-    assert aligned.startswith("<svg")
-    assert "TÉCNICA PRIMERO" in aligned
-
+def test_procedural_audio_is_physical(tmp_path: Path) -> None:
     audio = tmp_path / "pulse.wav"
     source_assets._write_procedural_audio(audio, 0.05, kind="pulse")
     with wave.open(str(audio), "rb") as stream:

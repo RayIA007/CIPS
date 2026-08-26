@@ -354,5 +354,6 @@
   "frame_rate": 30,
   "height": 1920,
   "output_format": "mp4",
+  "render_scale": 1.0,
   "width": 1080
 }

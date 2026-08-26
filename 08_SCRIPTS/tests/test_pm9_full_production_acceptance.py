@@ -42,7 +42,7 @@ FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm9" / "editorial_projec
 ASSET_TYPES = {
     1: AssetType.STOCK_VIDEO,
     2: AssetType.AI_IMAGE,
-    3: AssetType.MOTION_GRAPHIC,
+    3: AssetType.AI_IMAGE,
     4: AssetType.EXISTING_ASSET,
 }
 EXISTING_IDS = {4: "aligned-plank"}
@@ -174,6 +174,14 @@ def _environment(tmp_path: Path, *, probe_payload: dict | None = None):
             role="scene_visual",
             family=MediaFamily.IMAGE,
             scene_id=planned.scenes[1].scene_id,
+        ),
+        _catalog_entry(
+            assets_root,
+            entry_id="scene-3-motor-units",
+            capability="image_generation",
+            role="scene_visual",
+            family=MediaFamily.IMAGE,
+            scene_id=planned.scenes[2].scene_id,
         ),
         _catalog_entry(
             assets_root,
@@ -319,8 +327,8 @@ def test_cli_inventory_is_offline_and_matches_pm8_requirements(
     assert output["success"] is True
     assert output["network_called"] is False
     assert output["publication_performed"] is False
-    assert output["required_catalog_entries"] == 12
-    assert output["renderer_native_entries"] == 1
+    assert output["required_catalog_entries"] == 13
+    assert output["renderer_native_entries"] == 0
     assert inventory_path.is_file()
     assert Path(f"{inventory_path}.meta.json").is_file()
 
@@ -332,8 +340,8 @@ def test_prepare_reuses_pm1_pm8_and_compiles_only_https_sources(tmp_path: Path) 
     assert prepared.evidence.ready_for_real_render is True
     assert prepared.evidence.blockers == ()
     assert prepared.evidence.scene_count == 4
-    assert prepared.evidence.persisted_asset_count == 12
-    assert prepared.evidence.renderer_native_asset_count == 1
+    assert prepared.evidence.persisted_asset_count == 13
+    assert prepared.evidence.renderer_native_asset_count == 0
     assert prepared.evidence.total_actual_cost_usd == 0.0
     assert prepared.preparation_path.is_file()
     assert prepared.payload_path.is_file()
@@ -341,6 +349,8 @@ def test_prepare_reuses_pm1_pm8_and_compiles_only_https_sources(tmp_path: Path) 
     assert (project_path / prepared.asset_run.bundle_relative_path).is_file()
 
     payload = prepared.plan.target_payload
+    assert payload["render_scale"] == 1.0
+    assert (payload["width"], payload["height"]) == (1080, 1920)
     media = [
         element
         for element in payload["elements"]

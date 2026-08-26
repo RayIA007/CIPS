@@ -341,12 +341,21 @@ def _inventory_command(
     compiled = ProductionManifestCompiler(workspace_resolver=workspace).compile(project)
     planned = _planned_manifest(compiled, config)
     payload = _asset_inventory(planned)
+    inventory_digest = hashlib.sha256(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
     write = MetadataStore(workspace).persist_metadata(
         workspace_root=project,
         relative_path=INVENTORY_RELATIVE_PATH,
         content=payload,
         artifact_type="production_asset_requirements",
-        artifact_id=f"pm9-inventory-{planned.manifest_id}",
+        artifact_id=f"pm9-inventory-{planned.manifest_id}-{inventory_digest}",
         metadata={
             "manifest_id": planned.manifest_id,
             "required_catalog_entries": payload["required_catalog_entries"],

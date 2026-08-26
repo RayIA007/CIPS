@@ -7,7 +7,7 @@
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/background-music.mp3",
       "license_name": "Original CIPS procedural audio",
       "relative_path": "audio/background-music.mp3",
-      "sha256": "acde4abed0b81840644f6ac374ee17c1fba4483483768cc2e7160d1f9397c673",
+      "sha256": "0e952faec67815e35de9f4115024aaa8fce374b62b65d102ceb1b67f95c9dcb3",
       "size_bytes": 736940
     },
     "narration-001": {
@@ -15,7 +15,7 @@
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-001.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-001.mp3",
-      "sha256": "24ecc2884d7d67ee16ee3abb55ff81fc7d1287ee53f27ac9fdc97f8e1d5a11c9",
+      "sha256": "c11f00d83d82d487b3829e00987bc17f1e2aad3e8790aa149dc5896e652ce741",
       "size_bytes": 182444
     },
     "narration-002": {
@@ -23,7 +23,7 @@
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-002.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-002.mp3",
-      "sha256": "eab7202e740a53a6330b6eff74f1886bdf3e505604635bf396e99e8525dde137",
+      "sha256": "d759060dee6117ada65cb9b353be82b5d1287160bfda2b3e8922c6c8c18741c1",
       "size_bytes": 182444
     },
     "narration-003": {
@@ -31,7 +31,7 @@
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-003.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-003.mp3",
-      "sha256": "de2812b45e363d73d7bdb5729d69cdb3f5d14acd0e84f1c0525c883ca0fbee1f",
+      "sha256": "5aa3ac07779cdc90262706aaaf7530daa3c60cb17df7cb314075c28e5def4c7c",
       "size_bytes": 182828
     },
     "narration-004": {
@@ -39,7 +39,7 @@
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-004.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-004.mp3",
-      "sha256": "1c80633047711fc97a52e5b0151bfb3a1a582bfe76af80a100f96b3f7230a059",
+      "sha256": "7ee53b3d325115850195e1a3afd72823fc80abe616d8de15fdfd1e4dcfac5f83",
       "size_bytes": 176300
     },
     "scene-001-plank-hook": {
@@ -51,20 +51,28 @@
       "size_bytes": 484931
     },
     "scene-002-biomedical": {
-      "attribution": "Ilustración vectorial original generada localmente por CIPS.",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-002-biomedical.svg",
-      "license_name": "Original CIPS procedural artwork",
-      "relative_path": "visual/scene-002-biomedical.svg",
-      "sha256": "80c94b36644c0e3f5a3daab05cb5c384dbcc6d155e85fd54ce80cf6aa6524ae2",
-      "size_bytes": 2100
+      "attribution": "Visual científico original generado para CIPS con OpenAI ImageGen; sin texto, logotipos ni marcas de agua.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-002-biomedical-v2.png",
+      "license_name": "Original CIPS commissioned AI artwork",
+      "relative_path": "visual/scene-002-biomedical-v2.png",
+      "sha256": "32ac3e3c1ef3b84e8062b6c5268e46efd73d8c0f96bcfc7ca4fd5b28402a1224",
+      "size_bytes": 1683061
+    },
+    "scene-003-motor-units": {
+      "attribution": "Visual científico original generado para CIPS con OpenAI ImageGen; sin texto, logotipos ni marcas de agua.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-003-motor-units-v2.png",
+      "license_name": "Original CIPS commissioned AI artwork",
+      "relative_path": "visual/scene-003-motor-units-v2.png",
+      "sha256": "defb56b0c9f457bc0e4904a9b4f73e27365918224fd036adf6dfe16702bef58b",
+      "size_bytes": 2266564
     },
     "scene-004-aligned-plank": {
-      "attribution": "Ilustración vectorial original generada localmente por CIPS.",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-004-aligned-plank.svg",
-      "license_name": "Original CIPS procedural artwork",
-      "relative_path": "visual/scene-004-aligned-plank.svg",
-      "sha256": "37cdf10940ce91457e2649ea93a479ee6a30390df56be7e14103b21b60fa19a9",
-      "size_bytes": 2321
+      "attribution": "Fotografía deportiva sintética original generada para CIPS con OpenAI ImageGen; sin texto, logotipos ni marcas de agua.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-004-aligned-plank-v2.png",
+      "license_name": "Original CIPS commissioned AI artwork",
+      "relative_path": "visual/scene-004-aligned-plank-v2.png",
+      "sha256": "9b2a14f6ecb3d72a1376fa9ab19303344bfd14b08ff4ca811817a7c1f423dd13",
+      "size_bytes": 1606181
     },
     "sfx-001-hook": {
       "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
