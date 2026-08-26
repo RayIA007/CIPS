@@ -1,0 +1,121 @@
+{
+  "actual_cost_usd": 0.0,
+  "delivery_base_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets",
+  "files": {
+    "background-music": {
+      "attribution": "Música instrumental original sintetizada localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/background-music.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/background-music.mp3",
+      "sha256": "acde4abed0b81840644f6ac374ee17c1fba4483483768cc2e7160d1f9397c673",
+      "size_bytes": 736940
+    },
+    "narration-001": {
+      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-001.mp3",
+      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "relative_path": "audio/narration-001.mp3",
+      "sha256": "24ecc2884d7d67ee16ee3abb55ff81fc7d1287ee53f27ac9fdc97f8e1d5a11c9",
+      "size_bytes": 182444
+    },
+    "narration-002": {
+      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-002.mp3",
+      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "relative_path": "audio/narration-002.mp3",
+      "sha256": "eab7202e740a53a6330b6eff74f1886bdf3e505604635bf396e99e8525dde137",
+      "size_bytes": 182444
+    },
+    "narration-003": {
+      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-003.mp3",
+      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "relative_path": "audio/narration-003.mp3",
+      "sha256": "de2812b45e363d73d7bdb5729d69cdb3f5d14acd0e84f1c0525c883ca0fbee1f",
+      "size_bytes": 182828
+    },
+    "narration-004": {
+      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/narration-004.mp3",
+      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "relative_path": "audio/narration-004.mp3",
+      "sha256": "1c80633047711fc97a52e5b0151bfb3a1a582bfe76af80a100f96b3f7230a059",
+      "size_bytes": 176300
+    },
+    "scene-001-plank-hook": {
+      "attribution": "Fotografía: Shixart1985, Wikimedia Commons, CC BY 2.0; adaptada a video vertical con fondo, recorte y movimiento. Licencia: https://creativecommons.org/licenses/by/2.0/",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-001-plank-hook.mp4",
+      "license_name": "Creative Commons Attribution 2.0 Generic (CC BY 2.0)",
+      "relative_path": "visual/scene-001-plank-hook.mp4",
+      "sha256": "2231a0b2627e5d22c65b17d01b721d64785675d4eb130146715261e2204bd467",
+      "size_bytes": 484931
+    },
+    "scene-002-biomedical": {
+      "attribution": "Ilustración vectorial original generada localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-002-biomedical.svg",
+      "license_name": "Original CIPS procedural artwork",
+      "relative_path": "visual/scene-002-biomedical.svg",
+      "sha256": "80c94b36644c0e3f5a3daab05cb5c384dbcc6d155e85fd54ce80cf6aa6524ae2",
+      "size_bytes": 2100
+    },
+    "scene-004-aligned-plank": {
+      "attribution": "Ilustración vectorial original generada localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/visual/scene-004-aligned-plank.svg",
+      "license_name": "Original CIPS procedural artwork",
+      "relative_path": "visual/scene-004-aligned-plank.svg",
+      "sha256": "37cdf10940ce91457e2649ea93a479ee6a30390df56be7e14103b21b60fa19a9",
+      "size_bytes": 2321
+    },
+    "sfx-001-hook": {
+      "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/sfx-001-hook.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/sfx-001-hook.mp3",
+      "sha256": "4b521276a6244307d04f0fcd580bafde91552601b5bd7b2b91f6dec33956d7a9",
+      "size_bytes": 8876
+    },
+    "sfx-002-explanation": {
+      "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/sfx-002-explanation.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/sfx-002-explanation.mp3",
+      "sha256": "02c66bd4bba40174f27322d00b8cf558a9e30df277438e217552e58b1d3622a1",
+      "size_bytes": 8876
+    },
+    "sfx-003-explanation": {
+      "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/sfx-003-explanation.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/sfx-003-explanation.mp3",
+      "sha256": "02c66bd4bba40174f27322d00b8cf558a9e30df277438e217552e58b1d3622a1",
+      "size_bytes": 8876
+    },
+    "sfx-004-resolution": {
+      "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets/audio/sfx-004-resolution.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/sfx-004-resolution.mp3",
+      "sha256": "c387508fa1da057d4ec76908ec9f24a4ec8f0f98a56ebe375e7578bc9c11680f",
+      "size_bytes": 8876
+    }
+  },
+  "manifest_id": "pm-3beeb42c62df95c77d40635e",
+  "network_sources": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Fitness_enthusiast_performs_plank_exercise_at_home_on_yoga_mat.jpg/1280px-Fitness_enthusiast_performs_plank_exercise_at_home_on_yoga_mat.jpg",
+    "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD"
+  ],
+  "paid_provider_called": false,
+  "project_id": "PROYECTO_PM9_PLANCHA_0001",
+  "publication_performed": false,
+  "schema_name": "cips.production_acceptance.asset_build_report",
+  "schema_version": "1.0",
+  "source_photo_sha256": "3ede683ec3b04174d78e964aefb3134ad84811ab74a7116b199545664584c76b",
+  "voice": {
+    "dataset_license": "Apache-2.0",
+    "engine": "Piper",
+    "locale": "es-MX",
+    "model": "es_MX-claude-high",
+    "model_card_url": "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD",
+    "package_version": "1.7.0"
+  }
+}

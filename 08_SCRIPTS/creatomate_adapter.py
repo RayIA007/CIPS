@@ -58,6 +58,7 @@ CREATOMATE_PLACEHOLDER_ORIGIN = "https://assets.invalid/cips"
 _SUPPORTED_TRANSITIONS = (
     TransitionKind.CUT,
     TransitionKind.FADE,
+    TransitionKind.DISSOLVE,
     TransitionKind.SLIDE,
     TransitionKind.ZOOM,
 )
@@ -100,7 +101,7 @@ class CreatomateAdapter(RenderTargetAdapter):
     """Compile manifests to multi-format direct RenderScript without executing it."""
 
     adapter_name = "CreatomateAdapter"
-    adapter_version = "1.2"
+    adapter_version = "1.3"
     target_id = "creatomate.renderscript"
 
     def __init__(
@@ -742,10 +743,14 @@ def _transition_animation(
         element_duration,
     )
     rendered_kind = transition.kind
-    if style and style.transitions.character in {
-        TransitionCharacter.SOFT,
-        TransitionCharacter.DISSOLVE,
-    }:
+    if transition.kind is TransitionKind.DISSOLVE or (
+        style
+        and style.transitions.character
+        in {
+            TransitionCharacter.SOFT,
+            TransitionCharacter.DISSOLVE,
+        }
+    ):
         rendered_kind = TransitionKind.FADE
     animation: dict[str, Any] = {
         "time": _json_number(0.0 if phase == "in" else element_duration - duration),

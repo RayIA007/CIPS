@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#071523"/><stop offset="1" stop-color="#102c3b"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="16" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="1080" height="1920" fill="url(#bg)"/><circle cx="540" cy="560" r="360" fill="#0d5261" opacity=".2"/>
+<text x="540" y="150" fill="#e8fbff" font-family="Arial,sans-serif" font-size="60" font-weight="700" text-anchor="middle">CONTRACCIÓN ISOMÉTRICA</text>
+<g fill="#153b4b" stroke="#8dd9e8" stroke-width="8"><circle cx="540" cy="350" r="95"/><path d="M430 470 Q540 420 650 470 L710 1040 Q620 1170 540 1170 Q460 1170 370 1040Z"/><path d="M410 500 L245 1000"/><path d="M670 500 L835 1000"/></g>
+<g fill="#ff4f81" stroke="#ff9eb9" stroke-width="5" filter="url(#glow)"><path d="M470 590 Q540 540 610 590 L605 905 Q540 965 475 905Z"/><path d="M455 600 Q390 690 420 930 L475 900Z"/><path d="M625 600 Q690 690 660 930 L605 900Z"/></g>
+<g fill="#42e8d5" opacity=".9" filter="url(#glow)"><path d="M388 540 Q350 720 390 1010 L420 930Z"/><path d="M692 540 Q730 720 690 1010 L660 930Z"/></g>
+<line x1="275" y1="1180" x2="805" y2="1180" stroke="#ffe66d" stroke-width="12" stroke-linecap="round"/><circle cx="275" cy="1180" r="18" fill="#ffe66d"/><circle cx="805" cy="1180" r="18" fill="#ffe66d"/>
+<g font-family="Arial,sans-serif" font-size="46" font-weight="700"><text x="540" y="1320" fill="#ff9eb9" text-anchor="middle">ABDOMEN + OBLICUOS</text><text x="540" y="1390" fill="#61f3e2" text-anchor="middle">ESPALDA ESTABILIZADORA</text></g>
+<rect x="110" y="1495" width="860" height="220" rx="42" fill="#07111c" stroke="#2a7184" stroke-width="4"/><text x="540" y="1585" fill="#e8fbff" font-family="Arial,sans-serif" font-size="44" text-anchor="middle">La fuerza cambia.</text><text x="540" y="1660" fill="#ffe66d" font-family="Arial,sans-serif" font-size="50" font-weight="700" text-anchor="middle">LA POSTURA NO.</text>
+</svg>

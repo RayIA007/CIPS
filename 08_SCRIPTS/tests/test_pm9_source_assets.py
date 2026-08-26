@@ -1,0 +1,267 @@
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import sys
+import wave
+from pathlib import Path
+
+import pytest
+
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from creative_direction_planner import CreativeDirectionPlanner  # noqa: E402
+from production_acceptance import (  # noqa: E402
+    ApprovedAssetCatalog,
+    PM9SourceAssetBuilder,
+    SourceAssetBuildError,
+    derive_github_raw_base,
+    verify_catalog_delivery,
+)
+import production_acceptance.source_assets as source_assets  # noqa: E402
+from production_manifest import AssetType  # noqa: E402
+from production_manifest_compiler import ProductionManifestCompiler  # noqa: E402
+from workspace_resolver import WorkspaceResolver  # noqa: E402
+
+
+FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm9" / "editorial_project"
+ASSET_TYPES = {
+    1: AssetType.STOCK_VIDEO,
+    2: AssetType.AI_IMAGE,
+    3: AssetType.MOTION_GRAPHIC,
+    4: AssetType.EXISTING_ASSET,
+}
+
+
+def _planned_manifest(tmp_path: Path):
+    projects_root = tmp_path / "04_PROYECTOS"
+    outputs_root = tmp_path / "05_OUTPUTS"
+    project = projects_root / "PROYECTO_PM9_PLANCHA_0001"
+    projects_root.mkdir()
+    outputs_root.mkdir()
+    shutil.copytree(FIXTURE_PROJECT, project)
+    workspace = WorkspaceResolver(projects_root, outputs_root)
+    compiled = ProductionManifestCompiler(workspace_resolver=workspace).compile(project)
+    scene_ids = {scene.sequence: scene.scene_id for scene in compiled.scenes}
+    planned = CreativeDirectionPlanner().plan(
+        compiled,
+        asset_types={scene_ids[key]: value for key, value in ASSET_TYPES.items()},
+        existing_asset_ids={scene_ids[4]: "aligned-plank"},
+    )
+    return project, outputs_root, planned
+
+
+def _completed(stdout: str = "") -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess([], 0, stdout=stdout, stderr="")
+
+
+def _write_wav(path: Path, *, seconds: float = 0.1) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as stream:
+        stream.setnchannels(1)
+        stream.setsampwidth(2)
+        stream.setframerate(8_000)
+        stream.writeframes(b"\x00\x00" * max(1, round(seconds * 8_000)))
+
+
+def test_derive_github_raw_base_supports_https_origin(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    project = repository / "04_PROYECTOS" / "PM9"
+    assets = project / "source_assets"
+    (repository / ".git").mkdir(parents=True)
+    assets.mkdir(parents=True)
+    commands: list[tuple[str, ...]] = []
+
+    def runner(command):
+        commands.append(tuple(command))
+        if command[-3:] == ("remote", "get-url", "origin"):
+            return _completed("https://github.com/RayIA007/CIPS.git\n")
+        return _completed("main\n")
+
+    result = derive_github_raw_base(project, assets, runner=runner)
+
+    assert result == (
+        "https://raw.githubusercontent.com/RayIA007/CIPS/main/"
+        "04_PROYECTOS/PM9/source_assets"
+    )
+    assert all(command[1:3] == ("-C", str(repository)) for command in commands)
+
+
+def test_derive_github_raw_base_supports_ssh_origin(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    project = repository / "04_PROYECTOS" / "PM9"
+    assets = project / "source_assets"
+    (repository / ".git").mkdir(parents=True)
+    assets.mkdir(parents=True)
+
+    def runner(command):
+        if command[-3:] == ("remote", "get-url", "origin"):
+            return _completed("git@github.com:RayIA007/CIPS.git\n")
+        return _completed("release/pm9\n")
+
+    result = derive_github_raw_base(project, assets, runner=runner)
+
+    assert result.endswith("/release%2Fpm9/04_PROYECTOS/PM9/source_assets")
+
+
+def test_full_asset_build_is_zero_cost_and_idempotent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, outputs_root, manifest = _planned_manifest(tmp_path)
+    assets_root = project / "source_assets"
+    model_dir = outputs_root / "pm9_models" / "piper"
+
+    monkeypatch.setattr(source_assets.shutil, "which", lambda name: f"/bin/{name}")
+    monkeypatch.setattr(source_assets.importlib.util, "find_spec", lambda name: object())
+    monkeypatch.setattr(
+        source_assets,
+        "_write_procedural_audio",
+        lambda path, duration_seconds, kind: _write_wav(path),
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def runner(command):
+        command = tuple(str(item) for item in command)
+        calls.append(command)
+        if "piper.download_voices" in command:
+            (model_dir / "es_MX-claude-high.onnx").write_bytes(b"onnx-model")
+            (model_dir / "es_MX-claude-high.onnx.json").write_text(
+                "{}", encoding="utf-8"
+            )
+        elif command[0] == sys.executable and "piper" in command:
+            _write_wav(Path(command[command.index("-f") + 1]), seconds=1.0)
+        elif command[0] == "ffprobe":
+            return _completed("1.000000\n")
+        elif command[0] == "ffmpeg":
+            destination = Path(command[-1])
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(b"generated-media-" + destination.name.encode())
+        return _completed()
+
+    builder = PM9SourceAssetBuilder(
+        manifest,
+        project_path=project,
+        assets_root=assets_root,
+        model_dir=model_dir,
+        delivery_base_uri=(
+            "https://raw.githubusercontent.com/RayIA007/CIPS/main/"
+            "04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/source_assets"
+        ),
+        runner=runner,
+        fetch_bytes=lambda url: b"\xff\xd8" + (b"x" * 100_001),
+    )
+
+    first = builder.build()
+    second = builder.build()
+
+    assert len(first.catalog.entries) == 12
+    assert first.generated_count == 12
+    assert first.network_called is True
+    assert first.reused_existing is False
+    assert second.generated_count == 0
+    assert second.network_called is False
+    assert second.reused_existing is True
+    assert all(entry.actual_cost_usd == 0 for entry in first.catalog.entries)
+    assert {entry.role for entry in first.catalog.entries} == {
+        "scene_visual",
+        "scene_narration",
+        "music",
+        "sound_effect",
+    }
+    report = json.loads(first.report_path.read_text(encoding="utf-8"))
+    assert report["actual_cost_usd"] == 0.0
+    assert report["paid_provider_called"] is False
+    assert report["publication_performed"] is False
+    assert len(report["files"]) == 12
+    assert any("piper.download_voices" in command for command in calls)
+
+
+def test_verify_catalog_delivery_compares_exact_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, outputs_root, manifest = _planned_manifest(tmp_path)
+    assets_root = project / "source_assets"
+    assets_root.mkdir()
+    scene = manifest.scenes[0]
+    local = assets_root / "visual" / "hook.mp4"
+    local.parent.mkdir()
+    local.write_bytes(b"exact-public-bytes")
+    catalog = ApprovedAssetCatalog.model_validate(
+        {
+            "entries": [
+                {
+                    "entry_id": "hook",
+                    "capability": "stock_video_search",
+                    "role": "scene_visual",
+                    "relative_path": "visual/hook.mp4",
+                    "delivery_uri": "https://cdn.example.test/hook.mp4",
+                    "mime_type": "video/mp4",
+                    "media_family": "video",
+                    "file_extension": ".mp4",
+                    "scene_id": scene.scene_id,
+                    "source_url": "https://commons.example.test/hook",
+                    "license_name": "CC BY 2.0",
+                    "attribution": "Example",
+                    "actual_cost_usd": 0.0,
+                }
+            ]
+        }
+    )
+
+    passed = verify_catalog_delivery(
+        catalog,
+        assets_root=assets_root,
+        fetch_bytes=lambda url: b"exact-public-bytes",
+    )
+    assert passed.verified_count == 1
+    assert passed.total_bytes == len(b"exact-public-bytes")
+    assert passed.checks[0]["passed"] is True
+
+    with pytest.raises(SourceAssetBuildError, match="no coincide"):
+        verify_catalog_delivery(
+            catalog,
+            assets_root=assets_root,
+            fetch_bytes=lambda url: b"tampered",
+        )
+
+
+def test_procedural_svgs_and_audio_are_physical(tmp_path: Path) -> None:
+    biomedical = source_assets._biomedical_svg()
+    aligned = source_assets._aligned_plank_svg()
+    assert biomedical.startswith("<svg")
+    assert "CONTRACCIÓN ISOMÉTRICA" in biomedical
+    assert aligned.startswith("<svg")
+    assert "TÉCNICA PRIMERO" in aligned
+
+    audio = tmp_path / "pulse.wav"
+    source_assets._write_procedural_audio(audio, 0.05, kind="pulse")
+    with wave.open(str(audio), "rb") as stream:
+        assert stream.getframerate() == 48_000
+        assert stream.getnchannels() == 1
+        assert stream.getnframes() == 2_400
+
+
+def test_build_reports_missing_piper_without_any_media_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, outputs_root, manifest = _planned_manifest(tmp_path)
+    monkeypatch.setattr(source_assets.shutil, "which", lambda name: f"/bin/{name}")
+    monkeypatch.setattr(source_assets.importlib.util, "find_spec", lambda name: None)
+    builder = PM9SourceAssetBuilder(
+        manifest,
+        project_path=project,
+        assets_root=project / "source_assets",
+        model_dir=outputs_root / "models",
+        delivery_base_uri="https://cdn.example.test/pm9",
+        runner=lambda command: pytest.fail("No debe invocarse ningún comando"),
+        fetch_bytes=lambda url: pytest.fail("No debe invocarse la red"),
+    )
+
+    with pytest.raises(SourceAssetBuildError, match="piper-tts==1.7.0"):
+        builder.build()

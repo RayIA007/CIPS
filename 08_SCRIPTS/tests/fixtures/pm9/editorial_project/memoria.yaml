@@ -1,0 +1,13 @@
+historial:
+  - stage: investigacion
+    status: completado
+  - stage: verificacion
+    status: completado
+  - stage: guion
+    status: completado
+  - stage: storyboard
+    status: completado
+  - stage: seo
+    status: completado
+  - stage: publicacion
+    status: completado

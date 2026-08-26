@@ -217,6 +217,7 @@ def test_capabilities_are_explicit_and_reject_unsupported_requirements(
 
     assert capabilities.supported_transition_kinds == (
         TransitionKind.CUT,
+        TransitionKind.DISSOLVE,
         TransitionKind.FADE,
         TransitionKind.SLIDE,
         TransitionKind.ZOOM,
@@ -228,7 +229,7 @@ def test_capabilities_are_explicit_and_reject_unsupported_requirements(
     changed_scene = planned_manifest.scenes[0].model_copy(
         update={
             "transition_out": TransitionSpec(
-                kind=TransitionKind.DISSOLVE,
+                kind=TransitionKind.WIPE,
                 duration_seconds=0.3,
             )
         }
@@ -238,7 +239,7 @@ def test_capabilities_are_explicit_and_reject_unsupported_requirements(
     )
     with pytest.raises(RenderCapabilityError) as captured:
         CreatomateAdapter().compile(changed)
-    assert captured.value.unsupported == ("transition:dissolve",)
+    assert captured.value.unsupported == ("transition:wipe",)
 
 
 def test_multiple_output_formats_compile_while_none_assets_and_custom_motion_fail(

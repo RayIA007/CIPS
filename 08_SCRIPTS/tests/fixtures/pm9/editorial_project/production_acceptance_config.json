@@ -1,0 +1,15 @@
+{
+  "schema_name": "cips.production_acceptance.project_config",
+  "schema_version": "1.0",
+  "asset_types_by_sequence": {
+    "1": "stock_video",
+    "2": "ai_image",
+    "3": "motion_graphic",
+    "4": "existing_asset"
+  },
+  "existing_asset_ids_by_sequence": {
+    "4": "aligned-plank"
+  },
+  "catalog_relative_path": "source_assets/asset_catalog.json",
+  "assets_root_relative_path": "source_assets"
+}

@@ -1,0 +1,24 @@
+id: PROYECTO_PM9_PLANCHA_0001
+tema: Por qué tiemblan los músculos durante una plancha
+estado: narracion
+stage_actual: narracion
+ultimo_stage_validado: publicacion
+production_manifest:
+  production_id: SHORT_PM9_PLANCHA_0001
+  platform: youtube_shorts
+  locale: es-MX
+  style_profile: immersive-process-explainer-v1
+  revision: 1
+  width_px: 1080
+  height_px: 1920
+  aspect_ratio: "9:16"
+  fps: 30.0
+  target_duration_seconds: 46.0
+  narration_pace_words_per_minute: 150
+  target_loudness_lufs: -16.0
+  true_peak_dbfs: -1.0
+  voice_characteristics:
+    - clara
+    - cercana
+    - enérgica
+  delivery_notes: Hook rápido; explicar sin alarmismo y cerrar con advertencia de seguridad.
