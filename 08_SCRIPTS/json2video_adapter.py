@@ -89,7 +89,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
     """Compile a CIPS manifest to a directly submittable Movie JSON body."""
 
     adapter_name = "JSON2VideoAdapter"
-    adapter_version = "1.0"
+    adapter_version = "1.1"
     target_id = "json2video.movie"
 
     def __init__(
@@ -192,9 +192,6 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             "background-color": _background_color(scene),
             "elements": elements,
         }
-        transition = _compile_transition(scene.transition_out)
-        if transition is not None and scene.sequence < len(manifest.scenes):
-            rendered["transition"] = transition
         return rendered
 
     def _compile_visual(self, scene: SceneSpec) -> dict[str, Any]:
@@ -556,45 +553,12 @@ def _validate_elements(elements: list[Any], *, container: str) -> None:
                 raise RenderCompilationError("Los elementos text requieren settings.")
 
 
-def _compile_transition(transition: TransitionSpec) -> dict[str, Any] | None:
-    if transition.kind is TransitionKind.CUT:
-        return None
-    styles = {
-        TransitionKind.FADE: "fade",
-        TransitionKind.DISSOLVE: "dissolve",
-        TransitionKind.SLIDE: _directional_style("slide", transition.direction),
-        TransitionKind.WIPE: _directional_style("wipe", transition.direction),
-        TransitionKind.ZOOM: "zoomin",
-    }
-    style = styles.get(transition.kind)
-    if style is None:
-        raise RenderCompilationError(
-            f"Transición JSON2Video no soportada: {transition.kind.value}."
-        )
-    return {
-        "type": "xfade",
-        "style": style,
-        "duration": _json_number(transition.duration_seconds),
-    }
-
-
-def _directional_style(prefix: str, direction: str | None) -> str:
-    normalized = (direction or "left").strip().lower().replace("_", "")
-    aliases = {
-        "up": "up",
-        "down": "down",
-        "left": "left",
-        "right": "right",
-        "arriba": "up",
-        "abajo": "down",
-        "izquierda": "left",
-        "derecha": "right",
-    }
-    return prefix + aliases.get(normalized, "left")
-
-
 def _element_fade(transition: TransitionSpec) -> int | float:
-    if transition.kind not in {TransitionKind.FADE, TransitionKind.DISSOLVE}:
+    # JSON2Video currently accepts scene.transition but its renderer fails when
+    # the field is present in a multi-scene movie.  Preserve every non-cut
+    # boundary as an element-level fade instead; these use the same approved
+    # duration and render reliably without changing the scene timeline.
+    if transition.kind is TransitionKind.CUT:
         return 0
     return _json_number(transition.duration_seconds)
 

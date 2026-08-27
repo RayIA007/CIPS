@@ -97,10 +97,23 @@ def test_adapter_compiles_full_hd_movie_with_physical_media_and_inline_srt(
     assert payload["client-data"]["publication_performed"] is False
     assert len(payload["scenes"]) == 4
     assert sum(float(scene["duration"]) for scene in payload["scenes"]) == 46.0
+    assert all("transition" not in scene for scene in payload["scenes"])
     assert all(
         any(element["type"] in {"image", "video"} for element in scene["elements"])
         for scene in payload["scenes"]
     )
+    visuals = [
+        next(
+            element
+            for element in scene["elements"]
+            if element["type"] in {"image", "video"}
+        )
+        for scene in payload["scenes"]
+    ]
+    assert visuals[0]["fade-out"] == pytest.approx(0.3)
+    assert visuals[1]["fade-in"] == pytest.approx(0.3)
+    assert visuals[1]["fade-out"] == pytest.approx(0.3)
+    assert visuals[2]["fade-in"] == pytest.approx(0.3)
     media = [
         element
         for scene in payload["scenes"]
