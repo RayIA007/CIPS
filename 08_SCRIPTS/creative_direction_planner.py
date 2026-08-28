@@ -197,6 +197,7 @@ class CreativeDirectionPlanner:
         *,
         asset_types: Mapping[str, AssetType | str] | None = None,
         existing_asset_ids: Mapping[str, str] | None = None,
+        stock_queries: Mapping[str, str] | None = None,
     ) -> ProductionManifest:
         """Return a validated, enriched manifest without writing files.
 
@@ -215,6 +216,10 @@ class CreativeDirectionPlanner:
         )
         asset_id_overrides = self._normalize_existing_asset_ids(
             existing_asset_ids,
+            known_scene_ids,
+        )
+        stock_query_overrides = self._normalize_stock_queries(
+            stock_queries,
             known_scene_ids,
         )
         unused_asset_ids = set(asset_id_overrides) - {
@@ -289,6 +294,19 @@ class CreativeDirectionPlanner:
                     motion,
                 )
             )
+            stock_query_override = stock_query_overrides.get(scene.scene_id)
+            if stock_query_override is not None:
+                if asset_request.asset_type not in {
+                    AssetType.STOCK_IMAGE,
+                    AssetType.STOCK_VIDEO,
+                }:
+                    raise CreativeDirectionPlanningError(
+                        "stock_queries solo acepta escenas stock_image/stock_video: "
+                        f"{scene.scene_id}."
+                    )
+                asset_request = asset_request.model_copy(
+                    update={"stock_query": stock_query_override},
+                )
             on_screen_text = self._on_screen_text(scene, narrative_role)
             captions = self._captions(scene)
             transition_in, transition_out = self._transitions(
@@ -378,6 +396,7 @@ class CreativeDirectionPlanner:
         relative_path: str | Path = PRODUCTION_MANIFEST_FILENAME,
         asset_types: Mapping[str, AssetType | str] | None = None,
         existing_asset_ids: Mapping[str, str] | None = None,
+        stock_queries: Mapping[str, str] | None = None,
     ) -> CreativeManifestPersistenceResult:
         """Plan and persist the canonical enriched manifest through F3."""
 
@@ -385,6 +404,7 @@ class CreativeDirectionPlanner:
             manifest,
             asset_types=asset_types,
             existing_asset_ids=existing_asset_ids,
+            stock_queries=stock_queries,
         )
         serialized = serialize_manifest(planned).encode("utf-8")
         source_hash = str(planned.metadata["creative_source_manifest_sha256"])
@@ -468,6 +488,32 @@ class CreativeDirectionPlanner:
             if not text:
                 raise CreativeDirectionPlanningError(
                     f"existing_asset_id vacío para la escena '{scene_id}'."
+                )
+            normalized[scene_id] = text
+        return normalized
+
+    @staticmethod
+    def _normalize_stock_queries(
+        values: Mapping[str, str] | None,
+        known_scene_ids: set[str],
+    ) -> dict[str, str]:
+        if values is None:
+            return {}
+        if not isinstance(values, Mapping):
+            raise TypeError("stock_queries debe ser Mapping por scene_id.")
+        unknown = sorted(set(values) - known_scene_ids)
+        if unknown:
+            raise CreativeDirectionPlanningError(
+                "stock_queries contiene scene_id desconocidos: "
+                + ", ".join(unknown)
+                + "."
+            )
+        normalized: dict[str, str] = {}
+        for scene_id, value in values.items():
+            text = " ".join(str(value).split())
+            if not text:
+                raise CreativeDirectionPlanningError(
+                    f"stock_query vacío para la escena '{scene_id}'."
                 )
             normalized[scene_id] = text
         return normalized

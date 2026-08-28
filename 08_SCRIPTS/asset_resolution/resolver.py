@@ -448,7 +448,19 @@ class ManifestAssetResolver:
                     cost_hint=request.cost_hint,
                     selected_from_alternative=selected_from_alternative,
                 )
-            except AssetProviderSelectionError as error:
+            except (
+                AssetOutputValidationError,
+                AssetProviderExecutionError,
+                AssetProviderSelectionError,
+            ) as error:
+                has_remaining_alternative = index + 1 < len(choices)
+                if not has_remaining_alternative:
+                    raise
+                if self._allow_paid and not isinstance(
+                    error,
+                    AssetProviderSelectionError,
+                ):
+                    raise
                 failures.append(f"{asset_type.value}:{error}")
                 continue
         raise AssetProviderSelectionError(

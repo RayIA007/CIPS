@@ -31,6 +31,12 @@ from .serialization import (
     deserialize_asset_resolution,
     serialize_asset_resolution,
 )
+from .wikimedia_commons import (
+    WIKIMEDIA_COMMONS_API,
+    WIKIMEDIA_PROVIDER_NAME,
+    WikimediaCommonsProvider,
+    image_dimensions,
+)
 
 __all__ = [
     "ASSET_RESOLUTION_FILENAME",
@@ -55,10 +61,14 @@ __all__ = [
     "ProviderSelection",
     "ResolutionStatus",
     "ResolvedAsset",
+    "WIKIMEDIA_COMMONS_API",
+    "WIKIMEDIA_PROVIDER_NAME",
+    "WikimediaCommonsProvider",
     "asset_resolution_json_schema",
     "deserialize_asset_resolution",
     "deterministic_record_id",
     "deterministic_request_sha256",
     "deterministic_resolution_id",
+    "image_dimensions",
     "serialize_asset_resolution",
 ]

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from asset_resolution import ManifestAssetResolver
+from asset_resolution import ManifestAssetResolver, WikimediaCommonsProvider
 from artifact_store import CollisionPolicy
 from capability_resolver import CapabilityResolver
 from creative_direction_planner import CreativeDirectionPlanner
@@ -53,6 +53,8 @@ from production_acceptance import (
     ProductionAcceptanceBlockedError,
     ProductionAcceptanceError,
     SourceAssetBuildError,
+    VisualAssetFulfillmentError,
+    VisualAssetFulfillmentService,
     VERIFY_REPORT_RELATIVE_PATH,
     derive_github_raw_base,
     verify_catalog_delivery,
@@ -65,6 +67,8 @@ from workspace_resolver import WorkspaceResolver
 
 CONFIRMATION_ENV = "CIPS_PM9_REAL_RENDER_CONFIRM"
 CONFIRMATION_VALUE = "I_AUTHORIZE_REAL_RENDER"
+ASSET_CONFIRMATION_ENV = "CIPS_PM9_REAL_ASSET_CONFIRM"
+ASSET_CONFIRMATION_VALUE = "I_AUTHORIZE_FREE_VISUAL_ACQUISITION"
 PROJECT_CONFIG_FILENAME = "production_acceptance_config.json"
 INVENTORY_RELATIVE_PATH = Path("acceptance") / "asset_requirements.json"
 RENDER_RESULT_RELATIVE_PATH = Path("render") / "creatomate_result.json"
@@ -95,6 +99,7 @@ def _parser() -> argparse.ArgumentParser:
         choices=(
             "inventory",
             "build-assets",
+            "fulfill-assets",
             "verify-assets",
             "prepare",
             "render",
@@ -106,6 +111,14 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("04_PROYECTOS") / "PROYECTO_PM9_PLANCHA_0001",
         help="Ruta del proyecto editorial PM9.",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help=(
+            "Configuración PM9 confinada al proyecto; por defecto usa "
+            "production_acceptance_config.json."
+        ),
     )
     parser.add_argument(
         "--catalog",
@@ -147,6 +160,12 @@ def _parser() -> argparse.ArgumentParser:
         help="Límite explícito para el comando render.",
     )
     parser.add_argument(
+        "--max-visual-assets",
+        type=int,
+        default=0,
+        help="Límite explícito de descargas visuales para fulfill-assets.",
+    )
+    parser.add_argument(
         "--action",
         choices=("approve", "request_changes", "cancel"),
         help="Decisión humana F7 para accept.",
@@ -165,11 +184,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     project = args.project.expanduser().resolve(strict=False)
     try:
         workspace = _workspace_for(project)
-        config = _load_project_config(project)
+        config = _load_project_config(project, args.config)
         if args.command == "inventory":
             return _inventory_command(project, workspace, config)
         if args.command == "build-assets":
             return _build_assets_command(project, workspace, config, args)
+        if args.command == "fulfill-assets":
+            return _fulfill_assets_command(project, workspace, config, args)
         if args.command == "verify-assets":
             return _verify_assets_command(project, workspace, config, args)
 
@@ -186,6 +207,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             existing_asset_ids_by_sequence=config[
                 "existing_asset_ids_by_sequence"
             ],
+            stock_queries_by_sequence=config["stock_queries_by_sequence"],
             adapter_factory=_adapter_factory(args.provider),
             payload_relative_path=_payload_relative_path(args.provider),
         )
@@ -218,6 +240,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ProductionAcceptanceBlockedError,
         ProductionAcceptanceError,
         SourceAssetBuildError,
+        VisualAssetFulfillmentError,
     ) as error:
         _print_json({"success": False, "blocked": True, "error": str(error)})
         return 2
@@ -276,8 +299,23 @@ def _find_parent_named(path: Path, name: str) -> Path:
     raise ValueError(f"La ruta del proyecto debe estar dentro de {name}.")
 
 
-def _load_project_config(project: Path) -> dict[str, Any]:
-    path = project / PROJECT_CONFIG_FILENAME
+def _load_project_config(
+    project: Path,
+    override: Path | None = None,
+) -> dict[str, Any]:
+    path = (
+        project / PROJECT_CONFIG_FILENAME
+        if override is None
+        else (
+            override
+            if override.is_absolute()
+            else project / override
+        )
+    ).expanduser().resolve(strict=False)
+    try:
+        path.relative_to(project)
+    except ValueError as error:
+        raise ValueError("--config debe permanecer dentro del proyecto.") from error
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, Mapping):
         raise ValueError(f"{PROJECT_CONFIG_FILENAME} requiere una raíz JSON object.")
@@ -286,8 +324,11 @@ def _load_project_config(project: Path) -> dict[str, Any]:
         "schema_version",
         "asset_types_by_sequence",
         "existing_asset_ids_by_sequence",
+        "stock_queries_by_sequence",
         "catalog_relative_path",
         "assets_root_relative_path",
+        "seed_catalog_relative_path",
+        "fulfillment_report_relative_path",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -300,15 +341,34 @@ def _load_project_config(project: Path) -> dict[str, Any]:
     existing_ids = _sequence_mapping(
         raw.get("existing_asset_ids_by_sequence", {}), str
     )
+    stock_queries = _sequence_mapping(
+        raw.get("stock_queries_by_sequence", {}), str
+    )
     catalog_relative = _safe_relative(raw.get("catalog_relative_path"), "catalog")
     assets_relative = _safe_relative(
         raw.get("assets_root_relative_path"), "assets_root"
     )
+    seed_catalog_raw = raw.get("seed_catalog_relative_path")
+    seed_catalog_relative = (
+        None
+        if seed_catalog_raw is None
+        else _safe_relative(seed_catalog_raw, "seed_catalog")
+    )
+    fulfillment_report_relative = _safe_relative(
+        raw.get(
+            "fulfillment_report_relative_path",
+            "acceptance/visual_asset_fulfillment.json",
+        ),
+        "fulfillment_report",
+    )
     return {
         "asset_types_by_sequence": asset_types,
         "existing_asset_ids_by_sequence": existing_ids,
+        "stock_queries_by_sequence": stock_queries,
         "catalog_relative_path": catalog_relative,
         "assets_root_relative_path": assets_relative,
+        "seed_catalog_relative_path": seed_catalog_relative,
+        "fulfillment_report_relative_path": fulfillment_report_relative,
     }
 
 
@@ -472,6 +532,96 @@ def _build_assets_command(
     return 0
 
 
+def _fulfill_assets_command(
+    project: Path,
+    workspace: WorkspaceResolver,
+    config: Mapping[str, Any],
+    args: argparse.Namespace,
+) -> int:
+    compiled = ProductionManifestCompiler(workspace_resolver=workspace).compile(project)
+    planned = _planned_manifest(compiled, config)
+    requested_downloads = sum(
+        scene.asset_request.asset_type is AssetType.STOCK_IMAGE
+        for scene in planned.scenes
+    )
+    if requested_downloads < 1:
+        raise ProductionAcceptanceBlockedError(
+            "fulfill-assets requiere al menos una escena stock_image."
+        )
+    if os.environ.get(ASSET_CONFIRMATION_ENV) != ASSET_CONFIRMATION_VALUE:
+        raise ProductionAcceptanceBlockedError(
+            f"Falta {ASSET_CONFIRMATION_ENV}={ASSET_CONFIRMATION_VALUE}."
+        )
+    if args.max_visual_assets < requested_downloads:
+        raise ProductionAcceptanceBlockedError(
+            "--max-visual-assets debe cubrir el máximo autorizado "
+            f"({requested_downloads} requeridos)."
+        )
+
+    seed_relative = config.get("seed_catalog_relative_path")
+    if seed_relative is None:
+        raise ProductionAcceptanceBlockedError(
+            "fulfill-assets requiere seed_catalog_relative_path."
+        )
+    seed_path = (project / seed_relative).resolve(strict=False)
+    seed_catalog = ApprovedAssetCatalog.load(seed_path)
+    assets_root = (project / config["assets_root_relative_path"]).resolve(
+        strict=False
+    )
+    catalog_provider = ApprovedAssetCatalogProvider(
+        seed_catalog,
+        assets_root=assets_root,
+    )
+    wikimedia_provider = WikimediaCommonsProvider()
+    resolver = ManifestAssetResolver(
+        capability_resolver=CapabilityResolver(
+            MediaProviderRegistry([catalog_provider, wikimedia_provider])
+        ),
+        workspace_resolver=workspace,
+        preferred_providers={
+            "stock_image_search": wikimedia_provider.provider_name,
+        },
+    )
+    service = VisualAssetFulfillmentService(
+        asset_resolver=resolver,
+        workspace_resolver=workspace,
+    )
+    result = service.fulfill(
+        planned,
+        workspace_root=project,
+        assets_root=assets_root,
+        catalog_relative_path=config["catalog_relative_path"],
+        report_relative_path=config["fulfillment_report_relative_path"],
+    )
+    _print_json(
+        {
+            "success": True,
+            "command": "fulfill-assets",
+            "project_id": planned.project.project_id,
+            "manifest_id": planned.manifest_id,
+            "resolution_id": result.resolution.bundle.resolution_id,
+            "catalog_path": str(result.catalog_path.resolve()),
+            "report_path": str(result.report_path.resolve()),
+            "catalog_entries": len(result.catalog.entries),
+            "requested_visual_assets": requested_downloads,
+            "wikimedia_calls": len(wikimedia_provider.calls),
+            "resolved_count": result.resolution.resolved_count,
+            "reused_resolution_count": result.resolution.reused_count,
+            "reused_existing_bundle": result.resolution.reused_existing,
+            "staged_count": result.staged_count,
+            "reused_staged_count": result.reused_staged_count,
+            "actual_cost_usd": result.resolution.bundle.total_actual_cost_usd,
+            "unknown_cost_count": result.resolution.bundle.unknown_cost_count,
+            "network_called": bool(wikimedia_provider.calls),
+            "paid_provider_called": False,
+            "render_performed": False,
+            "publication_performed": False,
+            "next_gate": "verify-assets",
+        }
+    )
+    return 0
+
+
 def _verify_assets_command(
     project: Path,
     workspace: WorkspaceResolver,
@@ -557,6 +707,10 @@ def _planned_manifest(
         manifest,
         asset_types=asset_types,
         existing_asset_ids=existing,
+        stock_queries={
+            by_sequence[sequence]: query
+            for sequence, query in config["stock_queries_by_sequence"].items()
+        },
     )
 
 

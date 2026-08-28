@@ -123,6 +123,7 @@ class FullProductionAcceptance:
         *,
         asset_types_by_sequence: Mapping[int, AssetType | str] | None = None,
         existing_asset_ids_by_sequence: Mapping[int, str] | None = None,
+        stock_queries_by_sequence: Mapping[int, str] | None = None,
         adapter_factory: (
             Callable[[AssetResolutionBundle], RenderTargetAdapter] | None
         ) = None,
@@ -150,6 +151,11 @@ class FullProductionAcceptance:
             existing_asset_ids_by_sequence,
             label="existing_asset_ids_by_sequence",
         )
+        stock_query_overrides = _scene_overrides(
+            compiled_manifest,
+            stock_queries_by_sequence,
+            label="stock_queries_by_sequence",
+        )
         planner = CreativeDirectionPlanner(
             workspace_resolver=self.workspace_resolver,
             metadata_store=self.metadata_store,
@@ -159,6 +165,7 @@ class FullProductionAcceptance:
             workspace_root=project,
             asset_types=asset_overrides,
             existing_asset_ids=existing_overrides,
+            stock_queries=stock_query_overrides,
         )
         asset_run = self.asset_resolver.resolve(
             planned.manifest,
@@ -735,6 +742,12 @@ def _preparation_blockers(
         for asset in asset_run.bundle.assets
     ):
         blockers.append("persisted_asset_without_https_delivery")
+    if any(
+        asset.status is ResolutionStatus.PERSISTED
+        and asset.selected_from_alternative
+        for asset in asset_run.bundle.assets
+    ):
+        blockers.append("fallback_asset_requires_human_review")
     return tuple(blockers)
 
 

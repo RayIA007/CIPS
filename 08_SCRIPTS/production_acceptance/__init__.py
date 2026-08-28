@@ -40,6 +40,12 @@ from .source_assets import (
     derive_github_raw_base,
     verify_catalog_delivery,
 )
+from .visual_fulfillment import (
+    FULFILLMENT_REPORT_RELATIVE_PATH,
+    VisualAssetFulfillmentError,
+    VisualAssetFulfillmentResult,
+    VisualAssetFulfillmentService,
+)
 
 __all__ = [
     "FINAL_ACCEPTANCE_RELATIVE_PATH",
@@ -76,4 +82,8 @@ __all__ = [
     "VERIFY_REPORT_RELATIVE_PATH",
     "derive_github_raw_base",
     "verify_catalog_delivery",
+    "FULFILLMENT_REPORT_RELATIVE_PATH",
+    "VisualAssetFulfillmentError",
+    "VisualAssetFulfillmentResult",
+    "VisualAssetFulfillmentService",
 ]

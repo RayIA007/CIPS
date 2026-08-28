@@ -16,6 +16,9 @@ env/
 # Proyectos generados por CIPS
 04_PROYECTOS/*
 !04_PROYECTOS/.gitkeep
+!04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/
+04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/*
+!04_PROYECTOS/PROYECTO_PM9_PLANCHA_0001/production_acceptance_config_pm9_1.json
 
 # Outputs generados
 05_OUTPUTS/*
