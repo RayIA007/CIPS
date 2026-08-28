@@ -1,0 +1,19 @@
+{
+  "schema_name": "cips.production_acceptance.project_config",
+  "schema_version": "1.0",
+  "asset_types_by_sequence": {
+    "1": "stock_image",
+    "2": "stock_image",
+    "3": "stock_image"
+  },
+  "existing_asset_ids_by_sequence": {},
+  "stock_queries_by_sequence": {
+    "1": "blue sky daylight",
+    "2": "Rayleigh scattering diagram",
+    "3": "red sunset horizon"
+  },
+  "catalog_relative_path": "source_assets/automated_asset_catalog.json",
+  "assets_root_relative_path": "source_assets",
+  "seed_catalog_relative_path": "source_assets/asset_catalog.json",
+  "fulfillment_report_relative_path": "acceptance/visual_asset_fulfillment.json"
+}

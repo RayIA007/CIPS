@@ -1,10 +1,12 @@
-"""Build and verify the zero-cost physical source assets used by PM9.
+"""Build and verify zero-cost physical source assets used by PM9.
 
-The builder deliberately keeps media acquisition separate from the paid
-Creatomate boundary.  It uses one attributed Wikimedia photograph, curated
-high-resolution scientific imagery, original procedural audio, and local Piper
-speech synthesis.  The generated catalog contains stable public HTTPS delivery
-locations but never uploads or publishes anything itself.
+The builder deliberately keeps media acquisition separate from render
+providers.  Local Piper speech and procedural audio work for any compatible
+manifest.  The original plank-project visual recipe remains available only for
+that legacy acceptance fixture; fresh projects leave ``stock_image`` requests
+to the PM8 visual-fulfillment boundary instead of depending on curated files.
+The generated catalog contains stable public HTTPS delivery locations but
+never uploads or publishes anything itself.
 """
 
 from __future__ import annotations
@@ -83,7 +85,13 @@ ByteFetcher = Callable[[str], bytes]
 
 
 class PM9SourceAssetBuilder:
-    """Create the twelve allowlisted PM9 assets without paid provider calls."""
+    """Create local zero-cost assets without paid provider calls.
+
+    A fresh project whose visuals are all ``stock_image`` receives an
+    audio-only seed catalog.  PM9.1 then fulfills the missing scene visuals
+    through provider-neutral PM8 resolution.  The exact historical plank
+    profile is retained so its already-closed acceptance path remains stable.
+    """
 
     def __init__(
         self,
@@ -118,32 +126,37 @@ class PM9SourceAssetBuilder:
         existing = self._reuse_existing()
         if existing is not None and not force:
             return existing
+        legacy_visuals = self._uses_legacy_plank_visuals()
         self._preflight()
         self.assets_root.mkdir(parents=True, exist_ok=True)
         self.model_dir.mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="cips-pm9-assets-") as temp_name:
             temp = Path(temp_name)
-            photo_path = temp / "plank-source.jpg"
-            photo_bytes = self.fetch_bytes(WIKIMEDIA_PHOTO_URL)
-            if len(photo_bytes) < 100_000 or not photo_bytes.startswith(b"\xff\xd8"):
-                raise SourceAssetBuildError(
-                    "Wikimedia no devolvió la fotografía JPEG PM9 esperada."
-                )
-            photo_path.write_bytes(photo_bytes)
-
             files: dict[str, Path] = {}
-            files["scene_visual_1"] = self._build_hook_video(photo_path)
-            files["scene_visual_2"] = self._curated_visual(
-                "visual/scene-002-biomedical-v2.png",
-            )
-            files["scene_visual_3"] = self._curated_visual(
-                "visual/scene-003-motor-units-v2.png",
-            )
-            files["scene_visual_4"] = self._curated_visual(
-                "visual/scene-004-aligned-plank-v2.png",
-            )
+            photo_bytes: bytes | None = None
+            if legacy_visuals:
+                photo_path = temp / "plank-source.jpg"
+                photo_bytes = self.fetch_bytes(WIKIMEDIA_PHOTO_URL)
+                if len(photo_bytes) < 100_000 or not photo_bytes.startswith(
+                    b"\xff\xd8"
+                ):
+                    raise SourceAssetBuildError(
+                        "Wikimedia no devolvió la fotografía JPEG PM9 esperada."
+                    )
+                photo_path.write_bytes(photo_bytes)
+                files["scene_visual_1"] = self._build_hook_video(photo_path)
+                files["scene_visual_2"] = self._curated_visual(
+                    "visual/scene-002-biomedical-v2.png",
+                )
+                files["scene_visual_3"] = self._curated_visual(
+                    "visual/scene-003-motor-units-v2.png",
+                )
+                files["scene_visual_4"] = self._curated_visual(
+                    "visual/scene-004-aligned-plank-v2.png",
+                )
 
+            voice_model_cached = self._voice_model_is_cached()
             model_path = self._ensure_voice_model()
             for scene in self.manifest.scenes:
                 if scene.narration_text is None:
@@ -156,7 +169,8 @@ class PM9SourceAssetBuilder:
                     sequence=scene.sequence,
                 )
 
-            files["music"] = self._build_music(temp)
+            if self.manifest.audio_design.music is not None:
+                files["music"] = self._build_music(temp)
             for index, effect in enumerate(self.manifest.audio_design.sound_effects):
                 files[f"sfx_{effect.cue_id}"] = self._build_sound_effect(
                     effect.cue_id,
@@ -171,14 +185,19 @@ class PM9SourceAssetBuilder:
                     temporary_root=temp,
                 )
 
-        catalog = self._catalog(files)
+        catalog = self._catalog(files, include_legacy_visuals=legacy_visuals)
         catalog_path = self.assets_root / CATALOG_FILENAME
         _write_json_atomic(
             catalog_path,
             catalog.model_dump(mode="json"),
         )
         report_path = self.assets_root / BUILD_REPORT_FILENAME
-        report = self._build_report(catalog, files, photo_bytes)
+        report = self._build_report(
+            catalog,
+            files,
+            photo_bytes,
+            include_legacy_visuals=legacy_visuals,
+        )
         _write_json_atomic(report_path, report)
         return SourceAssetBuildResult(
             catalog=catalog,
@@ -188,7 +207,7 @@ class PM9SourceAssetBuilder:
             delivery_base_uri=self.delivery_base_uri,
             generated_count=len(catalog.entries),
             reused_existing=False,
-            network_called=True,
+            network_called=legacy_visuals or not voice_model_cached,
         )
 
     def _preflight(self) -> None:
@@ -214,7 +233,7 @@ class PM9SourceAssetBuilder:
             if (
                 report.get("manifest_id") != self.manifest.manifest_id
                 or report.get("delivery_base_uri") != self.delivery_base_uri
-                or len(catalog.entries) != 13
+                or len(catalog.entries) != self._expected_local_entry_count()
             ):
                 return None
             for entry in catalog.entries:
@@ -284,6 +303,45 @@ class PM9SourceAssetBuilder:
         _require_nonempty(destination, "video de hook")
         return destination
 
+    def _uses_legacy_plank_visuals(self) -> bool:
+        """Identify only the historical PM9 plank recipe.
+
+        Other visual mixes are rejected rather than silently receiving assets
+        whose content, provenance, or scene identity does not match.
+        """
+
+        types = tuple(scene.asset_request.asset_type for scene in self.manifest.scenes)
+        if all(asset_type is AssetType.STOCK_IMAGE for asset_type in types):
+            return False
+        legacy = (
+            AssetType.STOCK_VIDEO,
+            AssetType.AI_IMAGE,
+            AssetType.AI_IMAGE,
+            AssetType.EXISTING_ASSET,
+        )
+        if (
+            self.manifest.project.project_id == "PROYECTO_PM9_PLANCHA_0001"
+            and types == legacy
+        ):
+            return True
+        raise SourceAssetBuildError(
+            "El builder local sólo admite visuales stock_image para proyectos "
+            "nuevos; otros visuales deben resolverse mediante PM8."
+        )
+
+    def _expected_local_entry_count(self) -> int:
+        legacy_visual_count = 4 if self._uses_legacy_plank_visuals() else 0
+        narration_count = sum(
+            scene.narration_text is not None for scene in self.manifest.scenes
+        )
+        music_count = int(self.manifest.audio_design.music is not None)
+        return (
+            legacy_visual_count
+            + narration_count
+            + music_count
+            + len(self.manifest.audio_design.sound_effects)
+        )
+
     def _curated_visual(self, relative_path: str) -> Path:
         destination = (self.assets_root / relative_path).resolve(strict=False)
         try:
@@ -317,6 +375,12 @@ class PM9SourceAssetBuilder:
         _require_nonempty(model_path, "modelo de voz Piper")
         _require_nonempty(config_path, "configuración de voz Piper")
         return model_path
+
+    def _voice_model_is_cached(self) -> bool:
+        return (
+            (self.model_dir / f"{PIPER_VOICE_ID}.onnx").is_file()
+            and (self.model_dir / f"{PIPER_VOICE_ID}.onnx.json").is_file()
+        )
 
     def _build_narration(
         self,
@@ -435,72 +499,83 @@ class PM9SourceAssetBuilder:
         )
         _require_nonempty(destination, destination.name)
 
-    def _catalog(self, files: Mapping[str, Path]) -> ApprovedAssetCatalog:
+    def _catalog(
+        self,
+        files: Mapping[str, Path],
+        *,
+        include_legacy_visuals: bool,
+    ) -> ApprovedAssetCatalog:
         scenes = {scene.sequence: scene for scene in self.manifest.scenes}
-        entries = [
-            self._entry(
-                entry_id="scene-001-plank-hook",
-                capability="stock_video_search",
-                role="scene_visual",
-                path=files["scene_visual_1"],
-                mime_type="video/mp4",
-                media_family="video",
-                scene_id=scenes[1].scene_id,
-                source_url=WIKIMEDIA_FILE_PAGE,
-                license_name="Creative Commons Attribution 2.0 Generic (CC BY 2.0)",
-                attribution=(
-                    "Fotografía: Shixart1985, Wikimedia Commons, CC BY 2.0; "
-                    "adaptada a video vertical con fondo, recorte y movimiento. "
-                    f"Licencia: {WIKIMEDIA_LICENSE_URL}"
-                ),
-            ),
-            self._entry(
-                entry_id="scene-002-biomedical",
-                capability="image_generation",
-                role="scene_visual",
-                path=files["scene_visual_2"],
-                mime_type="image/png",
-                media_family="image",
-                scene_id=scenes[2].scene_id,
-                source_url=self._project_source_url(files["scene_visual_2"]),
-                license_name="Original CIPS commissioned AI artwork",
-                attribution=(
-                    "Visual científico original generado para CIPS con OpenAI "
-                    "ImageGen; sin texto, logotipos ni marcas de agua."
-                ),
-            ),
-            self._entry(
-                entry_id="scene-003-motor-units",
-                capability="image_generation",
-                role="scene_visual",
-                path=files["scene_visual_3"],
-                mime_type="image/png",
-                media_family="image",
-                scene_id=scenes[3].scene_id,
-                source_url=self._project_source_url(files["scene_visual_3"]),
-                license_name="Original CIPS commissioned AI artwork",
-                attribution=(
-                    "Visual científico original generado para CIPS con OpenAI "
-                    "ImageGen; sin texto, logotipos ni marcas de agua."
-                ),
-            ),
-            self._entry(
-                entry_id="scene-004-aligned-plank",
-                capability="existing_asset_resolution",
-                role="scene_visual",
-                path=files["scene_visual_4"],
-                mime_type="image/png",
-                media_family="image",
-                scene_id=scenes[4].scene_id,
-                existing_asset_id="aligned-plank",
-                source_url=self._project_source_url(files["scene_visual_4"]),
-                license_name="Original CIPS commissioned AI artwork",
-                attribution=(
-                    "Fotografía deportiva sintética original generada para CIPS "
-                    "con OpenAI ImageGen; sin texto, logotipos ni marcas de agua."
-                ),
-            ),
-        ]
+        entries: list[CatalogEntry] = []
+        if include_legacy_visuals:
+            entries.extend(
+                [
+                    self._entry(
+                        entry_id="scene-001-plank-hook",
+                        capability="stock_video_search",
+                        role="scene_visual",
+                        path=files["scene_visual_1"],
+                        mime_type="video/mp4",
+                        media_family="video",
+                        scene_id=scenes[1].scene_id,
+                        source_url=WIKIMEDIA_FILE_PAGE,
+                        license_name=(
+                            "Creative Commons Attribution 2.0 Generic (CC BY 2.0)"
+                        ),
+                        attribution=(
+                            "Fotografía: Shixart1985, Wikimedia Commons, CC BY 2.0; "
+                            "adaptada a video vertical con fondo, recorte y movimiento. "
+                            f"Licencia: {WIKIMEDIA_LICENSE_URL}"
+                        ),
+                    ),
+                    self._entry(
+                        entry_id="scene-002-biomedical",
+                        capability="image_generation",
+                        role="scene_visual",
+                        path=files["scene_visual_2"],
+                        mime_type="image/png",
+                        media_family="image",
+                        scene_id=scenes[2].scene_id,
+                        source_url=self._project_source_url(files["scene_visual_2"]),
+                        license_name="Original CIPS commissioned AI artwork",
+                        attribution=(
+                            "Visual científico original generado para CIPS con OpenAI "
+                            "ImageGen; sin texto, logotipos ni marcas de agua."
+                        ),
+                    ),
+                    self._entry(
+                        entry_id="scene-003-motor-units",
+                        capability="image_generation",
+                        role="scene_visual",
+                        path=files["scene_visual_3"],
+                        mime_type="image/png",
+                        media_family="image",
+                        scene_id=scenes[3].scene_id,
+                        source_url=self._project_source_url(files["scene_visual_3"]),
+                        license_name="Original CIPS commissioned AI artwork",
+                        attribution=(
+                            "Visual científico original generado para CIPS con OpenAI "
+                            "ImageGen; sin texto, logotipos ni marcas de agua."
+                        ),
+                    ),
+                    self._entry(
+                        entry_id="scene-004-aligned-plank",
+                        capability="existing_asset_resolution",
+                        role="scene_visual",
+                        path=files["scene_visual_4"],
+                        mime_type="image/png",
+                        media_family="image",
+                        scene_id=scenes[4].scene_id,
+                        existing_asset_id="aligned-plank",
+                        source_url=self._project_source_url(files["scene_visual_4"]),
+                        license_name="Original CIPS commissioned AI artwork",
+                        attribution=(
+                            "Fotografía deportiva sintética original generada para CIPS "
+                            "con OpenAI ImageGen; sin texto, logotipos ni marcas de agua."
+                        ),
+                    ),
+                ]
+            )
         for scene in self.manifest.scenes:
             if scene.narration_text is None:
                 continue
@@ -524,19 +599,22 @@ class PM9SourceAssetBuilder:
                     ),
                 )
             )
-        entries.append(
-            self._entry(
-                entry_id="background-music",
-                capability="music_generation",
-                role="music",
-                path=files["music"],
-                mime_type="audio/mpeg",
-                media_family="audio",
-                source_url=self._project_source_url(files["music"]),
-                license_name="Original CIPS procedural audio",
-                attribution="Música instrumental original sintetizada localmente por CIPS.",
+        if self.manifest.audio_design.music is not None:
+            entries.append(
+                self._entry(
+                    entry_id="background-music",
+                    capability="music_generation",
+                    role="music",
+                    path=files["music"],
+                    mime_type="audio/mpeg",
+                    media_family="audio",
+                    source_url=self._project_source_url(files["music"]),
+                    license_name="Original CIPS procedural audio",
+                    attribution=(
+                        "Música instrumental original sintetizada localmente por CIPS."
+                    ),
+                )
             )
-        )
         for effect in self.manifest.audio_design.sound_effects:
             entries.append(
                 self._entry(
@@ -552,9 +630,11 @@ class PM9SourceAssetBuilder:
                     attribution="Efecto sonoro original sintetizado localmente por CIPS.",
                 )
             )
-        if len(entries) != 13:
+        expected = self._expected_local_entry_count()
+        if len(entries) != expected:
             raise SourceAssetBuildError(
-                f"PM9 esperaba exactamente 13 entradas de catálogo; obtuvo {len(entries)}."
+                "El catálogo local no coincide con el manifest: "
+                f"se esperaban {expected} entradas y se obtuvieron {len(entries)}."
             )
         return ApprovedAssetCatalog(entries=tuple(entries))
 
@@ -601,20 +681,31 @@ class PM9SourceAssetBuilder:
         self,
         catalog: ApprovedAssetCatalog,
         files: Mapping[str, Path],
-        photo_bytes: bytes,
+        photo_bytes: bytes | None,
+        *,
+        include_legacy_visuals: bool,
     ) -> dict[str, Any]:
         del files
-        return {
+        report: dict[str, Any] = {
             "schema_name": "cips.production_acceptance.asset_build_report",
             "schema_version": "1.0",
             "manifest_id": self.manifest.manifest_id,
             "project_id": self.manifest.project.project_id,
+            "build_profile": (
+                "legacy_plank_complete"
+                if include_legacy_visuals
+                else "generic_audio_seed"
+            ),
+            "catalog_entry_count": len(catalog.entries),
             "delivery_base_uri": self.delivery_base_uri,
             "actual_cost_usd": 0.0,
             "paid_provider_called": False,
             "publication_performed": False,
-            "network_sources": [WIKIMEDIA_PHOTO_URL, PIPER_MODEL_CARD_URL],
-            "source_photo_sha256": hashlib.sha256(photo_bytes).hexdigest(),
+            "network_sources": (
+                [WIKIMEDIA_PHOTO_URL, PIPER_MODEL_CARD_URL]
+                if include_legacy_visuals
+                else [PIPER_MODEL_CARD_URL]
+            ),
             "voice": {
                 "engine": "Piper",
                 "package_version": PIPER_PACKAGE_VERSION,
@@ -635,6 +726,9 @@ class PM9SourceAssetBuilder:
                 for entry in catalog.entries
             },
         }
+        if photo_bytes is not None:
+            report["source_photo_sha256"] = hashlib.sha256(photo_bytes).hexdigest()
+        return report
 
 
 def verify_catalog_delivery(

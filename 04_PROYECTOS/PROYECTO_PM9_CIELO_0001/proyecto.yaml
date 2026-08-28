@@ -1,0 +1,24 @@
+id: PROYECTO_PM9_CIELO_0001
+tema: Por qué el cielo azul se vuelve rojizo al atardecer
+estado: narracion
+stage_actual: narracion
+ultimo_stage_validado: publicacion
+production_manifest:
+  production_id: SHORT_PM9_CIELO_0001
+  platform: youtube_shorts
+  locale: es-MX
+  style_profile: immersive-process-explainer-v1
+  revision: 1
+  width_px: 1080
+  height_px: 1920
+  aspect_ratio: "9:16"
+  fps: 30.0
+  target_duration_seconds: 26.0
+  narration_pace_words_per_minute: 165
+  target_loudness_lufs: -16.0
+  true_peak_dbfs: -1.0
+  voice_characteristics:
+    - clara
+    - curiosa
+    - cercana
+  delivery_notes: Explicación visual breve; distinguir dispersión de refracción y cerrar sin publicación automática.
