@@ -9,9 +9,9 @@
   },
   "existing_asset_ids_by_sequence": {},
   "stock_queries_by_sequence": {
-    "2": "isometric exercise abdominal muscles anatomy illustration",
-    "3": "skeletal muscle motor unit anatomy diagram",
-    "4": "plank exercise proper form athlete"
+    "2": "abdominal muscles anatomy",
+    "3": "skeletal muscle motor neuron",
+    "4": "plank exercise"
   },
   "catalog_relative_path": "source_assets/automated_asset_catalog.json",
   "assets_root_relative_path": "source_assets",
