@@ -29,6 +29,7 @@ _SUPPORTED_MIME_TYPES = {
 }
 _SVG_MIME_TYPE = "image/svg+xml"
 _SVG_THUMBNAIL_WIDTH = 1280
+_SEARCH_FILE_TYPES = ("BITMAP", "DRAWING")
 _ALLOWED_LICENSE_MARKERS = (
     "cc by",
     "cc0",
@@ -53,10 +54,10 @@ _HTML_TAG = re.compile(r"<[^>]+>")
 class WikimediaCommonsProvider(MediaProvider):
     """Acquire freely licensed raster images without credentials or billing.
 
-    The provider performs one Commons Action API search and downloads the first
-    deterministic candidate whose declared license and physical bytes satisfy
-    the configured policy.  Network functions are injectable so tests never
-    contact Wikimedia.
+    The provider searches Commons bitmap files first and drawing files second,
+    then downloads the first deterministic candidate whose declared license
+    and physical bytes satisfy the configured policy.  Network functions are
+    injectable so tests never contact Wikimedia.
     """
 
     provider_name = WIKIMEDIA_PROVIDER_NAME
@@ -140,85 +141,95 @@ class WikimediaCommonsProvider(MediaProvider):
                 metadata={"provider": self.provider_name},
             )
 
-        try:
-            search_url = self._search_url(query)
-            payload = self._fetch_json(search_url)
-            candidates = self._candidates(payload)
-        except Exception as error:
-            return self._failure("commons_search_failed", error)
-
         rejected: list[str] = []
-        for candidate in candidates:
-            title = str(candidate.get("title") or "unknown")
-            contract = _candidate_contract(candidate)
-            if isinstance(contract, str):
-                rejected.append(f"{title}:{contract}")
-                continue
+        for search_file_type in _SEARCH_FILE_TYPES:
             try:
-                content = self._fetch_bytes(contract["delivery_uri"])
-                if not isinstance(content, bytes) or not content:
-                    raise ValueError("La descarga no devolvió bytes no vacíos.")
-                if len(content) > self.max_download_bytes:
-                    raise ValueError("La imagen excede max_download_bytes.")
-                width, height = image_dimensions(content, contract["mime_type"])
-                if (
-                    not contract["rasterized_thumbnail"]
-                    and (width != contract["width"] or height != contract["height"])
-                ):
-                    raise ValueError(
-                        "Las dimensiones físicas no coinciden con Wikimedia."
+                search_url = self._search_url(query, search_file_type)
+                payload = self._fetch_json(search_url)
+                candidates = self._candidates(payload)
+            except Exception as error:
+                rejected.append(
+                    "commons_search_failed:"
+                    f"{search_file_type}:{type(error).__name__}:{error}"
+                )
+                continue
+            for candidate in candidates:
+                title = str(candidate.get("title") or "unknown")
+                contract = _candidate_contract(candidate)
+                if isinstance(contract, str):
+                    rejected.append(f"{title}:{contract}")
+                    continue
+                try:
+                    content = self._fetch_bytes(contract["delivery_uri"])
+                    if not isinstance(content, bytes) or not content:
+                        raise ValueError("La descarga no devolvió bytes no vacíos.")
+                    if len(content) > self.max_download_bytes:
+                        raise ValueError("La imagen excede max_download_bytes.")
+                    width, height = image_dimensions(content, contract["mime_type"])
+                    if (
+                        not contract["rasterized_thumbnail"]
+                        and (width != contract["width"] or height != contract["height"])
+                    ):
+                        raise ValueError(
+                            "Las dimensiones físicas no coinciden con Wikimedia."
+                        )
+                    if width < self.min_width or height < self.min_height:
+                        raise ValueError("La imagen no alcanza las dimensiones mínimas.")
+                    aspect_ratio = width / height
+                    if not self.min_aspect_ratio <= aspect_ratio <= self.max_aspect_ratio:
+                        raise ValueError("La imagen tiene una relación de aspecto extrema.")
+                    output = AssetBinary(
+                        content=content,
+                        mime_type=contract["mime_type"],
+                        file_extension=contract["file_extension"],
+                        media_family=MediaFamily.IMAGE,
+                        delivery_uri=contract["delivery_uri"],
+                        actual_cost_usd=0.0,
+                        metadata={
+                            "actual_cost_usd": 0.0,
+                            "aspect_ratio": round(aspect_ratio, 8),
+                            "attribution": contract["attribution"],
+                            "creator": contract["creator"],
+                            "description_url": contract["source_url"],
+                            "downloaded_size_bytes": len(content),
+                            "height_px": height,
+                            "license_name": contract["license_name"],
+                            "license_url": contract["license_url"],
+                            "original_height_px": contract["original_height"],
+                            "original_width_px": contract["original_width"],
+                            "page_id": contract["page_id"],
+                            "prompt_permitted": query,
+                            "rasterized_thumbnail": contract[
+                                "rasterized_thumbnail"
+                            ],
+                            "recommended_resize": contract["recommended_resize"],
+                            "search_file_type": search_file_type,
+                            "selected_title": contract["title"],
+                            "source_delivery_uri": contract[
+                                "source_delivery_uri"
+                            ],
+                            "source_mediatype": contract["source_mediatype"],
+                            "source_mime_type": contract["source_mime_type"],
+                            "source_url": contract["source_url"],
+                            "stock_query": query,
+                            "width_px": width,
+                        },
                     )
-                if width < self.min_width or height < self.min_height:
-                    raise ValueError("La imagen no alcanza las dimensiones mínimas.")
-                aspect_ratio = width / height
-                if not self.min_aspect_ratio <= aspect_ratio <= self.max_aspect_ratio:
-                    raise ValueError("La imagen tiene una relación de aspecto extrema.")
-                output = AssetBinary(
-                    content=content,
-                    mime_type=contract["mime_type"],
-                    file_extension=contract["file_extension"],
-                    media_family=MediaFamily.IMAGE,
-                    delivery_uri=contract["delivery_uri"],
-                    actual_cost_usd=0.0,
+                except Exception as error:
+                    rejected.append(f"{title}:{type(error).__name__}:{error}")
+                    continue
+
+                self.calls.append(request)
+                return MediaResult.ok(
+                    output,
+                    message="Imagen libre adquirida desde Wikimedia Commons.",
                     metadata={
-                        "actual_cost_usd": 0.0,
-                        "aspect_ratio": round(aspect_ratio, 8),
-                        "attribution": contract["attribution"],
-                        "creator": contract["creator"],
-                        "description_url": contract["source_url"],
-                        "downloaded_size_bytes": len(content),
-                        "height_px": height,
-                        "license_name": contract["license_name"],
-                        "license_url": contract["license_url"],
-                        "original_height_px": contract["original_height"],
-                        "original_width_px": contract["original_width"],
-                        "page_id": contract["page_id"],
-                        "prompt_permitted": query,
-                        "rasterized_thumbnail": contract["rasterized_thumbnail"],
-                        "recommended_resize": contract["recommended_resize"],
+                        "provider": self.provider_name,
+                        "capability": self.capability_name,
+                        "search_file_type": search_file_type,
                         "selected_title": contract["title"],
-                        "source_delivery_uri": contract["source_delivery_uri"],
-                        "source_mediatype": contract["source_mediatype"],
-                        "source_mime_type": contract["source_mime_type"],
-                        "source_url": contract["source_url"],
-                        "stock_query": query,
-                        "width_px": width,
                     },
                 )
-            except Exception as error:
-                rejected.append(f"{title}:{type(error).__name__}:{error}")
-                continue
-
-            self.calls.append(request)
-            return MediaResult.ok(
-                output,
-                message="Imagen libre adquirida desde Wikimedia Commons.",
-                metadata={
-                    "provider": self.provider_name,
-                    "capability": self.capability_name,
-                    "selected_title": contract["title"],
-                },
-            )
 
         return MediaResult.fail(
             message="Wikimedia Commons no devolvió una imagen elegible.",
@@ -226,14 +237,16 @@ class WikimediaCommonsProvider(MediaProvider):
             metadata={"provider": self.provider_name, "stock_query": query},
         )
 
-    def _search_url(self, query: str) -> str:
+    def _search_url(self, query: str, search_file_type: str) -> str:
+        if search_file_type not in _SEARCH_FILE_TYPES:
+            raise ValueError("search_file_type no soportado.")
         parameters = {
             "action": "query",
             "format": "json",
             "formatversion": "2",
             "generator": "search",
             "gsrnamespace": "6",
-            "gsrsearch": query,
+            "gsrsearch": f"{query} filetype:{search_file_type}",
             "gsrlimit": str(self.search_limit),
             "prop": "imageinfo",
             "iiprop": "url|mime|size|mediatype|extmetadata",

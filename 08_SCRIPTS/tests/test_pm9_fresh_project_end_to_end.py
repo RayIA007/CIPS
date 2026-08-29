@@ -252,7 +252,7 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
         for scene in planned.scenes
     )
     assert config["stock_queries_by_sequence"] == {
-        1: "blue sky sunset comparison horizon",
+        1: "blue sky red sunset landscape",
         2: "visible light spectrum sunlight colors",
         3: "Rayleigh scattering blue sky diagram",
         4: "sunset vs noon atmosphere diagram",

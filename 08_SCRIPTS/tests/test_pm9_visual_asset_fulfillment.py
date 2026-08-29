@@ -5,6 +5,7 @@ import shutil
 import struct
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -102,6 +103,25 @@ def _api_payload(*pages: dict) -> dict:
     return {"batchcomplete": True, "query": {"pages": list(pages)}}
 
 
+def _commons_svg_page() -> dict:
+    page = _commons_page(title="File:Rayleigh scattering diagram.svg")
+    info = page["imageinfo"][0]
+    info.update(
+        {
+            "url": (
+                "https://upload.wikimedia.org/example/"
+                "rayleigh-scattering-diagram.svg"
+            ),
+            "mime": "image/svg+xml",
+            "mediatype": "DRAWING",
+            "thumburl": COMMONS_FILE_URL,
+            "thumbwidth": 1280,
+            "thumbheight": 720,
+        }
+    )
+    return page
+
+
 def _provider(payload: dict, content: bytes | None = None):
     urls: list[str] = []
     downloads: list[str] = []
@@ -195,8 +215,39 @@ def test_wikimedia_provider_returns_validated_bytes_and_provenance() -> None:
     assert result.output.delivery_uri == COMMONS_FILE_URL
     assert len(search_urls) == 1
     assert "generator=search" in search_urls[0]
+    search_query = parse_qs(urlsplit(search_urls[0]).query)["gsrsearch"][0]
+    assert search_query.endswith("filetype:BITMAP")
     assert downloads == [COMMONS_FILE_URL]
     assert provider.calls == [_request()]
+
+
+def test_wikimedia_provider_falls_back_from_bitmap_to_svg_drawing() -> None:
+    search_urls: list[str] = []
+
+    def fetch_json(url: str):
+        search_urls.append(url)
+        search_query = parse_qs(urlsplit(url).query)["gsrsearch"][0]
+        if search_query.endswith("filetype:BITMAP"):
+            return _api_payload()
+        return _api_payload(_commons_svg_page())
+
+    provider = WikimediaCommonsProvider(
+        fetch_json=fetch_json,
+        fetch_bytes=lambda url: _png(),
+    )
+
+    result = provider.generate(_request("Rayleigh scattering diagram"))
+
+    assert result.success is True
+    assert result.output.mime_type == "image/png"
+    assert result.output.delivery_uri == COMMONS_FILE_URL
+    assert result.output.metadata["rasterized_thumbnail"] is True
+    assert result.output.metadata["recommended_resize"] == "contain"
+    assert result.output.metadata["search_file_type"] == "DRAWING"
+    assert [
+        parse_qs(urlsplit(url).query)["gsrsearch"][0].split()[-1]
+        for url in search_urls
+    ] == ["filetype:BITMAP", "filetype:DRAWING"]
 
 
 def test_wikimedia_provider_rejects_noncommercial_license_before_download() -> None:
