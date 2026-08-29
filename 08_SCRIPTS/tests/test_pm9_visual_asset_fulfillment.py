@@ -284,6 +284,33 @@ def test_fulfillment_resolves_persists_updates_catalog_and_reuses_without_call(
     assert report["actual_cost_usd"] == 0.0
     assert report["publication_performed"] is False
 
+    delivery_base = "https://raw.githubusercontent.com/example/CIPS/main/assets"
+    mirrored = service.fulfill(
+        manifest,
+        workspace_root=project,
+        assets_root=project / "source_assets",
+        catalog_relative_path="source_assets/automated_catalog.json",
+        delivery_base_uri=delivery_base,
+    )
+    mirrored_again = service.fulfill(
+        manifest,
+        workspace_root=project,
+        assets_root=project / "source_assets",
+        catalog_relative_path="source_assets/automated_catalog.json",
+        delivery_base_uri=delivery_base,
+    )
+
+    mirrored_entry = mirrored.catalog.entries[0]
+    assert mirrored_entry.delivery_uri.startswith(
+        f"{delivery_base}/fulfilled/image/scene_visual/"
+    )
+    assert mirrored.resolution.bundle.assets[0].delivery_uri == (
+        mirrored_entry.delivery_uri
+    )
+    assert mirrored_again.catalog == mirrored.catalog
+    assert mirrored_again.resolution.reused_existing is True
+    assert len(provider.calls) == 1
+
 
 def test_free_execution_failure_can_use_explicit_curated_fallback_and_blocks_gate(
     tmp_path: Path,

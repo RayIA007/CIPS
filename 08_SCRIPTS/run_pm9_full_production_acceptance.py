@@ -568,6 +568,11 @@ def _fulfill_assets_command(
     assets_root = (project / config["assets_root_relative_path"]).resolve(
         strict=False
     )
+    delivery_base = (
+        str(args.delivery_base).strip()
+        if args.delivery_base
+        else derive_github_raw_base(project, assets_root)
+    )
     catalog_provider = ApprovedAssetCatalogProvider(
         seed_catalog,
         assets_root=assets_root,
@@ -592,6 +597,7 @@ def _fulfill_assets_command(
         assets_root=assets_root,
         catalog_relative_path=config["catalog_relative_path"],
         report_relative_path=config["fulfillment_report_relative_path"],
+        delivery_base_uri=delivery_base,
     )
     _print_json(
         {
@@ -603,6 +609,7 @@ def _fulfill_assets_command(
             "catalog_path": str(result.catalog_path.resolve()),
             "report_path": str(result.report_path.resolve()),
             "catalog_entries": len(result.catalog.entries),
+            "delivery_base_uri": delivery_base,
             "requested_visual_assets": requested_downloads,
             "wikimedia_calls": len(wikimedia_provider.calls),
             "resolved_count": result.resolution.resolved_count,
@@ -616,7 +623,7 @@ def _fulfill_assets_command(
             "paid_provider_called": False,
             "render_performed": False,
             "publication_performed": False,
-            "next_gate": "verify-assets",
+            "next_gate": "commit_and_push_fulfilled_assets_before_verify-assets",
         }
     )
     return 0

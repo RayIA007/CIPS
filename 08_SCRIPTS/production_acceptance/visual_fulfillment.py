@@ -9,6 +9,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlsplit
 
 from artifact_store import CollisionPolicy
 from asset_resolution import (
@@ -17,6 +18,7 @@ from asset_resolution import (
     ManifestAssetResolver,
     ResolutionStatus,
     ResolvedAsset,
+    WIKIMEDIA_PROVIDER_NAME,
 )
 from metadata_store import MetadataStore
 from production_manifest import ProductionManifest
@@ -50,7 +52,9 @@ class VisualAssetFulfillmentService:
     """Resolve a manifest through PM8/F3 and refresh its approved catalog.
 
     F3 remains the source of truth.  Catalog files are deterministic delivery
-    copies that preserve the F3 hash and the provider's stable HTTPS URI.
+    copies that preserve the F3 hash and source provenance.  Wikimedia assets
+    can be mirrored under a caller-provided public base so render providers do
+    not depend on Commons hotlinking behavior.
     """
 
     def __init__(
@@ -77,6 +81,7 @@ class VisualAssetFulfillmentService:
         assets_root: str | Path,
         catalog_relative_path: str | Path,
         report_relative_path: str | Path = FULFILLMENT_REPORT_RELATIVE_PATH,
+        delivery_base_uri: str | None = None,
     ) -> VisualAssetFulfillmentResult:
         if not isinstance(manifest, ProductionManifest):
             raise TypeError("manifest debe ser ProductionManifest.")
@@ -101,6 +106,7 @@ class VisualAssetFulfillmentService:
             raise ValueError(
                 "El catálogo fulfillment debe estar dentro de assets_root."
             ) from error
+        delivery_base = _public_base_uri(delivery_base_uri)
 
         resolution = self.asset_resolver.resolve(
             manifest,
@@ -117,6 +123,7 @@ class VisualAssetFulfillmentService:
                 record,
                 workspace=workspace,
                 assets_root=assets,
+                delivery_base_uri=delivery_base,
             )
             entries.append(entry)
             staged_count += int(not reused)
@@ -126,14 +133,26 @@ class VisualAssetFulfillmentService:
                 "El manifest no produjo assets físicos para el catálogo."
             )
 
+        resolution = self._persist_delivery_overrides(
+            manifest,
+            resolution,
+            entries=entries,
+            workspace=workspace,
+        )
+
         catalog = ApprovedAssetCatalog(entries=tuple(entries))
+        catalog_payload = catalog.model_dump(mode="json")
+        catalog_digest = _mapping_digest(catalog_payload)[:12]
         catalog_relative = catalog_path.relative_to(workspace)
         catalog_write = self.metadata_store.persist_metadata(
             workspace_root=workspace,
             relative_path=catalog_relative,
-            content=catalog.model_dump(mode="json"),
+            content=catalog_payload,
             artifact_type="fulfilled_asset_catalog",
-            artifact_id=f"fulfilled-catalog-{resolution.bundle.resolution_id}",
+            artifact_id=(
+                f"fulfilled-catalog-{resolution.bundle.resolution_id}-"
+                f"{catalog_digest}"
+            ),
             metadata={
                 "manifest_id": manifest.manifest_id,
                 "resolution_id": resolution.bundle.resolution_id,
@@ -160,6 +179,11 @@ class VisualAssetFulfillmentService:
             "total_actual_cost_usd": resolution.bundle.total_actual_cost_usd,
             "actual_cost_usd": resolution.bundle.total_actual_cost_usd,
             "unknown_cost_count": resolution.bundle.unknown_cost_count,
+            "delivery_base_uri": delivery_base,
+            "mirrored_delivery_count": sum(
+                record.provider_name == WIKIMEDIA_PROVIDER_NAME
+                for record in resolution.bundle.assets
+            ),
             "publication_performed": False,
             "render_performed": False,
             "assets": [
@@ -225,6 +249,7 @@ class VisualAssetFulfillmentService:
         *,
         workspace: Path,
         assets_root: Path,
+        delivery_base_uri: str | None,
     ) -> tuple[CatalogEntry, bool]:
         required = (
             record.provider_name,
@@ -293,13 +318,19 @@ class VisualAssetFulfillmentService:
             raise VisualAssetFulfillmentError(
                 f"El record '{record.record_id}' no declara costo."
             )
+        delivery_uri = record.delivery_uri
+        if (
+            delivery_base_uri is not None
+            and record.provider_name == WIKIMEDIA_PROVIDER_NAME
+        ):
+            delivery_uri = _join_public_uri(delivery_base_uri, relative)
         return (
             CatalogEntry(
                 entry_id=record.record_id,
                 capability=record.capability,
                 role=record.role.value,
                 relative_path=relative.as_posix(),
-                delivery_uri=record.delivery_uri,
+                delivery_uri=delivery_uri,
                 mime_type=record.mime_type,
                 media_family=record.media_family,
                 file_extension=extension,
@@ -312,6 +343,83 @@ class VisualAssetFulfillmentService:
                 actual_cost_usd=float(known_cost),
             ),
             reused,
+        )
+
+    def _persist_delivery_overrides(
+        self,
+        manifest: ProductionManifest,
+        resolution: AssetResolutionRun,
+        *,
+        entries: list[CatalogEntry],
+        workspace: Path,
+    ) -> AssetResolutionRun:
+        delivery_by_record = {entry.entry_id: entry.delivery_uri for entry in entries}
+        records: list[ResolvedAsset] = []
+        changed: list[ResolvedAsset] = []
+        for record in resolution.bundle.assets:
+            delivery_uri = delivery_by_record.get(record.record_id)
+            if delivery_uri is None or delivery_uri == record.delivery_uri:
+                records.append(record)
+                continue
+            updated = record.model_copy(update={"delivery_uri": delivery_uri})
+            records.append(updated)
+            changed.append(updated)
+        if not changed:
+            return resolution
+
+        base = Path(resolution.bundle_relative_path).parent
+        for record in changed:
+            receipt_relative = base / "receipts" / f"{record.record_id}.json"
+            self.metadata_store.persist_metadata(
+                workspace_root=workspace,
+                relative_path=receipt_relative,
+                content=record.model_dump(mode="json"),
+                artifact_type="asset_resolution_receipt",
+                metadata={
+                    "manifest_id": manifest.manifest_id,
+                    "record_id": record.record_id,
+                    "request_sha256": record.request_sha256,
+                    "delivery_mirrored": True,
+                },
+                artifact_id=f"delivery-receipt-{record.record_id}",
+                collision_policy=CollisionPolicy.REPLACE,
+            )
+
+        bundle_payload = resolution.bundle.model_dump(mode="json")
+        bundle_payload["assets"] = [
+            record.model_dump(mode="json") for record in records
+        ]
+        metadata = dict(bundle_payload.get("metadata") or {})
+        metadata["mirrored_delivery_count"] = len(changed)
+        bundle_payload["metadata"] = metadata
+        bundle = type(resolution.bundle).model_validate(bundle_payload)
+        bundle_write = self.metadata_store.persist_metadata(
+            workspace_root=workspace,
+            relative_path=resolution.bundle_relative_path,
+            content=bundle.model_dump(mode="json"),
+            artifact_type="asset_resolution_bundle",
+            metadata={
+                "manifest_id": manifest.manifest_id,
+                "manifest_sha256": bundle.manifest_sha256,
+                "resolution_id": bundle.resolution_id,
+                "mirrored_delivery_count": len(changed),
+            },
+            artifact_id=f"delivery-{bundle.resolution_id}",
+            collision_policy=CollisionPolicy.REPLACE,
+        )
+        return AssetResolutionRun(
+            bundle=bundle,
+            bundle_relative_path=Path(bundle_write.artifact.path)
+            .resolve(strict=False)
+            .relative_to(workspace)
+            .as_posix(),
+            bundle_sidecar_relative_path=bundle_write.sidecar_path
+            .resolve(strict=False)
+            .relative_to(workspace)
+            .as_posix(),
+            reused_existing=resolution.reused_existing,
+            resolved_count=resolution.resolved_count,
+            reused_count=resolution.reused_count,
         )
 
     @staticmethod
@@ -342,6 +450,29 @@ def _existing_asset_id(
     raise VisualAssetFulfillmentError(
         f"No se encontró existing_asset_id para '{record.record_id}'."
     )
+
+
+def _public_base_uri(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().rstrip("/")
+    parsed = urlsplit(normalized)
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "delivery_base_uri debe ser una URL HTTPS pública sin query ni fragment."
+        )
+    return normalized
+
+
+def _join_public_uri(base: str, relative: Path) -> str:
+    return f"{base}/{quote(relative.as_posix(), safe='/')}"
 
 
 def _copy_verified(source: Path, destination: Path, *, expected_sha256: str) -> bool:

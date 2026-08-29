@@ -38,6 +38,18 @@ from workspace_resolver import WorkspaceResolver  # noqa: E402
 FRESH_PROJECT = (
     REPOSITORY_ROOT / "04_PROYECTOS" / "PROYECTO_PM9_CIELO_0001"
 )
+FRESH_PROJECT_SOURCE_PATHS = (
+    "memoria.yaml",
+    "narration",
+    "production_acceptance_config.json",
+    "proyecto.yaml",
+    "publication",
+    "research",
+    "script",
+    "seo",
+    "storyboard",
+    "verification",
+)
 
 
 def _fresh_environment(tmp_path: Path):
@@ -46,16 +58,14 @@ def _fresh_environment(tmp_path: Path):
     projects_root.mkdir()
     outputs_root.mkdir()
     project = projects_root / FRESH_PROJECT.name
-    shutil.copytree(
-        FRESH_PROJECT,
-        project,
-        ignore=shutil.ignore_patterns(
-            "acceptance",
-            "final",
-            "source_assets",
-            "video",
-        ),
-    )
+    project.mkdir()
+    for relative in FRESH_PROJECT_SOURCE_PATHS:
+        source = FRESH_PROJECT / relative
+        destination = project / relative
+        if source.is_dir():
+            shutil.copytree(source, destination)
+        else:
+            shutil.copy2(source, destination)
     workspace = WorkspaceResolver(projects_root, outputs_root)
     config = pm9_cli._load_project_config(project)
     compiled = ProductionManifestCompiler(workspace_resolver=workspace).compile(project)
@@ -320,6 +330,8 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         assets_root=seed.assets_root,
         catalog_relative_path=config["catalog_relative_path"],
         report_relative_path=config["fulfillment_report_relative_path"],
+        delivery_base_uri="https://raw.githubusercontent.com/example/CIPS/main/"
+        f"04_PROYECTOS/{project.name}/source_assets",
     )
 
     assert len(wikimedia.calls) == 3
@@ -328,6 +340,29 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     assert fulfillment.resolution.bundle.unknown_cost_count == 0
     assert all(
         entry.actual_cost_usd == 0.0 for entry in fulfillment.catalog.entries
+    )
+    visual_entries = [
+        entry for entry in fulfillment.catalog.entries if entry.role == "scene_visual"
+    ]
+    assert len(visual_entries) == 3
+    assert all(
+        entry.delivery_uri.startswith(
+            "https://raw.githubusercontent.com/example/CIPS/main/"
+            f"04_PROYECTOS/{project.name}/source_assets/fulfilled/image/"
+            "scene_visual/"
+        )
+        for entry in visual_entries
+    )
+    assert all(
+        record.delivery_uri == entry.delivery_uri
+        for record, entry in zip(
+            (
+                record
+                for record in fulfillment.resolution.bundle.assets
+                if record.role.value == "scene_visual"
+            ),
+            visual_entries,
+        )
     )
 
     final_provider = ApprovedAssetCatalogProvider(
@@ -366,6 +401,15 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         for scene in prepared.plan.target_payload["scenes"]
     ]
     assert visual_resize == ["cover", "contain", "cover"]
+    visual_sources = [
+        next(
+            element["src"]
+            for element in scene["elements"]
+            if element["type"] == "image"
+        )
+        for scene in prepared.plan.target_payload["scenes"]
+    ]
+    assert all("raw.githubusercontent.com/example/CIPS/main" in source for source in visual_sources)
     assert prepared.plan.target_payload["fps"] == 30
     assert prepared.plan.target_payload["client-data"]["publication_performed"] is False
     assert not (project / "final").exists()
