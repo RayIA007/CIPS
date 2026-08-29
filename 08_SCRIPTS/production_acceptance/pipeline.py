@@ -124,6 +124,7 @@ class FullProductionAcceptance:
         asset_types_by_sequence: Mapping[int, AssetType | str] | None = None,
         existing_asset_ids_by_sequence: Mapping[int, str] | None = None,
         stock_queries_by_sequence: Mapping[int, str] | None = None,
+        on_screen_text_mode: str = "auto",
         adapter_factory: (
             Callable[[AssetResolutionBundle], RenderTargetAdapter] | None
         ) = None,
@@ -166,6 +167,7 @@ class FullProductionAcceptance:
             asset_types=asset_overrides,
             existing_asset_ids=existing_overrides,
             stock_queries=stock_query_overrides,
+            on_screen_text_mode=on_screen_text_mode,
         )
         asset_run = self.asset_resolver.resolve(
             planned.manifest,

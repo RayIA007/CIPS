@@ -89,7 +89,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
     """Compile a CIPS manifest to a directly submittable Movie JSON body."""
 
     adapter_name = "JSON2VideoAdapter"
-    adapter_version = "1.1"
+    adapter_version = "1.2"
     target_id = "json2video.movie"
 
     def __init__(
@@ -97,10 +97,22 @@ class JSON2VideoAdapter(RenderTargetAdapter):
         *,
         resolved_assets: AssetResolutionBundle,
         capabilities: RenderTargetCapabilities | None = None,
+        music_volume_ceiling: float = 0.2,
+        sound_effect_gain: float = 1.0,
     ) -> None:
         if not isinstance(resolved_assets, AssetResolutionBundle):
             raise TypeError("resolved_assets debe ser AssetResolutionBundle.")
         self._resolved_assets = resolved_assets
+        self._music_volume_ceiling = _bounded_mix_value(
+            music_volume_ceiling,
+            label="music_volume_ceiling",
+            maximum=1.0,
+        )
+        self._sound_effect_gain = _bounded_mix_value(
+            sound_effect_gain,
+            label="sound_effect_gain",
+            maximum=4.0,
+        )
         super().__init__(capabilities=capabilities or json2video_capabilities())
 
     @property
@@ -289,7 +301,12 @@ class JSON2VideoAdapter(RenderTargetAdapter):
                 "type": "audio",
                 "src": asset.delivery_uri,
                 "start": _json_number(effect.start_offset_seconds),
-                "volume": _json_number(max(0.0, min(effect.intensity, 1.0))),
+                "volume": _json_number(
+                    max(
+                        0.0,
+                        min(effect.intensity * self._sound_effect_gain, 1.0),
+                    )
+                ),
             }
             if effect.duration_seconds is not None:
                 element["duration"] = _json_number(effect.duration_seconds)
@@ -318,7 +335,10 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             "duration": rendered_duration,
             "loop": -1,
             "volume": _json_number(
-                min(0.2, _db_to_multiplier(music.ducking_db))
+                min(
+                    self._music_volume_ceiling,
+                    _db_to_multiplier(music.ducking_db),
+                )
             ),
         }
 
@@ -568,6 +588,15 @@ def _visual_resize(metadata: Mapping[str, Any]) -> str:
     if requested == "contain":
         return "contain"
     return "cover"
+
+
+def _bounded_mix_value(value: float, *, label: str, maximum: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{label} debe ser numérico.")
+    normalized = float(value)
+    if not math.isfinite(normalized) or normalized < 0.0 or normalized > maximum:
+        raise ValueError(f"{label} debe estar entre 0.0 y {maximum:.1f}.")
+    return normalized
 
 
 def _compile_motion(scene: SceneSpec) -> list[dict[str, Any]]:

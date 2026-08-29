@@ -241,18 +241,26 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
 
     assert planned.project.project_id == "PROYECTO_PM9_CIELO_0001"
     assert "plancha" not in planned.project.title.casefold()
-    assert planned.output.duration_seconds == 26.0
+    assert planned.output.duration_seconds == 45.0
     assert (planned.output.width_px, planned.output.height_px) == (1080, 1920)
-    assert len(planned.scenes) == 3
+    assert len(planned.scenes) == 5
+    assert [scene.duration_seconds for scene in planned.scenes] == [9.0] * 5
+    assert all(not scene.on_screen_text for scene in planned.scenes)
+    assert all(scene.captions is not None for scene in planned.scenes)
     assert all(
         scene.asset_request.asset_type is AssetType.STOCK_IMAGE
         for scene in planned.scenes
     )
     assert config["stock_queries_by_sequence"] == {
-        1: "blue sky daylight",
-        2: "sunset vs noon",
-        3: "red sunset landscape horizon",
+        1: "blue sky sunset comparison horizon",
+        2: "visible light spectrum sunlight colors",
+        3: "Rayleigh scattering blue sky diagram",
+        4: "sunset vs noon atmosphere diagram",
+        5: "dramatic red orange sunset landscape",
     }
+    assert config["on_screen_text_mode"] == "captions_only"
+    assert config["json2video_music_volume"] == 0.32
+    assert config["json2video_sound_effect_gain"] == 1.4
     assert len(planned.source_references) == 7
     assert all(
         len(reference.content_hash or "") == 64
@@ -282,16 +290,16 @@ def test_generic_builder_creates_idempotent_audio_seed_without_curated_visuals(
     )
     second = builder.build()
 
-    assert len(first.catalog.entries) == 7
+    assert len(first.catalog.entries) == 11
     assert not any(entry.role == "scene_visual" for entry in first.catalog.entries)
     assert first.network_called is False
-    assert first.generated_count == 7
+    assert first.generated_count == 11
     assert second.reused_existing is True
     assert second.generated_count == 0
     assert second.network_called is False
     report = json.loads(first.report_path.read_text(encoding="utf-8"))
     assert report["build_profile"] == "generic_audio_seed"
-    assert report["catalog_entry_count"] == 7
+    assert report["catalog_entry_count"] == 11
     assert report["actual_cost_usd"] == 0.0
     assert report["paid_provider_called"] is False
     assert report["publication_performed"] is False
@@ -334,8 +342,8 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         f"04_PROYECTOS/{project.name}/source_assets",
     )
 
-    assert len(wikimedia.calls) == 3
-    assert len(fulfillment.catalog.entries) == 10
+    assert len(wikimedia.calls) == 5
+    assert len(fulfillment.catalog.entries) == 16
     assert fulfillment.resolution.bundle.total_actual_cost_usd == 0.0
     assert fulfillment.resolution.bundle.unknown_cost_count == 0
     assert all(
@@ -344,7 +352,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     visual_entries = [
         entry for entry in fulfillment.catalog.entries if entry.role == "scene_visual"
     ]
-    assert len(visual_entries) == 3
+    assert len(visual_entries) == 5
     assert all(
         entry.delivery_uri.startswith(
             "https://raw.githubusercontent.com/example/CIPS/main/"
@@ -383,15 +391,20 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         asset_types_by_sequence=config["asset_types_by_sequence"],
         existing_asset_ids_by_sequence=config["existing_asset_ids_by_sequence"],
         stock_queries_by_sequence=config["stock_queries_by_sequence"],
-        adapter_factory=lambda bundle: JSON2VideoAdapter(resolved_assets=bundle),
+        on_screen_text_mode=config["on_screen_text_mode"],
+        adapter_factory=lambda bundle: JSON2VideoAdapter(
+            resolved_assets=bundle,
+            music_volume_ceiling=config["json2video_music_volume"],
+            sound_effect_gain=config["json2video_sound_effect_gain"],
+        ),
         payload_relative_path=Path("video/json2video/json2video_payload.json"),
     )
 
     assert prepared.evidence.ready_for_real_render is True
-    assert prepared.evidence.persisted_asset_count == 10
+    assert prepared.evidence.persisted_asset_count == 16
     assert prepared.evidence.total_actual_cost_usd == 0.0
     assert prepared.evidence.unknown_cost_count == 0
-    assert len(prepared.plan.target_payload["scenes"]) == 3
+    assert len(prepared.plan.target_payload["scenes"]) == 5
     visual_resize = [
         next(
             element["resize"]
@@ -400,7 +413,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         )
         for scene in prepared.plan.target_payload["scenes"]
     ]
-    assert visual_resize == ["cover", "contain", "cover"]
+    assert visual_resize == ["cover", "contain", "cover", "cover", "cover"]
     visual_sources = [
         next(
             element["src"]
@@ -410,6 +423,24 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         for scene in prepared.plan.target_payload["scenes"]
     ]
     assert all("raw.githubusercontent.com/example/CIPS/main" in source for source in visual_sources)
+    assert all(
+        not any(element["type"] == "text" for element in scene["elements"])
+        for scene in prepared.plan.target_payload["scenes"]
+    )
+    music = next(
+        element
+        for element in prepared.plan.target_payload["elements"]
+        if element.get("id") == "background-music"
+    )
+    assert music["start"] == 0
+    assert music["volume"] == 0.32
+    sound_effect_volumes = [
+        element["volume"]
+        for scene in prepared.plan.target_payload["scenes"]
+        for element in scene["elements"]
+        if str(element.get("id", "")).startswith("sfx-")
+    ]
+    assert sound_effect_volumes == pytest.approx([0.77, 0.49, 0.49, 0.49, 0.63])
     assert prepared.plan.target_payload["fps"] == 30
     assert prepared.plan.target_payload["client-data"]["publication_performed"] is False
     assert not (project / "final").exists()

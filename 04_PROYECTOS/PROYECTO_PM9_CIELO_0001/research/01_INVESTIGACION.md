@@ -20,4 +20,4 @@ El polvo, el humo y otros aerosoles pueden modificar la intensidad y los tonos d
 
 ## Idioma y formato
 
-Español de México. Microvideo educativo vertical 9:16, de aproximadamente 26 segundos, sin publicación durante PM9.2.
+Español de México. Microvideo educativo vertical 9:16, de aproximadamente 45 segundos y cinco escenas, sin publicación durante PM9.2.

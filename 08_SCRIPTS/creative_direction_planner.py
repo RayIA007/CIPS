@@ -168,8 +168,9 @@ class CreativeDirectionPlanner:
     """Deterministically enrich PM2 scenes with universal creative intent."""
 
     planner_name = "cips.creative_direction_planner"
-    planner_version = "1.0"
+    planner_version = "1.1"
     planning_strategy = "deterministic-editorial-heuristics"
+    supported_on_screen_text_modes = frozenset({"auto", "captions_only"})
 
     def __init__(
         self,
@@ -198,6 +199,7 @@ class CreativeDirectionPlanner:
         asset_types: Mapping[str, AssetType | str] | None = None,
         existing_asset_ids: Mapping[str, str] | None = None,
         stock_queries: Mapping[str, str] | None = None,
+        on_screen_text_mode: str = "auto",
     ) -> ProductionManifest:
         """Return a validated, enriched manifest without writing files.
 
@@ -208,6 +210,7 @@ class CreativeDirectionPlanner:
 
         if not isinstance(manifest, ProductionManifest):
             raise TypeError("manifest debe ser ProductionManifest.")
+        text_mode = self._normalize_on_screen_text_mode(on_screen_text_mode)
 
         known_scene_ids = {scene.scene_id for scene in manifest.scenes}
         type_overrides = self._normalize_asset_type_overrides(
@@ -307,7 +310,11 @@ class CreativeDirectionPlanner:
                 asset_request = asset_request.model_copy(
                     update={"stock_query": stock_query_override},
                 )
-            on_screen_text = self._on_screen_text(scene, narrative_role)
+            on_screen_text = self._on_screen_text(
+                scene,
+                narrative_role,
+                mode=text_mode,
+            )
             captions = self._captions(scene)
             transition_in, transition_out = self._transitions(
                 scene,
@@ -323,6 +330,7 @@ class CreativeDirectionPlanner:
                     "music_energy": self._scene_music_energy(narrative_role),
                     "music_mood": self._scene_music_mood(narrative_role),
                     "narrative_role": narrative_role,
+                    "on_screen_text_mode": text_mode,
                     "planned_asset_type": asset_type.value,
                 }
             )
@@ -353,6 +361,7 @@ class CreativeDirectionPlanner:
                 "creative_planner_version": self.planner_version,
                 "creative_planning_strategy": self.planning_strategy,
                 "creative_source_manifest_sha256": source_hash,
+                "on_screen_text_mode": text_mode,
             }
         )
         audio_design = AudioDesignSpec(
@@ -397,6 +406,7 @@ class CreativeDirectionPlanner:
         asset_types: Mapping[str, AssetType | str] | None = None,
         existing_asset_ids: Mapping[str, str] | None = None,
         stock_queries: Mapping[str, str] | None = None,
+        on_screen_text_mode: str = "auto",
     ) -> CreativeManifestPersistenceResult:
         """Plan and persist the canonical enriched manifest through F3."""
 
@@ -405,6 +415,7 @@ class CreativeDirectionPlanner:
             asset_types=asset_types,
             existing_asset_ids=existing_asset_ids,
             stock_queries=stock_queries,
+            on_screen_text_mode=on_screen_text_mode,
         )
         serialized = serialize_manifest(planned).encode("utf-8")
         source_hash = str(planned.metadata["creative_source_manifest_sha256"])
@@ -808,7 +819,11 @@ class CreativeDirectionPlanner:
         cls,
         scene: SceneSpec,
         narrative_role: str,
+        *,
+        mode: str,
     ) -> tuple[OnScreenTextSpec, ...]:
+        if mode == "captions_only":
+            return ()
         if scene.on_screen_text:
             return scene.on_screen_text
         source = scene.narration_text or scene.visual_direction.intent
@@ -839,6 +854,18 @@ class CreativeDirectionPlanner:
                 accessibility_label=f"Texto principal de la escena {scene.sequence}: {text}",
             ),
         )
+
+    @classmethod
+    def _normalize_on_screen_text_mode(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise TypeError("on_screen_text_mode debe ser texto.")
+        normalized = value.strip().casefold()
+        if normalized not in cls.supported_on_screen_text_modes:
+            raise CreativeDirectionPlanningError(
+                "on_screen_text_mode no soportado: "
+                f"{value!r}; usa auto o captions_only."
+            )
+        return normalized
 
     @classmethod
     def _captions(cls, scene: SceneSpec) -> CaptionSpec | None:

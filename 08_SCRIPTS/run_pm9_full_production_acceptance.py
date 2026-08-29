@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -208,7 +209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "existing_asset_ids_by_sequence"
             ],
             stock_queries_by_sequence=config["stock_queries_by_sequence"],
-            adapter_factory=_adapter_factory(args.provider),
+            on_screen_text_mode=config["on_screen_text_mode"],
+            adapter_factory=_adapter_factory(args.provider, config=config),
             payload_relative_path=_payload_relative_path(args.provider),
         )
         if args.command == "prepare":
@@ -329,6 +331,9 @@ def _load_project_config(
         "assets_root_relative_path",
         "seed_catalog_relative_path",
         "fulfillment_report_relative_path",
+        "on_screen_text_mode",
+        "json2video_music_volume",
+        "json2video_sound_effect_gain",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -361,6 +366,23 @@ def _load_project_config(
         ),
         "fulfillment_report",
     )
+    on_screen_text_mode = str(raw.get("on_screen_text_mode", "auto")).strip().casefold()
+    if on_screen_text_mode not in {"auto", "captions_only"}:
+        raise ValueError(
+            "on_screen_text_mode debe ser auto o captions_only."
+        )
+    json2video_music_volume = _bounded_config_float(
+        raw.get("json2video_music_volume", 0.2),
+        label="json2video_music_volume",
+        minimum=0.0,
+        maximum=1.0,
+    )
+    json2video_sound_effect_gain = _bounded_config_float(
+        raw.get("json2video_sound_effect_gain", 1.0),
+        label="json2video_sound_effect_gain",
+        minimum=0.0,
+        maximum=4.0,
+    )
     return {
         "asset_types_by_sequence": asset_types,
         "existing_asset_ids_by_sequence": existing_ids,
@@ -369,6 +391,9 @@ def _load_project_config(
         "assets_root_relative_path": assets_relative,
         "seed_catalog_relative_path": seed_catalog_relative,
         "fulfillment_report_relative_path": fulfillment_report_relative,
+        "on_screen_text_mode": on_screen_text_mode,
+        "json2video_music_volume": json2video_music_volume,
+        "json2video_sound_effect_gain": json2video_sound_effect_gain,
     }
 
 
@@ -397,6 +422,23 @@ def _safe_relative(value: Any, label: str) -> Path:
     if not path.parts or path.is_absolute() or ".." in path.parts:
         raise ValueError(f"{label} debe ser una ruta relativa confinada.")
     return path
+
+
+def _bounded_config_float(
+    value: Any,
+    *,
+    label: str,
+    minimum: float,
+    maximum: float,
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} debe ser numérico.")
+    normalized = float(value)
+    if not math.isfinite(normalized) or not minimum <= normalized <= maximum:
+        raise ValueError(
+            f"{label} debe estar entre {minimum:.1f} y {maximum:.1f}."
+        )
+    return normalized
 
 
 def _acceptance_for(
@@ -718,6 +760,7 @@ def _planned_manifest(
             by_sequence[sequence]: query
             for sequence, query in config["stock_queries_by_sequence"].items()
         },
+        on_screen_text_mode=config["on_screen_text_mode"],
     )
 
 
@@ -803,11 +846,20 @@ def _asset_inventory(manifest: ProductionManifest) -> dict[str, Any]:
     }
 
 
-def _adapter_factory(provider: str):
+def _adapter_factory(provider: str, *, config: Mapping[str, Any] | None = None):
+    project_config = config or {}
     if provider == "creatomate":
         return lambda bundle: CreatomateAdapter(resolved_assets=bundle)
     if provider == "json2video":
-        return lambda bundle: JSON2VideoAdapter(resolved_assets=bundle)
+        return lambda bundle: JSON2VideoAdapter(
+            resolved_assets=bundle,
+            music_volume_ceiling=float(
+                project_config.get("json2video_music_volume", 0.2)
+            ),
+            sound_effect_gain=float(
+                project_config.get("json2video_sound_effect_gain", 1.0)
+            ),
+        )
     raise ValueError(f"Proveedor no soportado: {provider}.")
 
 

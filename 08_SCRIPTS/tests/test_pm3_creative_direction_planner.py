@@ -92,6 +92,30 @@ def test_pm2_manifest_becomes_a_dynamic_provider_neutral_shot_plan(
     assert len(planned.audio_design.sound_effects) == len(planned.scenes)
 
 
+def test_captions_only_mode_removes_upper_text_and_preserves_subtitles(
+    planning_env,
+) -> None:
+    project_path, compiler, planner = planning_env
+    source = compiler.compile(project_path)
+
+    planned = planner.plan(source, on_screen_text_mode="captions_only")
+    replanned = planner.plan(planned, on_screen_text_mode="captions_only")
+
+    assert all(not scene.on_screen_text for scene in planned.scenes)
+    assert all(scene.captions is not None for scene in planned.scenes)
+    assert all(scene.captions.emphasis_words for scene in planned.scenes)
+    assert planned.metadata["on_screen_text_mode"] == "captions_only"
+    assert replanned == planned
+
+
+def test_unknown_on_screen_text_mode_is_rejected(planning_env) -> None:
+    project_path, compiler, planner = planning_env
+    source = compiler.compile(project_path)
+
+    with pytest.raises(CreativeDirectionPlanningError, match="no soportado"):
+        planner.plan(source, on_screen_text_mode="double_text")
+
+
 def test_identity_timeline_narration_and_editorial_traceability_are_preserved(
     planning_env,
 ) -> None:

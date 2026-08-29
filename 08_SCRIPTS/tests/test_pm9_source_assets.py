@@ -186,6 +186,23 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     assert report["publication_performed"] is False
     assert len(report["files"]) == 13
     assert any("piper.download_voices" in command for command in calls)
+    narration_calls = [
+        command
+        for command in calls
+        if command[0] == sys.executable and command[1:3] == ("-m", "piper")
+    ]
+    assert narration_calls
+    assert all(
+        command[command.index("--sentence-silence") + 1] == "0.12"
+        for command in narration_calls
+    )
+    ffmpeg_filters = [
+        command[command.index("-af") + 1]
+        for command in calls
+        if command[0] == "ffmpeg" and "-af" in command
+    ]
+    assert any("afade=t=in:st=0:d=0.08" in value for value in ffmpeg_filters)
+    assert any("loudnorm=I=-16:TP=-2:LRA=4" in value for value in ffmpeg_filters)
 
 
 def test_verify_catalog_delivery_compares_exact_bytes(

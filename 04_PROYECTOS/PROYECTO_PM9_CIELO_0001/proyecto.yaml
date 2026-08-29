@@ -8,17 +8,18 @@ production_manifest:
   platform: youtube_shorts
   locale: es-MX
   style_profile: immersive-process-explainer-v1
-  revision: 1
+  revision: 2
   width_px: 1080
   height_px: 1920
   aspect_ratio: "9:16"
   fps: 30.0
-  target_duration_seconds: 26.0
-  narration_pace_words_per_minute: 165
+  target_duration_seconds: 45.0
+  narration_pace_words_per_minute: 150
   target_loudness_lufs: -16.0
   true_peak_dbfs: -1.0
   voice_characteristics:
-    - clara
+    - cálida
     - curiosa
-    - cercana
-  delivery_notes: Explicación visual breve; distinguir dispersión de refracción y cerrar sin publicación automática.
+    - conversacional
+    - con cambios de intención
+  delivery_notes: Abrir con sorpresa, usar pausas breves entre ideas y sostener un tono cercano; mostrar sólo subtítulos inferiores, distinguir dispersión de refracción y cerrar sin publicación automática.

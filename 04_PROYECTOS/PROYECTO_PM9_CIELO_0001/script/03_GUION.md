@@ -2,14 +2,16 @@
 
 ## Hook
 
-¿Por qué el cielo azul se vuelve rojo al atardecer?
+Mira este cambio: el mismo Sol pinta el cielo de azul al mediodía y de rojo al atardecer. ¿Qué está ocurriendo?
 
 ## Desarrollo
 
-La luz solar contiene muchos colores. En la atmósfera, las moléculas dispersan con más fuerza las longitudes de onda cortas, como el azul, y por eso el cielo diurno se ve azul.
+La luz blanca contiene muchos colores. En la atmósfera encuentra moléculas diminutas que desvían parte de esa luz en todas direcciones.
 
-Cuando el Sol está bajo, la luz atraviesa más aire. Gran parte del azul se dispersa fuera de tu mirada y predominan rojos y naranjas.
+Los colores no se dispersan igual. Las ondas cortas, como el azul, se desvían mucho más y colorean el cielo diurno.
+
+Al caer el Sol, su luz cruza mucha más atmósfera. En ese trayecto largo, casi todo el azul se dispersa primero.
 
 ## Llamado a la acción
 
-La próxima vez que veas un atardecer, recuerda: estás mirando la luz recorrer más atmósfera.
+Por eso llegan hasta tus ojos sobre todo rojos y naranjas. El atardecer solo cambia el camino que esa luz recorre.

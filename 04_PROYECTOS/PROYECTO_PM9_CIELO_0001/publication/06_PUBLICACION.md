@@ -2,9 +2,9 @@
 
 **Título:** ¿Por qué el cielo azul se vuelve rojo al atardecer?
 
-**Descripción:** Una explicación breve de la dispersión de la luz en la atmósfera y de por qué cambian los colores cuando el Sol se acerca al horizonte.
+**Descripción:** Una explicación visual de la dispersión de la luz en la atmósfera y de por qué el mismo Sol puede pintar el cielo de azul al mediodía y de rojo al atardecer.
 
-**Llamado a la acción:** La próxima vez que veas un atardecer, recuerda que estás mirando la luz recorrer más atmósfera.
+**Llamado a la acción:** La próxima vez que veas un atardecer, recuerda que el color revela el largo camino de la luz por la atmósfera.
 
 ## Créditos y control de salida
 

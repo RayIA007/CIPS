@@ -4,14 +4,21 @@
   "asset_types_by_sequence": {
     "1": "stock_image",
     "2": "stock_image",
-    "3": "stock_image"
+    "3": "stock_image",
+    "4": "stock_image",
+    "5": "stock_image"
   },
   "existing_asset_ids_by_sequence": {},
   "stock_queries_by_sequence": {
-    "1": "blue sky daylight",
-    "2": "sunset vs noon",
-    "3": "red sunset landscape horizon"
+    "1": "blue sky sunset comparison horizon",
+    "2": "visible light spectrum sunlight colors",
+    "3": "Rayleigh scattering blue sky diagram",
+    "4": "sunset vs noon atmosphere diagram",
+    "5": "dramatic red orange sunset landscape"
   },
+  "on_screen_text_mode": "captions_only",
+  "json2video_music_volume": 0.32,
+  "json2video_sound_effect_gain": 1.4,
   "catalog_relative_path": "source_assets/automated_asset_catalog.json",
   "assets_root_relative_path": "source_assets",
   "seed_catalog_relative_path": "source_assets/asset_catalog.json",

@@ -34,6 +34,7 @@ from .catalog import ApprovedAssetCatalog, CatalogEntry
 
 PIPER_PACKAGE_VERSION = "1.7.0"
 PIPER_VOICE_ID = "es_MX-claude-high"
+PIPER_SENTENCE_SILENCE_SECONDS = 0.12
 PIPER_MODEL_CARD_URL = (
     "https://huggingface.co/rhasspy/piper-voices/blob/main/"
     "es/es_MX/claude/high/MODEL_CARD"
@@ -403,6 +404,8 @@ class PM9SourceAssetBuilder:
                 str(model_path),
                 "-f",
                 str(raw_path),
+                "--sentence-silence",
+                _decimal(PIPER_SENTENCE_SILENCE_SECONDS),
                 "--",
                 text,
             )
@@ -442,7 +445,7 @@ class PM9SourceAssetBuilder:
                 "highpass=f=45",
                 "lowpass=f=9000",
                 "loudnorm=I=-16.5:TP=-2:LRA=5",
-                "afade=t=in:st=0:d=0.25",
+                "afade=t=in:st=0:d=0.08",
                 f"afade=t=out:st={_decimal(max(0.0, duration - 0.7))}:d=0.7",
             ),
         )
@@ -463,7 +466,7 @@ class PM9SourceAssetBuilder:
         self._encode_mp3(
             raw_path,
             destination,
-            filters=("highpass=f=45", "loudnorm=I=-19:TP=-2:LRA=4"),
+            filters=("highpass=f=45", "loudnorm=I=-16:TP=-2:LRA=4"),
         )
         return destination
 
@@ -711,6 +714,7 @@ class PM9SourceAssetBuilder:
                 "package_version": PIPER_PACKAGE_VERSION,
                 "model": PIPER_VOICE_ID,
                 "locale": "es-MX",
+                "sentence_silence_seconds": PIPER_SENTENCE_SILENCE_SECONDS,
                 "model_card_url": PIPER_MODEL_CARD_URL,
                 "dataset_license": "Apache-2.0",
             },
@@ -1011,6 +1015,7 @@ __all__ = [
     "CATALOG_FILENAME",
     "DeliveryVerificationResult",
     "PIPER_PACKAGE_VERSION",
+    "PIPER_SENTENCE_SILENCE_SECONDS",
     "PIPER_VOICE_ID",
     "PM9SourceAssetBuilder",
     "SourceAssetBuildError",

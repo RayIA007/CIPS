@@ -66,13 +66,22 @@ def _mp4_response() -> JSON2VideoHttpResponse:
     )
 
 
-def _json2video_prepare(tmp_path: Path):
+def _json2video_prepare(
+    tmp_path: Path,
+    *,
+    music_volume_ceiling: float = 0.2,
+    sound_effect_gain: float = 1.0,
+):
     project, _, acceptance, planned = _environment(tmp_path)
     prepared = acceptance.prepare(
         project,
         asset_types_by_sequence=ASSET_TYPES,
         existing_asset_ids_by_sequence=EXISTING_IDS,
-        adapter_factory=lambda bundle: JSON2VideoAdapter(resolved_assets=bundle),
+        adapter_factory=lambda bundle: JSON2VideoAdapter(
+            resolved_assets=bundle,
+            music_volume_ceiling=music_volume_ceiling,
+            sound_effect_gain=sound_effect_gain,
+        ),
         payload_relative_path=Path("render") / "json2video_payload.json",
     )
     return project, acceptance, planned, prepared
@@ -132,6 +141,55 @@ def test_adapter_compiles_full_hd_movie_with_physical_media_and_inline_srt(
     assert len(subtitles) == 1
     assert "00:00:00,000 -->" in subtitles[0]["captions"]
     assert estimate_json2video_credits(planned.output.duration_seconds) == 46
+
+
+def test_adapter_applies_audible_project_mix_from_the_first_frame(
+    tmp_path: Path,
+) -> None:
+    _, _, _, prepared = _json2video_prepare(
+        tmp_path,
+        music_volume_ceiling=0.32,
+        sound_effect_gain=1.4,
+    )
+
+    music = next(
+        element
+        for element in prepared.plan.target_payload["elements"]
+        if element.get("id") == "background-music"
+    )
+    effects = [
+        element
+        for scene in prepared.plan.target_payload["scenes"]
+        for element in scene["elements"]
+        if str(element.get("id", "")).startswith("sfx-")
+    ]
+
+    assert music["start"] == 0
+    assert music["volume"] == 0.32
+    assert [effect["volume"] for effect in effects] == pytest.approx(
+        [0.77, 0.49, 0.49, 0.63]
+    )
+
+
+@pytest.mark.parametrize(
+    ("keyword", "value"),
+    [
+        ("music_volume_ceiling", 1.1),
+        ("sound_effect_gain", -0.1),
+    ],
+)
+def test_adapter_rejects_out_of_range_mix_values(
+    tmp_path: Path,
+    keyword: str,
+    value: float,
+) -> None:
+    _, _, _, prepared = _json2video_prepare(tmp_path)
+
+    with pytest.raises(ValueError, match=keyword):
+        JSON2VideoAdapter(
+            resolved_assets=prepared.asset_run.bundle,
+            **{keyword: value},
+        )
 
 
 def test_json2video_render_gate_requires_explicit_46_credit_authorization(
