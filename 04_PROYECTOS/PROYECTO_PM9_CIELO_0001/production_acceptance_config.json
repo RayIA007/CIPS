@@ -9,8 +9,8 @@
   "existing_asset_ids_by_sequence": {},
   "stock_queries_by_sequence": {
     "1": "blue sky daylight",
-    "2": "Rayleigh scattering diagram",
-    "3": "red sunset horizon"
+    "2": "sunset vs noon",
+    "3": "red sunset landscape horizon"
   },
   "catalog_relative_path": "source_assets/automated_asset_catalog.json",
   "assets_root_relative_path": "source_assets",

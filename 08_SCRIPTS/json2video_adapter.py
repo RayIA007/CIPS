@@ -221,7 +221,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             "type": element_type,
             "src": asset.delivery_uri,
             "duration": -2,
-            "resize": "cover",
+            "resize": _visual_resize(asset.metadata),
             "position": "center-center",
         }
         if element_type == "video":
@@ -561,6 +561,13 @@ def _element_fade(transition: TransitionSpec) -> int | float:
     if transition.kind is TransitionKind.CUT:
         return 0
     return _json_number(transition.duration_seconds)
+
+
+def _visual_resize(metadata: Mapping[str, Any]) -> str:
+    requested = str(metadata.get("recommended_resize") or "").strip().casefold()
+    if requested == "contain":
+        return "contain"
+    return "cover"
 
 
 def _compile_motion(scene: SceneSpec) -> list[dict[str, Any]]:

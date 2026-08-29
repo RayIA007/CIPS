@@ -27,6 +27,8 @@ _SUPPORTED_MIME_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
 }
+_SVG_MIME_TYPE = "image/svg+xml"
+_SVG_THUMBNAIL_WIDTH = 1280
 _ALLOWED_LICENSE_MARKERS = (
     "cc by",
     "cc0",
@@ -159,7 +161,10 @@ class WikimediaCommonsProvider(MediaProvider):
                 if len(content) > self.max_download_bytes:
                     raise ValueError("La imagen excede max_download_bytes.")
                 width, height = image_dimensions(content, contract["mime_type"])
-                if width != contract["width"] or height != contract["height"]:
+                if (
+                    not contract["rasterized_thumbnail"]
+                    and (width != contract["width"] or height != contract["height"])
+                ):
                     raise ValueError(
                         "Las dimensiones físicas no coinciden con Wikimedia."
                     )
@@ -185,9 +190,16 @@ class WikimediaCommonsProvider(MediaProvider):
                         "height_px": height,
                         "license_name": contract["license_name"],
                         "license_url": contract["license_url"],
+                        "original_height_px": contract["original_height"],
+                        "original_width_px": contract["original_width"],
                         "page_id": contract["page_id"],
                         "prompt_permitted": query,
+                        "rasterized_thumbnail": contract["rasterized_thumbnail"],
+                        "recommended_resize": contract["recommended_resize"],
                         "selected_title": contract["title"],
+                        "source_delivery_uri": contract["source_delivery_uri"],
+                        "source_mediatype": contract["source_mediatype"],
+                        "source_mime_type": contract["source_mime_type"],
                         "source_url": contract["source_url"],
                         "stock_query": query,
                         "width_px": width,
@@ -221,10 +233,11 @@ class WikimediaCommonsProvider(MediaProvider):
             "formatversion": "2",
             "generator": "search",
             "gsrnamespace": "6",
-            "gsrsearch": f"{query} filetype:bitmap",
+            "gsrsearch": query,
             "gsrlimit": str(self.search_limit),
             "prop": "imageinfo",
             "iiprop": "url|mime|size|mediatype|extmetadata",
+            "iiurlwidth": str(_SVG_THUMBNAIL_WIDTH),
             "iiextmetadatalanguage": "en",
             "iiextmetadatafilter": (
                 "Artist|Credit|LicenseShortName|LicenseUrl|UsageTerms"
@@ -378,25 +391,54 @@ def _candidate_contract(candidate: Mapping[str, Any]) -> dict[str, Any] | str:
     info = imageinfo[0]
     if not isinstance(info, Mapping):
         return "imageinfo_invalido"
-    mime_type = str(info.get("mime") or "").strip().lower()
-    extension = _SUPPORTED_MIME_TYPES.get(mime_type)
-    if extension is None:
-        return "mime_no_soportado"
-    if str(info.get("mediatype") or "").strip().upper() != "BITMAP":
-        return "mediatype_no_bitmap"
+    source_mime_type = str(info.get("mime") or "").strip().lower()
+    source_mediatype = str(info.get("mediatype") or "").strip().upper()
     try:
-        width = int(info.get("width"))
-        height = int(info.get("height"))
+        original_width = int(info.get("width"))
+        original_height = int(info.get("height"))
         page_id = int(candidate.get("pageid"))
     except (TypeError, ValueError):
         return "dimensiones_o_pageid_invalidos"
-    if width < 1 or height < 1:
+    if original_width < 1 or original_height < 1:
         return "dimensiones_invalidas"
+
+    rasterized_thumbnail = False
+    recommended_resize = "cover"
+    if (
+        source_mime_type in _SUPPORTED_MIME_TYPES
+        and source_mediatype == "BITMAP"
+    ):
+        mime_type = source_mime_type
+        extension = _SUPPORTED_MIME_TYPES[mime_type]
+        width = original_width
+        height = original_height
+        delivery_value = info.get("url")
+    elif source_mime_type == _SVG_MIME_TYPE and source_mediatype == "DRAWING":
+        try:
+            width = int(info.get("thumbwidth"))
+            height = int(info.get("thumbheight"))
+        except (TypeError, ValueError):
+            return "miniatura_svg_invalida"
+        if width < 1 or height < 1:
+            return "miniatura_svg_invalida"
+        mime_type = "image/png"
+        extension = ".png"
+        delivery_value = info.get("thumburl")
+        rasterized_thumbnail = True
+        recommended_resize = "contain"
+    else:
+        return "mime_o_mediatype_no_soportado"
+
     try:
         delivery_uri = _validated_https_url(
-            info.get("url"),
+            delivery_value,
             allowed_hosts={"upload.wikimedia.org"},
             label="delivery_uri",
+        )
+        source_delivery_uri = _validated_https_url(
+            info.get("url"),
+            allowed_hosts={"upload.wikimedia.org"},
+            label="source_delivery_uri",
         )
         source_url = _validated_https_url(
             info.get("descriptionurl"),
@@ -448,7 +490,14 @@ def _candidate_contract(candidate: Mapping[str, Any]) -> dict[str, Any] | str:
         "license_name": license_name,
         "license_url": license_url,
         "mime_type": mime_type,
+        "original_height": original_height,
+        "original_width": original_width,
         "page_id": page_id,
+        "rasterized_thumbnail": rasterized_thumbnail,
+        "recommended_resize": recommended_resize,
+        "source_delivery_uri": source_delivery_uri,
+        "source_mediatype": source_mediatype,
+        "source_mime_type": source_mime_type,
         "source_url": source_url,
         "title": title,
         "width": width,

@@ -46,7 +46,16 @@ def _fresh_environment(tmp_path: Path):
     projects_root.mkdir()
     outputs_root.mkdir()
     project = projects_root / FRESH_PROJECT.name
-    shutil.copytree(FRESH_PROJECT, project)
+    shutil.copytree(
+        FRESH_PROJECT,
+        project,
+        ignore=shutil.ignore_patterns(
+            "acceptance",
+            "final",
+            "source_assets",
+            "video",
+        ),
+    )
     workspace = WorkspaceResolver(projects_root, outputs_root)
     config = pm9_cli._load_project_config(project)
     compiled = ProductionManifestCompiler(workspace_resolver=workspace).compile(project)
@@ -141,11 +150,30 @@ def _wikimedia_provider() -> WikimediaCommonsProvider:
         call_index += 1
         width = 1280 + call_index
         height = 720 + call_index
-        file_url = (
+        source_url = (
             "https://upload.wikimedia.org/wikipedia/commons/"
             f"pm9-fresh-{call_index}.png"
         )
-        content_by_url[file_url] = _png(
+        delivery_url = source_url
+        title = f"File:PM9 fresh {call_index}.png"
+        mime_type = "image/png"
+        mediatype = "BITMAP"
+        thumbnail_fields = {}
+        if call_index == 2:
+            source_url = (
+                "https://upload.wikimedia.org/wikipedia/commons/"
+                "pm9-fresh-diagram.svg"
+            )
+            delivery_url = f"{source_url}/1280px-pm9-fresh-diagram.svg.png"
+            title = "File:PM9 fresh diagram.svg"
+            mime_type = "image/svg+xml"
+            mediatype = "DRAWING"
+            thumbnail_fields = {
+                "thumburl": delivery_url,
+                "thumbwidth": width,
+                "thumbheight": height + 3,
+            }
+        content_by_url[delivery_url] = _png(
             width,
             height,
             f"fresh-{call_index}".encode(),
@@ -157,19 +185,19 @@ def _wikimedia_provider() -> WikimediaCommonsProvider:
                     {
                         "pageid": 9000 + call_index,
                         "index": 1,
-                        "title": f"File:PM9 fresh {call_index}.png",
+                        "title": title,
                         "imageinfo": [
                             {
-                                "url": file_url,
+                                "url": source_url,
                                 "descriptionurl": (
                                     "https://commons.wikimedia.org/wiki/"
                                     f"File:PM9_fresh_{call_index}.png"
                                 ),
-                                "mime": "image/png",
-                                "mediatype": "BITMAP",
+                                "mime": mime_type,
+                                "mediatype": mediatype,
                                 "width": width,
                                 "height": height,
-                                "size": len(content_by_url[file_url]),
+                                "size": len(content_by_url[delivery_url]),
                                 "extmetadata": {
                                     "LicenseShortName": {"value": "CC BY-SA 4.0"},
                                     "LicenseUrl": {
@@ -182,6 +210,7 @@ def _wikimedia_provider() -> WikimediaCommonsProvider:
                                     "Credit": {"value": "Wikimedia Commons"},
                                     "UsageTerms": {"value": "CC BY-SA 4.0"},
                                 },
+                                **thumbnail_fields,
                             }
                         ],
                     }
@@ -211,8 +240,8 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
     )
     assert config["stock_queries_by_sequence"] == {
         1: "blue sky daylight",
-        2: "Rayleigh scattering diagram",
-        3: "red sunset horizon",
+        2: "sunset vs noon",
+        3: "red sunset landscape horizon",
     }
     assert len(planned.source_references) == 7
     assert all(
@@ -328,6 +357,15 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     assert prepared.evidence.total_actual_cost_usd == 0.0
     assert prepared.evidence.unknown_cost_count == 0
     assert len(prepared.plan.target_payload["scenes"]) == 3
+    visual_resize = [
+        next(
+            element["resize"]
+            for element in scene["elements"]
+            if element["type"] == "image"
+        )
+        for scene in prepared.plan.target_payload["scenes"]
+    ]
+    assert visual_resize == ["cover", "contain", "cover"]
     assert prepared.plan.target_payload["fps"] == 30
     assert prepared.plan.target_payload["client-data"]["publication_performed"] is False
     assert not (project / "final").exists()
