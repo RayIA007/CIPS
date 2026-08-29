@@ -103,7 +103,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
     """Compile a CIPS manifest to a directly submittable Movie JSON body."""
 
     adapter_name = "JSON2VideoAdapter"
-    adapter_version = "1.3"
+    adapter_version = "1.4"
     target_id = "json2video.movie"
 
     def __init__(
@@ -357,6 +357,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             "id": f"narration-{scene.sequence:03d}",
             "type": "audio",
             "src": asset.delivery_uri,
+            "cache": False,
             "start": 0,
             "duration": -2,
             "volume": _db_to_multiplier(manifest.audio_design.voice_gain_db),
@@ -376,6 +377,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
                 "id": effect.cue_id,
                 "type": "audio",
                 "src": asset.delivery_uri,
+                "cache": False,
                 "start": _json_number(effect.start_offset_seconds),
                 "volume": _json_number(
                     max(
@@ -407,6 +409,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             "id": "background-music",
             "type": "audio",
             "src": asset.delivery_uri,
+            "cache": False,
             "start": _json_number(music.start_seconds),
             "duration": rendered_duration,
             "loop": -1,

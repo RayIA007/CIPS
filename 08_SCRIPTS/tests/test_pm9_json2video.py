@@ -139,6 +139,11 @@ def test_adapter_compiles_full_hd_movie_with_physical_media_and_inline_srt(
         if element["type"] == "audio"
     )
     assert all(item["src"].startswith("https://cdn.example.test/") for item in media)
+    assert all(
+        item["cache"] is False
+        for item in media
+        if item["type"] == "audio"
+    )
     subtitles = [
         element for element in payload["elements"] if element["type"] == "subtitles"
     ]

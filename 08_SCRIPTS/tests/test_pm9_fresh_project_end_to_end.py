@@ -490,6 +490,19 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         if str(element.get("id", "")).startswith("sfx-")
     ]
     assert sound_effect_volumes == pytest.approx([0.77, 0.49, 0.49, 0.49, 0.63])
+    audio_elements = [
+        element
+        for scene in prepared.plan.target_payload["scenes"]
+        for element in scene["elements"]
+        if element["type"] == "audio"
+    ]
+    audio_elements.extend(
+        element
+        for element in prepared.plan.target_payload["elements"]
+        if element["type"] == "audio"
+    )
+    assert len(audio_elements) == 11
+    assert all(element["cache"] is False for element in audio_elements)
     subtitles = next(
         element
         for element in prepared.plan.target_payload["elements"]
