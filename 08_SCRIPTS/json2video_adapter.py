@@ -61,6 +61,20 @@ _IMAGE_ASSET_TYPES = {
 }
 _VIDEO_ASSET_TYPES = {AssetType.AI_VIDEO, AssetType.STOCK_VIDEO}
 _ALLOWED_ELEMENT_TYPES = {"audio", "image", "subtitles", "text", "video"}
+_SUBTITLE_MODES = {"inline_srt", "automatic_whisper"}
+_DIAGRAM_HINTS = (
+    "diagram",
+    "diagrama",
+    "drawing",
+    "esquema",
+    "illustration",
+    "ilustracion",
+    "ilustración",
+    "infographic",
+    "infografia",
+    "infografía",
+    "schematic",
+)
 _TIMING_TOLERANCE = 1e-6
 
 
@@ -89,7 +103,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
     """Compile a CIPS manifest to a directly submittable Movie JSON body."""
 
     adapter_name = "JSON2VideoAdapter"
-    adapter_version = "1.2"
+    adapter_version = "1.3"
     target_id = "json2video.movie"
 
     def __init__(
@@ -99,6 +113,8 @@ class JSON2VideoAdapter(RenderTargetAdapter):
         capabilities: RenderTargetCapabilities | None = None,
         music_volume_ceiling: float = 0.2,
         sound_effect_gain: float = 1.0,
+        subtitle_mode: str = "inline_srt",
+        ambient_diagram_background: bool = False,
     ) -> None:
         if not isinstance(resolved_assets, AssetResolutionBundle):
             raise TypeError("resolved_assets debe ser AssetResolutionBundle.")
@@ -113,6 +129,15 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             label="sound_effect_gain",
             maximum=4.0,
         )
+        normalized_subtitle_mode = str(subtitle_mode).strip().casefold()
+        if normalized_subtitle_mode not in _SUBTITLE_MODES:
+            raise ValueError(
+                "subtitle_mode debe ser inline_srt o automatic_whisper."
+            )
+        if not isinstance(ambient_diagram_background, bool):
+            raise TypeError("ambient_diagram_background debe ser booleano.")
+        self._subtitle_mode = normalized_subtitle_mode
+        self._ambient_diagram_background = ambient_diagram_background
         super().__init__(capabilities=capabilities or json2video_capabilities())
 
     @property
@@ -190,7 +215,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
         manifest: ProductionManifest,
         scene: SceneSpec,
     ) -> dict[str, Any]:
-        elements = [self._compile_visual(scene)]
+        elements = self._compile_visual_layers(scene)
         elements.extend(self._compile_on_screen_text(manifest, scene))
         narration = self._compile_narration(manifest, scene)
         if narration is not None:
@@ -205,6 +230,57 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             "elements": elements,
         }
         return rendered
+
+    def _compile_visual_layers(self, scene: SceneSpec) -> list[dict[str, Any]]:
+        primary = self._compile_visual(scene)
+        if (
+            not self._ambient_diagram_background
+            or primary["type"] != "image"
+            or not self._is_diagram_visual(scene)
+        ):
+            return [primary]
+
+        foreground = dict(primary)
+        foreground["resize"] = "contain"
+        foreground["z-index"] = 1
+        background: dict[str, Any] = {
+            "id": f"visual-{scene.sequence:03d}-ambient",
+            "type": "image",
+            "src": primary["src"],
+            "duration": -2,
+            "resize": "cover",
+            "position": "center-center",
+            "z-index": -1,
+            "correction": {
+                "brightness": -0.58,
+                "contrast": 0.9,
+                "saturation": 0.65,
+            },
+        }
+        for key in ("fade-in", "fade-out"):
+            if key in primary:
+                background[key] = primary[key]
+        return [background, foreground]
+
+    def _is_diagram_visual(self, scene: SceneSpec) -> bool:
+        asset = self._persisted_asset("scene_visual", scene.scene_id)
+        metadata = asset.metadata
+        if str(metadata.get("source_mediatype") or "").upper() == "DRAWING":
+            return True
+        if _visual_resize(metadata) == "contain":
+            return True
+        request = scene.asset_request
+        semantic_text = " ".join(
+            str(value or "")
+            for value in (
+                request.creative_brief,
+                request.image_prompt,
+                request.stock_query,
+                metadata.get("prompt_permitted"),
+                metadata.get("stock_query"),
+            )
+        ).casefold()
+        return any(hint in semantic_text for hint in _DIAGRAM_HINTS)
 
     def _compile_visual(self, scene: SceneSpec) -> dict[str, Any]:
         asset = self._persisted_asset("scene_visual", scene.scene_id)
@@ -348,17 +424,12 @@ class JSON2VideoAdapter(RenderTargetAdapter):
     ) -> dict[str, Any] | None:
         if not any(scene.captions is not None for scene in manifest.scenes):
             return None
-        captions = _render_srt(manifest)
-        if not captions:
-            return None
         safe_bottom = int(
             round(manifest.output.height_px * (1.0 - manifest.output.safe_area.bottom))
         )
-        return {
+        element: dict[str, Any] = {
             "type": "subtitles",
-            "captions": captions,
             "language": "es-419",
-            "comment": "Deterministic inline SRT from the approved CIPS narration",
             "settings": {
                 "style": "classic",
                 "font-family": "Montserrat",
@@ -376,6 +447,26 @@ class JSON2VideoAdapter(RenderTargetAdapter):
                 "y": safe_bottom - 120,
             },
         }
+        if self._subtitle_mode == "automatic_whisper":
+            element.update(
+                {
+                    "model": "whisper",
+                    "comment": (
+                        "Audio-synchronized Spanish transcription from the final mix"
+                    ),
+                }
+            )
+            return element
+        captions = _render_srt(manifest)
+        if not captions:
+            return None
+        element.update(
+            {
+                "captions": captions,
+                "comment": "Deterministic inline SRT from the approved CIPS narration",
+            }
+        )
+        return element
 
     def _persisted_asset(self, role: str, identity: str):
         try:
@@ -501,7 +592,18 @@ def validate_json2video_payload(
         raise RenderCompilationError("JSON2Video acepta un solo elemento subtitles.")
     if subtitles:
         captions = subtitles[0].get("captions")
-        if not isinstance(captions, str) or " --> " not in captions:
+        if captions is None:
+            language = subtitles[0].get("language")
+            model = subtitles[0].get("model")
+            if not isinstance(language, str) or not language.strip():
+                raise RenderCompilationError(
+                    "Los subtítulos automáticos requieren language."
+                )
+            if model not in {"default", "whisper"}:
+                raise RenderCompilationError(
+                    "Los subtítulos automáticos requieren model válido."
+                )
+        elif not isinstance(captions, str) or " --> " not in captions:
             raise RenderCompilationError("subtitles.captions debe contener SRT inline.")
     try:
         json.dumps(normalized, ensure_ascii=False, allow_nan=False)

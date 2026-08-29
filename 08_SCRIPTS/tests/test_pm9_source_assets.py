@@ -193,7 +193,7 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     ]
     assert narration_calls
     assert all(
-        command[command.index("--sentence-silence") + 1] == "0.12"
+        command[command.index("--sentence-silence") + 1] == "0"
         for command in narration_calls
     )
     ffmpeg_filters = [

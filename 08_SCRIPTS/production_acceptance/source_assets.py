@@ -34,7 +34,7 @@ from .catalog import ApprovedAssetCatalog, CatalogEntry
 
 PIPER_PACKAGE_VERSION = "1.7.0"
 PIPER_VOICE_ID = "es_MX-claude-high"
-PIPER_SENTENCE_SILENCE_SECONDS = 0.12
+PIPER_SENTENCE_SILENCE_SECONDS = 0.0
 PIPER_MODEL_CARD_URL = (
     "https://huggingface.co/rhasspy/piper-voices/blob/main/"
     "es/es_MX/claude/high/MODEL_CARD"
@@ -235,6 +235,9 @@ class PM9SourceAssetBuilder:
                 report.get("manifest_id") != self.manifest.manifest_id
                 or report.get("delivery_base_uri") != self.delivery_base_uri
                 or len(catalog.entries) != self._expected_local_entry_count()
+                or not isinstance(report.get("voice"), Mapping)
+                or report["voice"].get("sentence_silence_seconds")
+                != PIPER_SENTENCE_SILENCE_SECONDS
             ):
                 return None
             for entry in catalog.entries:

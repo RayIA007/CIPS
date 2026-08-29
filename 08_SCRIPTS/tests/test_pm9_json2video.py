@@ -26,7 +26,7 @@ from json2video_api import (  # noqa: E402
     JSON2VideoTransportError,
 )
 from production_acceptance import ProductionAcceptanceBlockedError  # noqa: E402
-from render_adapter import RenderStatus  # noqa: E402
+from render_adapter import RenderResult, RenderStatus  # noqa: E402
 import run_pm9_full_production_acceptance as pm9_cli  # noqa: E402
 from test_pm9_full_production_acceptance import (  # noqa: E402
     ASSET_TYPES,
@@ -71,6 +71,8 @@ def _json2video_prepare(
     *,
     music_volume_ceiling: float = 0.2,
     sound_effect_gain: float = 1.0,
+    subtitle_mode: str = "inline_srt",
+    ambient_diagram_background: bool = False,
 ):
     project, _, acceptance, planned = _environment(tmp_path)
     prepared = acceptance.prepare(
@@ -81,6 +83,8 @@ def _json2video_prepare(
             resolved_assets=bundle,
             music_volume_ceiling=music_volume_ceiling,
             sound_effect_gain=sound_effect_gain,
+            subtitle_mode=subtitle_mode,
+            ambient_diagram_background=ambient_diagram_background,
         ),
         payload_relative_path=Path("render") / "json2video_payload.json",
     )
@@ -171,11 +175,32 @@ def test_adapter_applies_audible_project_mix_from_the_first_frame(
     )
 
 
+def test_adapter_can_delegate_subtitle_timing_to_spanish_whisper(
+    tmp_path: Path,
+) -> None:
+    _, _, _, prepared = _json2video_prepare(
+        tmp_path,
+        subtitle_mode="automatic_whisper",
+    )
+
+    subtitles = next(
+        element
+        for element in prepared.plan.target_payload["elements"]
+        if element["type"] == "subtitles"
+    )
+
+    assert subtitles["language"] == "es-419"
+    assert subtitles["model"] == "whisper"
+    assert "captions" not in subtitles
+    assert "Audio-synchronized" in subtitles["comment"]
+
+
 @pytest.mark.parametrize(
     ("keyword", "value"),
     [
         ("music_volume_ceiling", 1.1),
         ("sound_effect_gain", -0.1),
+        ("subtitle_mode", "unknown"),
     ],
 )
 def test_adapter_rejects_out_of_range_mix_values(
@@ -190,6 +215,67 @@ def test_adapter_rejects_out_of_range_mix_values(
             resolved_assets=prepared.asset_run.bundle,
             **{keyword: value},
         )
+
+
+def test_json2video_render_uses_same_configured_submission_as_prepare(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, acceptance, _, prepared = _json2video_prepare(
+        tmp_path,
+        music_volume_ceiling=0.32,
+        sound_effect_gain=1.4,
+        subtitle_mode="automatic_whisper",
+        ambient_diagram_background=True,
+    )
+    config = {
+        "json2video_music_volume": 0.32,
+        "json2video_sound_effect_gain": 1.4,
+        "json2video_subtitle_mode": "automatic_whisper",
+        "json2video_ambient_diagram_background": True,
+    }
+    captured: dict[str, str] = {}
+
+    class FakeRenderService:
+        def __init__(self, *, adapter, **kwargs) -> None:
+            del kwargs
+            self.adapter = adapter
+
+        def execute(self, manifest, *, workspace_root):
+            del workspace_root
+            plan = self.adapter.compile(manifest)
+            submission = self.adapter.prepare_submission(plan)
+            captured["submission_id"] = submission.submission_id
+            return RenderResult(
+                job_id="rj-config-parity",
+                plan_id=plan.plan_id,
+                manifest_id=plan.manifest_id,
+                target_id=plan.target_id,
+                status=RenderStatus.SUCCEEDED,
+                output_artifact_ids=("render-config-parity",),
+                metadata={"credits_used": 46.0},
+            )
+
+    monkeypatch.setenv(pm9_cli.CONFIRMATION_ENV, pm9_cli.CONFIRMATION_VALUE)
+    monkeypatch.setattr(
+        pm9_cli.JSON2VideoApiConfig,
+        "from_environment",
+        lambda: object(),
+    )
+    monkeypatch.setattr(pm9_cli, "JSON2VideoApiClient", lambda config: config)
+    monkeypatch.setattr(pm9_cli, "JSON2VideoRenderService", FakeRenderService)
+
+    result = pm9_cli._render_command(
+        prepared,
+        acceptance,
+        max_credits=46,
+        provider="json2video",
+        config=config,
+    )
+
+    assert result == 0
+    assert captured["submission_id"] == prepared.submission.submission_id
+    assert (project / "render" / "json2video_result.json").is_file()
 
 
 def test_json2video_render_gate_requires_explicit_46_credit_authorization(

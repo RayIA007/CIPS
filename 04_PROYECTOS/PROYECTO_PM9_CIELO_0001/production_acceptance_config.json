@@ -19,6 +19,8 @@
   "on_screen_text_mode": "captions_only",
   "json2video_music_volume": 0.32,
   "json2video_sound_effect_gain": 1.4,
+  "json2video_subtitle_mode": "automatic_whisper",
+  "json2video_ambient_diagram_background": true,
   "catalog_relative_path": "source_assets/automated_asset_catalog.json",
   "assets_root_relative_path": "source_assets",
   "seed_catalog_relative_path": "source_assets/asset_catalog.json",

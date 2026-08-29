@@ -236,6 +236,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 acceptance,
                 max_credits=args.max_credits,
                 provider=args.provider,
+                config=config,
             )
         return _accept_command(prepared, acceptance, args, provider=args.provider)
     except (
@@ -334,6 +335,8 @@ def _load_project_config(
         "on_screen_text_mode",
         "json2video_music_volume",
         "json2video_sound_effect_gain",
+        "json2video_subtitle_mode",
+        "json2video_ambient_diagram_background",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -383,6 +386,20 @@ def _load_project_config(
         minimum=0.0,
         maximum=4.0,
     )
+    json2video_subtitle_mode = str(
+        raw.get("json2video_subtitle_mode", "inline_srt")
+    ).strip().casefold()
+    if json2video_subtitle_mode not in {"inline_srt", "automatic_whisper"}:
+        raise ValueError(
+            "json2video_subtitle_mode debe ser inline_srt o automatic_whisper."
+        )
+    json2video_ambient_diagram_background = raw.get(
+        "json2video_ambient_diagram_background", False
+    )
+    if not isinstance(json2video_ambient_diagram_background, bool):
+        raise ValueError(
+            "json2video_ambient_diagram_background debe ser booleano."
+        )
     return {
         "asset_types_by_sequence": asset_types,
         "existing_asset_ids_by_sequence": existing_ids,
@@ -394,6 +411,10 @@ def _load_project_config(
         "on_screen_text_mode": on_screen_text_mode,
         "json2video_music_volume": json2video_music_volume,
         "json2video_sound_effect_gain": json2video_sound_effect_gain,
+        "json2video_subtitle_mode": json2video_subtitle_mode,
+        "json2video_ambient_diagram_background": (
+            json2video_ambient_diagram_background
+        ),
     }
 
 
@@ -859,6 +880,14 @@ def _adapter_factory(provider: str, *, config: Mapping[str, Any] | None = None):
             sound_effect_gain=float(
                 project_config.get("json2video_sound_effect_gain", 1.0)
             ),
+            subtitle_mode=str(
+                project_config.get("json2video_subtitle_mode", "inline_srt")
+            ),
+            ambient_diagram_background=bool(
+                project_config.get(
+                    "json2video_ambient_diagram_background", False
+                )
+            ),
         )
     raise ValueError(f"Proveedor no soportado: {provider}.")
 
@@ -893,6 +922,7 @@ def _render_command(
     *,
     max_credits: int,
     provider: str = "creatomate",
+    config: Mapping[str, Any] | None = None,
 ) -> int:
     estimated = _estimated_credits(prepared.plan, provider)
     if os.environ.get(CONFIRMATION_ENV, "").strip() != CONFIRMATION_VALUE:
@@ -929,10 +959,15 @@ def _render_command(
         credential_source = CREATOMATE_API_KEY_ENV
     elif provider == "json2video":
         api_config = JSON2VideoApiConfig.from_environment()
+        render_adapter = _adapter_factory(
+            "json2video", config=config
+        )(prepared.asset_run.bundle)
+        if not isinstance(render_adapter, JSON2VideoAdapter):
+            raise TypeError("La fábrica JSON2Video devolvió un adapter inválido.")
         service = JSON2VideoRenderService(
             client=JSON2VideoApiClient(api_config),
             workspace_resolver=acceptance.workspace_resolver,
-            adapter=JSON2VideoAdapter(resolved_assets=prepared.asset_run.bundle),
+            adapter=render_adapter,
         )
         result = service.execute(
             prepared.manifest,

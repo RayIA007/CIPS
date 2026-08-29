@@ -261,6 +261,8 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
     assert config["on_screen_text_mode"] == "captions_only"
     assert config["json2video_music_volume"] == 0.32
     assert config["json2video_sound_effect_gain"] == 1.4
+    assert config["json2video_subtitle_mode"] == "automatic_whisper"
+    assert config["json2video_ambient_diagram_background"] is True
     assert len(planned.source_references) == 7
     assert all(
         len(reference.content_hash or "") == 64
@@ -423,6 +425,10 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
             resolved_assets=bundle,
             music_volume_ceiling=config["json2video_music_volume"],
             sound_effect_gain=config["json2video_sound_effect_gain"],
+            subtitle_mode=config["json2video_subtitle_mode"],
+            ambient_diagram_background=config[
+                "json2video_ambient_diagram_background"
+            ],
         ),
         payload_relative_path=Path("video/json2video/json2video_payload.json"),
     )
@@ -432,22 +438,38 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     assert prepared.evidence.total_actual_cost_usd == 0.0
     assert prepared.evidence.unknown_cost_count == 0
     assert len(prepared.plan.target_payload["scenes"]) == 5
-    visual_resize = [
+    primary_visuals = [
         next(
-            element["resize"]
+            element
             for element in scene["elements"]
-            if element["type"] == "image"
+            if element.get("id") == f"visual-{index:03d}"
         )
-        for scene in prepared.plan.target_payload["scenes"]
+        for index, scene in enumerate(
+            prepared.plan.target_payload["scenes"], start=1
+        )
     ]
-    assert visual_resize == ["cover", "contain", "cover", "cover", "cover"]
-    visual_sources = [
-        next(
-            element["src"]
-            for element in scene["elements"]
-            if element["type"] == "image"
-        )
+    assert [element["resize"] for element in primary_visuals] == [
+        "cover",
+        "contain",
+        "contain",
+        "contain",
+        "cover",
+    ]
+    ambient_layers = [
+        element
         for scene in prepared.plan.target_payload["scenes"]
+        for element in scene["elements"]
+        if str(element.get("id", "")).endswith("-ambient")
+    ]
+    assert [element["id"] for element in ambient_layers] == [
+        "visual-002-ambient",
+        "visual-003-ambient",
+        "visual-004-ambient",
+    ]
+    assert all(element["resize"] == "cover" for element in ambient_layers)
+    assert all(element["correction"]["brightness"] == -0.58 for element in ambient_layers)
+    visual_sources = [
+        element["src"] for element in primary_visuals
     ]
     assert all("raw.githubusercontent.com/example/CIPS/main" in source for source in visual_sources)
     assert all(
@@ -468,6 +490,14 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         if str(element.get("id", "")).startswith("sfx-")
     ]
     assert sound_effect_volumes == pytest.approx([0.77, 0.49, 0.49, 0.49, 0.63])
+    subtitles = next(
+        element
+        for element in prepared.plan.target_payload["elements"]
+        if element["type"] == "subtitles"
+    )
+    assert subtitles["model"] == "whisper"
+    assert subtitles["language"] == "es-419"
+    assert "captions" not in subtitles
     assert prepared.plan.target_payload["fps"] == 30
     assert prepared.plan.target_payload["client-data"]["publication_performed"] is False
     assert not (project / "final").exists()
