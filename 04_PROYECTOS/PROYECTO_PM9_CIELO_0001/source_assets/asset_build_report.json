@@ -1,7 +1,7 @@
 {
   "actual_cost_usd": 0.0,
   "build_profile": "generic_audio_seed",
-  "catalog_entry_count": 7,
+  "catalog_entry_count": 11,
   "delivery_base_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets",
   "files": {
     "background-music": {
@@ -9,39 +9,55 @@
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/background-music.mp3",
       "license_name": "Original CIPS procedural audio",
       "relative_path": "audio/background-music.mp3",
-      "sha256": "3611c19b364d8929cbd33fd9fd31c44ec2a847737aa7027b6ad9b0c728bbc771",
-      "size_bytes": 417068
+      "sha256": "4d8002371f082707c7a13ea8bac203efa18db44d81ff36f8a85ec8d29df0e7e2",
+      "size_bytes": 720812
     },
     "narration-001": {
       "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-001.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-001.mp3",
-      "sha256": "aba42ad37e963d5f7608e332d2c1a619443a95c30001d5431311b471225a8614",
-      "size_bytes": 137516
+      "sha256": "6c924ec48307736ca5c4faa39948b29a1a7def5520ba28f5f005f9f2b7e3c2f6",
+      "size_bytes": 140972
     },
     "narration-002": {
       "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-002.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-002.mp3",
-      "sha256": "41a38ebd039b45c80f7e11babaea30b0b1cc5bbf46b5b827d480ea9f22cc797e",
-      "size_bytes": 138668
+      "sha256": "00ef516db240167c21668eb56ba8fbf6cae0a472442b420636849f901c1e2bf3",
+      "size_bytes": 141356
     },
     "narration-003": {
       "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-003.mp3",
       "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
       "relative_path": "audio/narration-003.mp3",
-      "sha256": "55c4df609173bc249f56a7b764a92bd7dce59e958f0980d52800d476ea865622",
-      "size_bytes": 131372
+      "sha256": "a253bf2c8b5346c4281e8fef5453ba2c1eb361882f7df55d52e1be9895711f85",
+      "size_bytes": 141356
+    },
+    "narration-004": {
+      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-004.mp3",
+      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "relative_path": "audio/narration-004.mp3",
+      "sha256": "96f88688f1e9052754ca9ac1eba9d59d2b38f8e249d68c96c815b6a523d41435",
+      "size_bytes": 140588
+    },
+    "narration-005": {
+      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-005.mp3",
+      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "relative_path": "audio/narration-005.mp3",
+      "sha256": "04a0312a7d24d8c612f0c7010a14aaf6992a48dda657a69632e1098e5571345b",
+      "size_bytes": 141356
     },
     "sfx-001-hook": {
       "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
       "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/sfx-001-hook.mp3",
       "license_name": "Original CIPS procedural audio",
       "relative_path": "audio/sfx-001-hook.mp3",
-      "sha256": "4b521276a6244307d04f0fcd580bafde91552601b5bd7b2b91f6dec33956d7a9",
+      "sha256": "ba67935f4d3f36eebcc9c33fc0fd486f8d82076dd1e1c12003ed55293d109464",
       "size_bytes": 8876
     },
     "sfx-002-explanation": {
@@ -52,16 +68,32 @@
       "sha256": "02c66bd4bba40174f27322d00b8cf558a9e30df277438e217552e58b1d3622a1",
       "size_bytes": 8876
     },
-    "sfx-003-resolution": {
+    "sfx-003-explanation": {
       "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/sfx-003-resolution.mp3",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/sfx-003-explanation.mp3",
       "license_name": "Original CIPS procedural audio",
-      "relative_path": "audio/sfx-003-resolution.mp3",
+      "relative_path": "audio/sfx-003-explanation.mp3",
+      "sha256": "02c66bd4bba40174f27322d00b8cf558a9e30df277438e217552e58b1d3622a1",
+      "size_bytes": 8876
+    },
+    "sfx-004-explanation": {
+      "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/sfx-004-explanation.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/sfx-004-explanation.mp3",
+      "sha256": "02c66bd4bba40174f27322d00b8cf558a9e30df277438e217552e58b1d3622a1",
+      "size_bytes": 8876
+    },
+    "sfx-005-resolution": {
+      "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/sfx-005-resolution.mp3",
+      "license_name": "Original CIPS procedural audio",
+      "relative_path": "audio/sfx-005-resolution.mp3",
       "sha256": "c387508fa1da057d4ec76908ec9f24a4ec8f0f98a56ebe375e7578bc9c11680f",
       "size_bytes": 8876
     }
   },
-  "manifest_id": "pm-013cd76cf6ede4e8605f3a46",
+  "manifest_id": "pm-122693f89ab51d9225d777d7",
   "network_sources": [
     "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD"
   ],
@@ -76,6 +108,7 @@
     "locale": "es-MX",
     "model": "es_MX-claude-high",
     "model_card_url": "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD",
-    "package_version": "1.7.0"
+    "package_version": "1.7.0",
+    "sentence_silence_seconds": 0.12
   }
 }

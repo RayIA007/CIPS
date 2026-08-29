@@ -277,6 +277,33 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
     assert "https://www.nesdis.noaa.gov/" in research
 
 
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        (
+            "04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/"
+            "narration-005.mp3"
+        ),
+        (
+            "04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/"
+            "sfx-005-resolution.mp3"
+        ),
+        (
+            "04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/"
+            "image/scene_visual/future-scene.jpg"
+        ),
+    ],
+)
+def test_fresh_project_delivery_assets_are_not_gitignored(relative_path: str) -> None:
+    completed = subprocess.run(
+        ("git", "check-ignore", "-q", "--", relative_path),
+        cwd=REPOSITORY_ROOT,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+
+
 def test_generic_builder_creates_idempotent_audio_seed_without_curated_visuals(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

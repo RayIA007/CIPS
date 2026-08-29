@@ -45,6 +45,19 @@ env/
 !04_PROYECTOS/PROYECTO_PM9_CIELO_0001/verification/
 04_PROYECTOS/PROYECTO_PM9_CIELO_0001/verification/*
 !04_PROYECTOS/PROYECTO_PM9_CIELO_0001/verification/02_VERIFICACION.md
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/
+04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/*
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/asset_build_report.json
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/asset_catalog.json
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/
+04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/*
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/*.mp3
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/
+04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/*
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/image/
+04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/image/*
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/image/scene_visual/
+!04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/fulfilled/image/scene_visual/*
 
 # Outputs generados
 05_OUTPUTS/*
