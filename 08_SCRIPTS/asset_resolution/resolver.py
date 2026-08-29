@@ -127,6 +127,7 @@ class ManifestAssetResolver:
         allow_paid: bool = False,
         allow_unknown_cost: bool = False,
         preferred_providers: Mapping[str, str] | None = None,
+        cache_namespace: str | None = None,
     ) -> None:
         if not isinstance(capability_resolver, CapabilityResolver):
             raise TypeError("capability_resolver debe ser CapabilityResolver.")
@@ -145,6 +146,19 @@ class ManifestAssetResolver:
         }
         if any(not key or not value for key, value in self._preferred_providers.items()):
             raise ValueError("preferred_providers no acepta nombres vacíos.")
+        normalized_cache_namespace = str(cache_namespace or "").strip().lower()
+        if normalized_cache_namespace and (
+            len(normalized_cache_namespace) > 80
+            or not all(
+                character.isascii()
+                and (character.isalnum() or character == "-")
+                for character in normalized_cache_namespace
+            )
+        ):
+            raise ValueError(
+                "cache_namespace sólo acepta letras, números y guiones."
+            )
+        self._cache_namespace = normalized_cache_namespace or None
         self._persister = MediaArtifactPersister(workspace_resolver)
         self._metadata_store = MetadataStore(workspace_resolver)
 
@@ -515,14 +529,15 @@ class ManifestAssetResolver:
             cost_hint=cost_hint,
             preferred_provider=self._preferred_providers.get(capability),
         )
-        request_sha256 = deterministic_request_sha256(
-            {
-                "capability": capability,
-                "payload": provider_payload,
-                "quality_hint": quality_hint.value,
-                "cost_hint": cost_hint.value,
-            }
-        )
+        request_identity = {
+            "capability": capability,
+            "payload": provider_payload,
+            "quality_hint": quality_hint.value,
+            "cost_hint": cost_hint.value,
+        }
+        if self._cache_namespace is not None:
+            request_identity["cache_namespace"] = self._cache_namespace
+        request_sha256 = deterministic_request_sha256(request_identity)
         record_id = deterministic_record_id(
             request_sha256,
             selection.provider.provider_name,
@@ -713,17 +728,18 @@ class ManifestAssetResolver:
         status: ResolutionStatus,
         selected_from_alternative: bool,
     ) -> ResolvedAsset:
-        request_sha256 = deterministic_request_sha256(
-            {
-                "manifest_id": manifest.manifest_id,
-                "role": role.value,
-                "scene_id": scene_id,
-                "cue_id": cue_id,
-                "source_reference_ids": list(source_reference_ids),
-                "asset_type": asset_type,
-                "status": status.value,
-            }
-        )
+        request_identity = {
+            "manifest_id": manifest.manifest_id,
+            "role": role.value,
+            "scene_id": scene_id,
+            "cue_id": cue_id,
+            "source_reference_ids": list(source_reference_ids),
+            "asset_type": asset_type,
+            "status": status.value,
+        }
+        if self._cache_namespace is not None:
+            request_identity["cache_namespace"] = self._cache_namespace
+        request_sha256 = deterministic_request_sha256(request_identity)
         return ResolvedAsset(
             record_id=deterministic_record_id(request_sha256, None),
             request_sha256=request_sha256,
@@ -878,12 +894,15 @@ class ManifestAssetResolver:
                 safe[key] = value
         return safe
 
-    @staticmethod
     def _base_path(
+        self,
         manifest: ProductionManifest,
         manifest_sha256: str,
     ) -> Path:
-        return Path("asset_resolution") / manifest.manifest_id / manifest_sha256[:16]
+        base = Path("asset_resolution") / manifest.manifest_id / manifest_sha256[:16]
+        if self._cache_namespace is not None:
+            return base / self._cache_namespace
+        return base
 
     @staticmethod
     def _relative(path: Path, workspace: Path) -> str:

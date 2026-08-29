@@ -17,13 +17,17 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from asset_resolution import (  # noqa: E402
     ManifestAssetResolver,
+    MediaFamily,
     WikimediaCommonsProvider,
 )
 from capability_resolver import CapabilityResolver  # noqa: E402
 from json2video_adapter import JSON2VideoAdapter  # noqa: E402
 from media_provider_registry import MediaProviderRegistry  # noqa: E402
+from metadata_store import MetadataStore  # noqa: E402
 from production_acceptance import (  # noqa: E402
+    ApprovedAssetCatalog,
     ApprovedAssetCatalogProvider,
+    CatalogEntry,
     FullProductionAcceptance,
     PM9SourceAssetBuilder,
     VisualAssetFulfillmentService,
@@ -326,6 +330,10 @@ def test_generic_builder_creates_idempotent_audio_seed_without_curated_visuals(
     assert second.reused_existing is True
     assert second.generated_count == 0
     assert second.network_called is False
+    assert all(
+        "?content_sha256=" in entry.delivery_uri
+        for entry in first.catalog.entries
+    )
     report = json.loads(first.report_path.read_text(encoding="utf-8"))
     assert report["build_profile"] == "generic_audio_seed"
     assert report["catalog_entry_count"] == 11
@@ -333,6 +341,75 @@ def test_generic_builder_creates_idempotent_audio_seed_without_curated_visuals(
     assert report["paid_provider_called"] is False
     assert report["publication_performed"] is False
     assert "source_photo_sha256" not in report
+
+
+def test_audio_rebuild_refreshes_combined_catalog_without_replacing_visuals(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, outputs_root, workspace, config, planned = _fresh_environment(tmp_path)
+    _, seed = _build_audio_seed(
+        project,
+        outputs_root,
+        planned,
+        monkeypatch,
+    )
+    visuals = tuple(
+        CatalogEntry(
+            entry_id=f"approved-visual-{scene.sequence}",
+            capability="stock_image_search",
+            role="scene_visual",
+            relative_path=f"fulfilled/visual-{scene.sequence}.jpg",
+            delivery_uri=(
+                f"https://cdn.example.test/visual-{scene.sequence}.jpg"
+            ),
+            mime_type="image/jpeg",
+            media_family=MediaFamily.IMAGE,
+            file_extension=".jpg",
+            scene_id=scene.scene_id,
+            source_url=f"https://source.example.test/visual-{scene.sequence}",
+            license_name="CC BY-SA 4.0",
+            attribution="Offline fixture",
+            actual_cost_usd=0.0,
+        )
+        for scene in planned.scenes
+    )
+    stale_audio = tuple(
+        entry.model_copy(update={"delivery_uri": entry.delivery_uri.split("?", 1)[0]})
+        for entry in seed.catalog.entries
+    )
+    combined_path = project / config["catalog_relative_path"]
+    stale_combined = ApprovedAssetCatalog(entries=(*visuals, *stale_audio))
+    MetadataStore(workspace).persist_metadata(
+        workspace_root=project,
+        relative_path=config["catalog_relative_path"],
+        content=stale_combined.model_dump(mode="json"),
+        artifact_type="fulfilled_asset_catalog",
+        artifact_id="fulfilled-catalog-stale-fixture",
+    )
+
+    refreshed_path = pm9_cli._refresh_fulfilled_catalog_from_seed(
+        project,
+        workspace,
+        config,
+        planned,
+        seed.catalog,
+        assets_root=seed.assets_root,
+    )
+
+    assert refreshed_path == combined_path.resolve()
+    refreshed = ApprovedAssetCatalog.load(combined_path)
+    assert tuple(
+        entry for entry in refreshed.entries if entry.role == "scene_visual"
+    ) == visuals
+    assert tuple(
+        entry for entry in refreshed.entries if entry.role != "scene_visual"
+    ) == seed.catalog.entries
+    assert all(
+        "?content_sha256=" in entry.delivery_uri
+        for entry in refreshed.entries
+        if entry.role != "scene_visual"
+    )
 
 
 def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
@@ -503,6 +580,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     )
     assert len(audio_elements) == 11
     assert all(element["cache"] is False for element in audio_elements)
+    assert all("?content_sha256=" in element["src"] for element in audio_elements)
     subtitles = next(
         element
         for element in prepared.plan.target_payload["elements"]

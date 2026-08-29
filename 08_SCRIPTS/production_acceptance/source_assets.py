@@ -5,8 +5,8 @@ providers.  Local Piper speech and procedural audio work for any compatible
 manifest.  The original plank-project visual recipe remains available only for
 that legacy acceptance fixture; fresh projects leave ``stock_image`` requests
 to the PM8 visual-fulfillment boundary instead of depending on curated files.
-The generated catalog contains stable public HTTPS delivery locations but
-never uploads or publishes anything itself.
+The generated catalog contains content-versioned public HTTPS delivery
+locations but never uploads or publishes anything itself.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import wave
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
-from urllib.parse import quote, urlsplit
+from urllib.parse import parse_qsl, quote, urlsplit
 from urllib.request import Request, urlopen
 
 from production_manifest import AssetType, ProductionManifest
@@ -52,6 +52,7 @@ WIKIMEDIA_LICENSE_URL = "https://creativecommons.org/licenses/by/2.0/"
 CATALOG_FILENAME = "asset_catalog.json"
 BUILD_REPORT_FILENAME = "asset_build_report.json"
 VERIFY_REPORT_RELATIVE_PATH = Path("acceptance") / "asset_delivery_verification.json"
+DELIVERY_URI_VERSION_PARAMETER = "content_sha256"
 
 
 class SourceAssetBuildError(RuntimeError):
@@ -247,6 +248,14 @@ class PM9SourceAssetBuilder:
                     return None
                 expected = report["files"][entry.entry_id]["sha256"]
                 if _sha256_path(path) != expected:
+                    return None
+                query = dict(
+                    parse_qsl(
+                        urlsplit(entry.delivery_uri).query,
+                        keep_blank_values=True,
+                    )
+                )
+                if query.get(DELIVERY_URI_VERSION_PARAMETER) != expected:
                     return None
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
             return None
@@ -661,12 +670,16 @@ class PM9SourceAssetBuilder:
         existing_asset_id: str | None = None,
     ) -> CatalogEntry:
         relative = path.resolve(strict=False).relative_to(self.assets_root).as_posix()
+        content_sha256 = _sha256_path(path)
         return CatalogEntry(
             entry_id=entry_id,
             capability=capability,
             role=role,
             relative_path=relative,
-            delivery_uri=f"{self.delivery_base_uri}/{_quote_path(relative)}",
+            delivery_uri=(
+                f"{self.delivery_base_uri}/{_quote_path(relative)}"
+                f"?{DELIVERY_URI_VERSION_PARAMETER}={content_sha256}"
+            ),
             mime_type=mime_type,
             media_family=media_family,
             file_extension=path.suffix.lower(),
@@ -704,6 +717,9 @@ class PM9SourceAssetBuilder:
             ),
             "catalog_entry_count": len(catalog.entries),
             "delivery_base_uri": self.delivery_base_uri,
+            "delivery_uri_versioning": (
+                f"{DELIVERY_URI_VERSION_PARAMETER}_query_v1"
+            ),
             "actual_cost_usd": 0.0,
             "paid_provider_called": False,
             "publication_performed": False,

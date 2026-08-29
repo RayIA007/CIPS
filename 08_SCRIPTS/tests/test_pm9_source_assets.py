@@ -6,6 +6,7 @@ import subprocess
 import sys
 import wave
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -174,6 +175,11 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     assert second.network_called is False
     assert second.reused_existing is True
     assert all(entry.actual_cost_usd == 0 for entry in first.catalog.entries)
+    assert all(
+        parse_qs(urlsplit(entry.delivery_uri).query).get("content_sha256")
+        == [source_assets._sha256_path(first.assets_root / entry.relative_path)]
+        for entry in first.catalog.entries
+    )
     assert {entry.role for entry in first.catalog.entries} == {
         "scene_visual",
         "scene_narration",
@@ -184,6 +190,7 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     assert report["actual_cost_usd"] == 0.0
     assert report["paid_provider_called"] is False
     assert report["publication_performed"] is False
+    assert report["delivery_uri_versioning"] == "content_sha256_query_v1"
     assert len(report["files"]) == 13
     assert any("piper.download_voices" in command for command in calls)
     narration_calls = [
@@ -203,6 +210,15 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     ]
     assert any("afade=t=in:st=0:d=0.08" in value for value in ffmpeg_filters)
     assert any("loudnorm=I=-16:TP=-2:LRA=4" in value for value in ffmpeg_filters)
+
+    stale_catalog = first.catalog.model_dump(mode="json")
+    for entry in stale_catalog["entries"]:
+        entry["delivery_uri"] = entry["delivery_uri"].split("?", 1)[0]
+    first.catalog_path.write_text(
+        json.dumps(stale_catalog, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    assert builder._reuse_existing() is None
 
 
 def test_verify_catalog_delivery_compares_exact_bytes(

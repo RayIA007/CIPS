@@ -485,6 +485,7 @@ def _acceptance_for(
     resolver = ManifestAssetResolver(
         capability_resolver=CapabilityResolver(MediaProviderRegistry([provider])),
         workspace_resolver=workspace,
+        cache_namespace=f"catalog-{_catalog_content_sha256(catalog)[:16]}",
     )
     return FullProductionAcceptance(
         workspace_resolver=workspace,
@@ -496,6 +497,73 @@ def _resolve_override(project: Path, override: Path | None, default: Path) -> Pa
     if override is not None:
         return override.expanduser().resolve(strict=False)
     return (project / default).resolve(strict=False)
+
+
+def _catalog_content_sha256(catalog: ApprovedAssetCatalog) -> str:
+    canonical = json.dumps(
+        catalog.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _refresh_fulfilled_catalog_from_seed(
+    project: Path,
+    workspace: WorkspaceResolver,
+    config: Mapping[str, Any],
+    manifest: ProductionManifest,
+    seed_catalog: ApprovedAssetCatalog,
+    *,
+    assets_root: Path,
+) -> Path | None:
+    """Replace stale nonvisual entries while preserving approved visuals."""
+
+    configured_assets_root = (
+        project / config["assets_root_relative_path"]
+    ).resolve(strict=False)
+    if assets_root.resolve(strict=False) != configured_assets_root:
+        return None
+    fulfilled_path = (
+        project / config["catalog_relative_path"]
+    ).resolve(strict=False)
+    seed_path = (assets_root / "asset_catalog.json").resolve(strict=False)
+    if fulfilled_path == seed_path or not fulfilled_path.is_file():
+        return None
+    if any(entry.role == "scene_visual" for entry in seed_catalog.entries):
+        return None
+
+    fulfilled = ApprovedAssetCatalog.load(fulfilled_path)
+    visuals = tuple(
+        entry for entry in fulfilled.entries if entry.role == "scene_visual"
+    )
+    expected_scene_ids = {scene.scene_id for scene in manifest.scenes}
+    visual_scene_ids = {entry.scene_id for entry in visuals}
+    if (
+        len(visuals) != len(expected_scene_ids)
+        or visual_scene_ids != expected_scene_ids
+    ):
+        return None
+
+    refreshed = ApprovedAssetCatalog(entries=(*visuals, *seed_catalog.entries))
+    digest = _catalog_content_sha256(refreshed)
+    relative_path = fulfilled_path.relative_to(project)
+    write = MetadataStore(workspace).persist_metadata(
+        workspace_root=project,
+        relative_path=relative_path,
+        content=refreshed.model_dump(mode="json"),
+        artifact_type="fulfilled_asset_catalog",
+        artifact_id=f"refreshed-fulfilled-catalog-{digest[:24]}",
+        metadata={
+            "manifest_id": manifest.manifest_id,
+            "entry_count": len(refreshed.entries),
+            "seed_catalog_sha256": _catalog_content_sha256(seed_catalog),
+        },
+        collision_policy=CollisionPolicy.REPLACE,
+    )
+    return Path(write.artifact.path).resolve(strict=False)
 
 
 def _inventory_command(
@@ -571,6 +639,14 @@ def _build_assets_command(
         delivery_base_uri=delivery_base,
     )
     result = builder.build(force=args.force)
+    refreshed_catalog_path = _refresh_fulfilled_catalog_from_seed(
+        project,
+        workspace,
+        config,
+        planned,
+        result.catalog,
+        assets_root=result.assets_root,
+    )
     _print_json(
         {
             "success": True,
@@ -584,6 +660,12 @@ def _build_assets_command(
             "catalog_entries": len(result.catalog.entries),
             "generated_count": result.generated_count,
             "reused_existing": result.reused_existing,
+            "fulfilled_catalog_refreshed": refreshed_catalog_path is not None,
+            "fulfilled_catalog_path": (
+                str(refreshed_catalog_path)
+                if refreshed_catalog_path is not None
+                else None
+            ),
             "actual_cost_usd": 0.0,
             "network_called": result.network_called,
             "paid_provider_called": False,
@@ -649,6 +731,7 @@ def _fulfill_assets_command(
         preferred_providers={
             "stock_image_search": wikimedia_provider.provider_name,
         },
+        cache_namespace=f"catalog-{_catalog_content_sha256(seed_catalog)[:16]}",
     )
     service = VisualAssetFulfillmentService(
         asset_resolver=resolver,

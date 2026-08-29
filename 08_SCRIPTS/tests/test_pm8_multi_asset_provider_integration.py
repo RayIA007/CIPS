@@ -176,6 +176,7 @@ def _resolver_stack(
     workspace_resolver: WorkspaceResolver,
     *,
     image_delivery: bool = True,
+    cache_namespace: str | None = None,
 ) -> tuple[ManifestAssetResolver, tuple[object, ...]]:
     existing_path = project_path / "source_existing.png"
     existing_path.write_bytes(b"\x89PNG\r\n\x1a\nexisting")
@@ -195,6 +196,7 @@ def _resolver_stack(
     resolver = ManifestAssetResolver(
         capability_resolver=CapabilityResolver(registry),
         workspace_resolver=workspace_resolver,
+        cache_namespace=cache_namespace,
     )
     return resolver, (image, stock, audio, existing)
 
@@ -249,6 +251,35 @@ def test_second_identical_resolution_reuses_bundle_without_provider_calls(
     assert second.resolved_count == 0
     assert second.reused_count == 10
     assert second.bundle == first.bundle
+    assert [len(provider.calls) for provider in providers] == call_counts
+
+
+def test_cache_namespace_invalidates_resolution_without_touching_old_bundle(
+    mixed_manifest: tuple[ProductionManifest, Path, WorkspaceResolver],
+) -> None:
+    manifest, project_path, workspace_resolver = mixed_manifest
+    first, _ = _resolver_stack(
+        manifest,
+        project_path,
+        workspace_resolver,
+        cache_namespace="catalog-aaaaaaaaaaaaaaaa",
+    )
+    first_run = first.resolve(manifest, workspace_root=project_path)
+    second, providers = _resolver_stack(
+        manifest,
+        project_path,
+        workspace_resolver,
+        cache_namespace="catalog-bbbbbbbbbbbbbbbb",
+    )
+
+    second_run = second.resolve(manifest, workspace_root=project_path)
+    call_counts = [len(provider.calls) for provider in providers]
+    repeated = second.resolve(manifest, workspace_root=project_path)
+
+    assert first_run.bundle_relative_path != second_run.bundle_relative_path
+    assert second_run.reused_existing is False
+    assert second_run.resolved_count == 10
+    assert repeated.reused_existing is True
     assert [len(provider.calls) for provider in providers] == call_counts
 
 
