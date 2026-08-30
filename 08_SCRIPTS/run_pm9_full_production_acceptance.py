@@ -49,6 +49,7 @@ from metadata_store import MetadataStore
 from production_acceptance import (
     ApprovedAssetCatalog,
     ApprovedAssetCatalogProvider,
+    FrameRatePolicy,
     FullProductionAcceptance,
     PM9SourceAssetBuilder,
     ProductionAcceptanceBlockedError,
@@ -341,6 +342,7 @@ def _load_project_config(
         "json2video_sound_effect_gain",
         "json2video_subtitle_mode",
         "json2video_ambient_diagram_background",
+        "frame_rate_policy",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -409,6 +411,9 @@ def _load_project_config(
         raise ValueError(
             "json2video_ambient_diagram_background debe ser booleano."
         )
+    frame_rate_policy = FrameRatePolicy.model_validate(
+        raw.get("frame_rate_policy", {})
+    )
     return {
         "asset_types_by_sequence": asset_types,
         "existing_asset_ids_by_sequence": existing_ids,
@@ -424,6 +429,7 @@ def _load_project_config(
         "json2video_ambient_diagram_background": (
             json2video_ambient_diagram_background
         ),
+        "frame_rate_policy": frame_rate_policy,
     }
 
 
@@ -499,6 +505,7 @@ def _acceptance_for(
     return FullProductionAcceptance(
         workspace_resolver=workspace,
         asset_resolver=resolver,
+        frame_rate_policy=config["frame_rate_policy"],
     )
 
 

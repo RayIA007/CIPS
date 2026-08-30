@@ -21,6 +21,13 @@
   "json2video_sound_effect_gain": 1.4,
   "json2video_subtitle_mode": "canonical_srt",
   "json2video_ambient_diagram_background": true,
+  "frame_rate_policy": {
+    "mode": "normalize_to_manifest",
+    "accepted_source_fps": [
+      25.0
+    ],
+    "tolerance_fps": 0.15
+  },
   "catalog_relative_path": "source_assets/automated_asset_catalog.json",
   "assets_root_relative_path": "source_assets",
   "seed_catalog_relative_path": "source_assets/asset_catalog.json",

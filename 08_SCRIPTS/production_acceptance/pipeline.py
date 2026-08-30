@@ -51,8 +51,10 @@ from telemetry_models import TelemetryEvent
 from video_store import VideoStore
 from workspace_resolver import WorkspaceResolver
 
+from .frame_rate import FrameRateProcessingError, FrameRateProcessor
 from .media_probe import FFprobeInspector
 from .models import (
+    FrameRatePolicy,
     MediaProbeReport,
     ProductionAcceptanceEvidence,
     ProductionPreparationEvidence,
@@ -62,8 +64,10 @@ from .models import (
 PREPARATION_RELATIVE_PATH = Path("acceptance") / "preparation.json"
 PAYLOAD_RELATIVE_PATH = Path("render") / "creatomate_payload.json"
 QA_RELATIVE_PATH = Path("acceptance") / "qa_report.json"
+FRAME_RATE_EVIDENCE_RELATIVE_PATH = Path("acceptance") / "frame_rate_evidence.json"
 FINAL_ACCEPTANCE_RELATIVE_PATH = Path("acceptance") / "final_acceptance.json"
 FINAL_VIDEO_RELATIVE_PATH = Path("final") / "short.mp4"
+NORMALIZED_VIDEO_RELATIVE_DIR = Path("video") / "normalized"
 TELEMETRY_RELATIVE_PATH = Path("03_TELEMETRIA") / TelemetryEngine.EVENTS_FILENAME
 
 
@@ -112,6 +116,8 @@ class FullProductionAcceptance:
         workspace_resolver: WorkspaceResolver,
         asset_resolver: ManifestAssetResolver,
         ffprobe_inspector: FFprobeInspector | None = None,
+        frame_rate_policy: FrameRatePolicy | None = None,
+        frame_rate_processor: FrameRateProcessor | None = None,
         subtitle_duration_probe: PhysicalAudioDurationProbe | None = None,
         telemetry_engine: TelemetryEngine | None = None,
     ) -> None:
@@ -124,6 +130,17 @@ class FullProductionAcceptance:
         self.workspace_resolver = workspace_resolver
         self.asset_resolver = asset_resolver
         self.ffprobe_inspector = ffprobe_inspector or FFprobeInspector()
+        self.frame_rate_policy = frame_rate_policy or FrameRatePolicy()
+        if not isinstance(self.frame_rate_policy, FrameRatePolicy):
+            raise TypeError("frame_rate_policy debe ser FrameRatePolicy.")
+        self.frame_rate_processor = frame_rate_processor or FrameRateProcessor(
+            workspace_resolver,
+            inspector=self.ffprobe_inspector,
+        )
+        if not isinstance(self.frame_rate_processor, FrameRateProcessor):
+            raise TypeError("frame_rate_processor debe ser FrameRateProcessor.")
+        if self.frame_rate_processor.workspace_resolver is not workspace_resolver:
+            raise ValueError("frame_rate_processor debe compartir WorkspaceResolver.")
         self.canonical_subtitle_service = CanonicalSubtitleService(
             workspace_resolver,
             duration_probe=subtitle_duration_probe,
@@ -360,17 +377,57 @@ class FullProductionAcceptance:
         if not isinstance(render_result, RenderResult):
             raise TypeError("render_result debe ser RenderResult.")
         self._validate_render_result(prepared, render_result)
-        media_path = Path(render_path).expanduser().resolve(strict=False)
-        existing = self._reuse_existing(prepared, media_path)
+        raw_media_path = Path(render_path).expanduser().resolve(strict=False)
+        existing = self._reuse_existing(prepared, raw_media_path)
         if existing is not None:
             return existing
 
-        probe = self.ffprobe_inspector.inspect(
-            media_path,
-            expected_width=prepared.manifest.output.width_px,
-            expected_height=prepared.manifest.output.height_px,
-            expected_fps=prepared.manifest.output.fps,
-            expected_duration_seconds=prepared.manifest.output.duration_seconds,
+        raw_render_artifact_id = render_result.output_artifact_ids[0]
+        try:
+            frame_rate_result = self.frame_rate_processor.process(
+                raw_media_path,
+                workspace_root=prepared.project_path,
+                input_artifact_id=raw_render_artifact_id,
+                normalized_relative_path=(
+                    NORMALIZED_VIDEO_RELATIVE_DIR
+                    / f"{prepared.submission.submission_id}.mp4"
+                ),
+                policy=self.frame_rate_policy,
+                target_fps=prepared.manifest.output.fps,
+                expected_width=prepared.manifest.output.width_px,
+                expected_height=prepared.manifest.output.height_px,
+                expected_duration_seconds=prepared.manifest.output.duration_seconds,
+            )
+        except FrameRateProcessingError as error:
+            raise ProductionAcceptanceBlockedError(
+                f"La política física de FPS bloqueó PM9: {error}"
+            ) from error
+        frame_rate = frame_rate_result.evidence
+        media_path = frame_rate_result.output_path
+        probe = frame_rate_result.output_probe
+        frame_rate_write = self.metadata_store.persist_metadata(
+            workspace_root=prepared.project_path,
+            relative_path=FRAME_RATE_EVIDENCE_RELATIVE_PATH,
+            content=frame_rate.model_dump(mode="json"),
+            artifact_type="production_acceptance_frame_rate_evidence",
+            artifact_id=(
+                f"pm9-fps-{frame_rate.input_probe.file_sha256[:12]}-"
+                f"{frame_rate.output_probe.file_sha256[:12]}-"
+                f"{frame_rate.action.value}"
+            ),
+            metadata={
+                "manifest_id": prepared.manifest.manifest_id,
+                "run_id": prepared.evidence.run_id,
+                "policy_mode": frame_rate.policy.mode.value,
+                "action": frame_rate.action.value,
+                "target_fps": frame_rate.target_fps,
+                "input_fps": frame_rate.input_probe.fps,
+                "output_fps": frame_rate.output_probe.fps,
+                "actual_cost_usd": frame_rate.actual_cost_usd,
+                "network_called": False,
+                "publication_performed": False,
+            },
+            collision_policy=CollisionPolicy.REPLACE,
         )
         qa_write = self.metadata_store.persist_metadata(
             workspace_root=prepared.project_path,
@@ -382,6 +439,9 @@ class FullProductionAcceptance:
                 "manifest_id": prepared.manifest.manifest_id,
                 "run_id": prepared.evidence.run_id,
                 "qa_approved": probe.approved,
+                "frame_rate_evidence_artifact_id": (
+                    frame_rate_write.artifact.artifact_id
+                ),
             },
             collision_policy=CollisionPolicy.REPLACE,
         )
@@ -415,14 +475,14 @@ class FullProductionAcceptance:
         if not isinstance(review_decision, ReviewDecision):
             raise TypeError("review_decision debe ser ReviewDecision o None.")
 
-        render_artifact_id = render_result.output_artifact_ids[0]
+        review_artifact_id = frame_rate.output_artifact_id
         target = ReviewTarget(
             project_id=prepared.manifest.project.project_id,
             workflow_id=prepared.evidence.workflow_id,
             run_id=prepared.evidence.run_id,
             artifacts=(
                 ReviewArtifactRef(
-                    artifact_id=render_artifact_id,
+                    artifact_id=review_artifact_id,
                     content_hash=probe.file_sha256,
                     task_id=f"{_provider_name(prepared.plan)}-render",
                     role="final_video_candidate",
@@ -433,6 +493,8 @@ class FullProductionAcceptance:
                         "fps": probe.fps,
                         "duration_seconds": probe.duration_seconds,
                         "qa_artifact_id": qa_write.artifact.artifact_id,
+                        "frame_rate_action": frame_rate.action.value,
+                        "source_artifact_id": raw_render_artifact_id,
                     },
                 ),
             ),
@@ -465,7 +527,7 @@ class FullProductionAcceptance:
                 "action": persisted_review.record.action.value,
                 "state": persisted_review.record.state.value,
                 "policy_name": persisted_review.record.policy_name,
-                "artifact_id": render_artifact_id,
+                "artifact_id": review_artifact_id,
                 "content_hash": probe.file_sha256,
             },
         )
@@ -489,11 +551,16 @@ class FullProductionAcceptance:
                     "plan_id": prepared.plan.plan_id,
                     "submission_id": prepared.submission.submission_id,
                     "render_job_id": render_result.job_id,
+                    "source_render_artifact_id": raw_render_artifact_id,
+                    "review_artifact_id": review_artifact_id,
                     "review_decision_id": review_decision.decision_id,
                     "qa_approved": True,
                     "human_approved": True,
                     "publication_performed": False,
                     "render_provider": _provider_name(prepared.plan),
+                    "frame_rate_action": frame_rate.action.value,
+                    "source_fps": frame_rate.input_probe.fps,
+                    "output_fps": frame_rate.output_probe.fps,
                 },
                 collision_policy=CollisionPolicy.REPLACE,
             )
@@ -559,8 +626,9 @@ class FullProductionAcceptance:
             workflow_id=prepared.evidence.workflow_id,
             run_id=prepared.evidence.run_id,
             render_job_id=render_result.job_id,
-            render_artifact_id=render_artifact_id,
+            render_artifact_id=raw_render_artifact_id,
             render_external_job_id=external_job_id,
+            frame_rate=frame_rate,
             media_probe=probe,
             qa_approved=True,
             human_approved=True,
@@ -583,6 +651,10 @@ class FullProductionAcceptance:
                 "asset_count": len(prepared.asset_run.bundle.assets),
                 "payload_element_count": _payload_element_count(
                     prepared.plan.target_payload
+                ),
+                "frame_rate_action": frame_rate.action.value,
+                "frame_rate_evidence_artifact_id": (
+                    frame_rate_write.artifact.artifact_id
                 ),
             },
         )
@@ -724,7 +796,11 @@ class FullProductionAcceptance:
             raise ProductionAcceptanceError(
                 "La evidencia PM9 existente pertenece a otra revisión."
             )
-        if not render_path.is_file() or _sha256(render_path) != evidence.media_probe.file_sha256:
+        if (
+            not render_path.is_file()
+            or _sha256(render_path)
+            != evidence.frame_rate.input_probe.file_sha256
+        ):
             raise ProductionAcceptanceError(
                 "El render físico no coincide con la evidencia PM9 persistida."
             )

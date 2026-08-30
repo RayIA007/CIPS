@@ -272,6 +272,8 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
     assert config["json2video_sound_effect_gain"] == 1.4
     assert config["json2video_subtitle_mode"] == "canonical_srt"
     assert config["json2video_ambient_diagram_background"] is True
+    assert config["frame_rate_policy"].mode.value == "normalize_to_manifest"
+    assert config["frame_rate_policy"].accepted_source_fps == (25.0,)
     assert len(planned.source_references) == 7
     assert all(
         len(reference.content_hash or "") == 64

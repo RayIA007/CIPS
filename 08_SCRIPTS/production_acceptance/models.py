@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+import math
+from enum import Enum
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 PRODUCTION_ACCEPTANCE_SCHEMA_NAME = "cips.production_acceptance"
-PRODUCTION_ACCEPTANCE_SCHEMA_VERSION = "1.0"
+PRODUCTION_ACCEPTANCE_SCHEMA_VERSION = "1.1"
+
+StrictFps = Annotated[
+    float,
+    Field(strict=True, gt=0.0, le=240.0, allow_inf_nan=False),
+]
 
 
 class AcceptanceModel(BaseModel):
@@ -63,6 +70,113 @@ class MediaProbeReport(AcceptanceModel):
     @property
     def approved(self) -> bool:
         return all(check.passed for check in self.checks)
+
+
+class FrameRateMode(str, Enum):
+    """Provider-neutral response to a physical FPS observation."""
+
+    STRICT = "strict"
+    ACCEPT_SOURCE = "accept_source"
+    NORMALIZE_TO_MANIFEST = "normalize_to_manifest"
+
+
+class FrameRateAction(str, Enum):
+    """Physical action selected by the frame-rate policy."""
+
+    PASSTHROUGH = "passthrough"
+    ACCEPTED_SOURCE = "accepted_source"
+    NORMALIZED = "normalized"
+    BLOCKED = "blocked"
+
+
+class FrameRatePolicy(AcceptanceModel):
+    """FPS policy kept outside the provider-neutral ProductionManifest."""
+
+    mode: FrameRateMode = FrameRateMode.STRICT
+    accepted_source_fps: tuple[StrictFps, ...] = ()
+    tolerance_fps: Annotated[
+        float,
+        Field(strict=True, ge=0.0, le=1.0, allow_inf_nan=False),
+    ] = 0.15
+
+    @field_validator("accepted_source_fps")
+    @classmethod
+    def _normalize_source_fps(cls, values: tuple[float, ...]) -> tuple[float, ...]:
+        normalized = tuple(sorted({round(float(value), 6) for value in values}))
+        if len(normalized) != len(values):
+            raise ValueError("accepted_source_fps no admite valores duplicados.")
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_strict_sources(self) -> "FrameRatePolicy":
+        if self.mode is FrameRateMode.STRICT and self.accepted_source_fps:
+            raise ValueError(
+                "El modo strict no admite FPS físicos alternativos."
+            )
+        return self
+
+    def accepted_fps(self, target_fps: float) -> tuple[float, ...]:
+        """Return the target plus explicitly authorized physical source rates."""
+
+        if isinstance(target_fps, bool):
+            raise TypeError("target_fps debe ser numérico.")
+        normalized = float(target_fps)
+        if not math.isfinite(normalized) or not 0.0 < normalized <= 240.0:
+            raise ValueError("target_fps debe estar entre 0 y 240.")
+        return tuple(sorted({round(normalized, 6), *self.accepted_source_fps}))
+
+
+class FrameRateTransformationEvidence(AcceptanceModel):
+    """Reproducible local transformation metadata for one normalization."""
+
+    tool: Literal["ffmpeg"] = "ffmpeg"
+    tool_version: str = Field(..., min_length=1)
+    video_filter: str = Field(..., min_length=1)
+    video_codec: Literal["libx264"] = "libx264"
+    audio_strategy: Literal["copy"] = "copy"
+    temporal_strategy: Literal["duplicate_drop_nearest"] = (
+        "duplicate_drop_nearest"
+    )
+    pixel_format: Literal["yuv420p"] = "yuv420p"
+    quality_profile: Literal["crf18-medium"] = "crf18-medium"
+
+
+class FrameRateEvidence(AcceptanceModel):
+    """Input, output, policy, hashes, and cost for the PM9 FPS boundary."""
+
+    schema_name: Literal["cips.production_acceptance.frame_rate"] = (
+        "cips.production_acceptance.frame_rate"
+    )
+    schema_version: Literal["1.0"] = "1.0"
+    policy: FrameRatePolicy
+    action: FrameRateAction
+    target_fps: StrictFps
+    input_artifact_id: str = Field(..., min_length=1)
+    output_artifact_id: str = Field(..., min_length=1)
+    input_locator: str = Field(..., min_length=1)
+    output_locator: str = Field(..., min_length=1)
+    input_probe: MediaProbeReport
+    output_probe: MediaProbeReport
+    transformation: FrameRateTransformationEvidence | None = None
+    actual_cost_usd: Literal[0.0] = 0.0
+    network_called: Literal[False] = False
+    publication_performed: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _validate_transformation(self) -> "FrameRateEvidence":
+        normalized = self.action is FrameRateAction.NORMALIZED
+        if normalized != (self.transformation is not None):
+            raise ValueError(
+                "Sólo action=normalized admite evidencia de transformación."
+            )
+        if normalized and self.input_artifact_id == self.output_artifact_id:
+            raise ValueError("La normalización debe crear un artefacto derivado.")
+        if (
+            not normalized
+            and self.input_probe.file_sha256 != self.output_probe.file_sha256
+        ):
+            raise ValueError("Sin normalización, entrada y salida deben ser idénticas.")
+        return self
 
 
 class ProductionPreparationEvidence(AcceptanceModel):
@@ -143,7 +257,7 @@ class ProductionAcceptanceEvidence(AcceptanceModel):
     schema_name: Literal["cips.production_acceptance"] = (
         PRODUCTION_ACCEPTANCE_SCHEMA_NAME
     )
-    schema_version: Literal["1.0"] = PRODUCTION_ACCEPTANCE_SCHEMA_VERSION
+    schema_version: Literal["1.1"] = PRODUCTION_ACCEPTANCE_SCHEMA_VERSION
     project_id: str = Field(..., min_length=1)
     production_id: str = Field(..., min_length=1)
     manifest_id: str = Field(..., min_length=1)
@@ -155,6 +269,7 @@ class ProductionAcceptanceEvidence(AcceptanceModel):
     render_job_id: str = Field(..., min_length=1)
     render_artifact_id: str = Field(..., min_length=1)
     render_external_job_id: str | None = None
+    frame_rate: FrameRateEvidence
     media_probe: MediaProbeReport
     qa_approved: bool
     human_approved: bool
@@ -184,6 +299,11 @@ class ProductionAcceptanceEvidence(AcceptanceModel):
 __all__ = [
     "PRODUCTION_ACCEPTANCE_SCHEMA_NAME",
     "PRODUCTION_ACCEPTANCE_SCHEMA_VERSION",
+    "FrameRateAction",
+    "FrameRateEvidence",
+    "FrameRateMode",
+    "FrameRatePolicy",
+    "FrameRateTransformationEvidence",
     "MediaCheck",
     "MediaProbeReport",
     "ProductionAcceptanceEvidence",

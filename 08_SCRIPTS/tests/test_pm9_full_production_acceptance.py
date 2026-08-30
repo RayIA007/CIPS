@@ -26,6 +26,10 @@ from production_acceptance import (  # noqa: E402
     ApprovedAssetCatalogProvider,
     CatalogEntry,
     FFprobeInspector,
+    FrameRateAction,
+    FrameRateMode,
+    FrameRatePolicy,
+    FrameRateProcessor,
     FullProductionAcceptance,
     MediaProbeError,
     ProductionAcceptanceBlockedError,
@@ -130,7 +134,14 @@ def _catalog_entry(
     )
 
 
-def _environment(tmp_path: Path, *, probe_payload: dict | None = None):
+def _environment(
+    tmp_path: Path,
+    *,
+    probe_payload: dict | None = None,
+    probe_runner=None,
+    frame_rate_policy: FrameRatePolicy | None = None,
+    frame_rate_runner=None,
+):
     projects_root = tmp_path / "04_PROYECTOS"
     outputs_root = tmp_path / "05_OUTPUTS"
     assets_root = tmp_path / "approved_assets"
@@ -231,20 +242,35 @@ def _environment(tmp_path: Path, *, probe_payload: dict | None = None):
         workspace_resolver=workspace,
     )
     inspector = FFprobeInspector(
-        runner=lambda command: probe_payload or _probe_payload()
+        runner=(
+            probe_runner
+            if probe_runner is not None
+            else lambda command: probe_payload or _probe_payload()
+        )
+    )
+    frame_rate_processor = (
+        None
+        if frame_rate_runner is None
+        else FrameRateProcessor(
+            workspace,
+            inspector=inspector,
+            runner=frame_rate_runner,
+        )
     )
     acceptance = FullProductionAcceptance(
         workspace_resolver=workspace,
         asset_resolver=resolver,
         ffprobe_inspector=inspector,
+        frame_rate_policy=frame_rate_policy,
+        frame_rate_processor=frame_rate_processor,
     )
     return project_path, provider, acceptance, planned
 
 
-def _prepare(tmp_path: Path, *, probe_payload: dict | None = None):
+def _prepare(tmp_path: Path, **environment_options):
     project_path, provider, acceptance, expected_manifest = _environment(
         tmp_path,
-        probe_payload=probe_payload,
+        **environment_options,
     )
     prepared = acceptance.prepare(
         project_path,
@@ -457,6 +483,9 @@ def test_full_acceptance_persists_f7_export_f8_and_reuses_result(tmp_path: Path)
     assert result.evidence.review_state == "approved"
     assert result.evidence.publication_performed is False
     assert result.evidence.observed_credits == 2.0
+    assert result.evidence.frame_rate.action is FrameRateAction.PASSTHROUGH
+    assert result.evidence.frame_rate.input_probe.fps == 30.0
+    assert result.evidence.frame_rate.output_probe.fps == 30.0
     assert result.export_path == project_path / "final" / "short.mp4"
     assert result.export_path.read_bytes() == render.read_bytes()
     assert Path(f"{result.export_path}.meta.json").is_file()
@@ -500,6 +529,140 @@ def test_technical_gate_blocks_wrong_vertical_resolution_before_f7(tmp_path: Pat
         )
 
     assert (project_path / "acceptance" / "qa_report.json").is_file()
+    assert not (project_path / "final_review").exists()
+    assert not (project_path / "final" / "short.mp4").exists()
+
+
+def test_normalize_policy_converts_known_25_fps_before_qa_f7_and_export(
+    tmp_path: Path,
+) -> None:
+    normalization_calls: list[tuple[str, ...]] = []
+
+    def probe_runner(command):
+        inspected = Path(command[-1])
+        return _probe_payload(
+            fps="30/1" if inspected.name == "normalized.mp4" else "25/1"
+        )
+
+    def ffmpeg_runner(command):
+        command = tuple(str(item) for item in command)
+        if "-version" in command:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="ffmpeg version 9.0-full_build\n",
+                stderr="",
+            )
+        normalization_calls.append(command)
+        Path(command[-1]).write_bytes(
+            b"\x00\x00\x00\x18ftypmp42PM9-normalized-30fps"
+        )
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    policy = FrameRatePolicy(
+        mode=FrameRateMode.NORMALIZE_TO_MANIFEST,
+        accepted_source_fps=(25.0,),
+    )
+    project_path, _, acceptance, _, prepared = _prepare(
+        tmp_path,
+        probe_runner=probe_runner,
+        frame_rate_policy=policy,
+        frame_rate_runner=ffmpeg_runner,
+    )
+    raw_render = _render_file(tmp_path)
+    raw_bytes = raw_render.read_bytes()
+    result = acceptance.finalize(
+        prepared,
+        render_result=_render_result(prepared),
+        render_path=raw_render,
+        review_decision=_approval(),
+    )
+
+    frame_rate = result.evidence.frame_rate
+    assert frame_rate.action is FrameRateAction.NORMALIZED
+    assert frame_rate.target_fps == 30.0
+    assert frame_rate.input_probe.fps == 25.0
+    assert frame_rate.output_probe.fps == 30.0
+    assert frame_rate.actual_cost_usd == 0.0
+    assert frame_rate.network_called is False
+    assert frame_rate.publication_performed is False
+    assert frame_rate.input_probe.file_sha256 != frame_rate.output_probe.file_sha256
+    assert frame_rate.transformation is not None
+    assert frame_rate.transformation.tool_version == "ffmpeg version 9.0-full_build"
+    assert frame_rate.transformation.video_filter == "fps=fps=30:round=near"
+    assert frame_rate.transformation.temporal_strategy == "duplicate_drop_nearest"
+    normalized_path = project_path / frame_rate.output_locator
+    assert normalized_path.is_file()
+    assert Path(f"{normalized_path}.meta.json").is_file()
+    assert result.export_path.read_bytes() == normalized_path.read_bytes()
+    assert result.export_path.read_bytes() != raw_bytes
+    assert (project_path / "acceptance" / "frame_rate_evidence.json").is_file()
+    review_record_path = next(
+        path
+        for path in (project_path / "final_review" / "decisions").glob("*.json")
+        if not path.name.endswith(".meta.json")
+    )
+    review_record = json.loads(review_record_path.read_text(encoding="utf-8"))
+    assert review_record["artifacts"][0]["artifact_id"] == (
+        frame_rate.output_artifact_id
+    )
+    assert review_record["artifacts"][0]["artifact_id"] != (
+        frame_rate.input_artifact_id
+    )
+    assert len(normalization_calls) == 1
+
+    repeated = acceptance.finalize(
+        prepared,
+        render_result=_render_result(prepared),
+        render_path=raw_render,
+        review_decision=None,
+    )
+    assert repeated.reused_existing is True
+    assert repeated.evidence == result.evidence
+    assert len(normalization_calls) == 1
+
+
+def test_strict_frame_rate_policy_rejects_alternative_source_rates() -> None:
+    with pytest.raises(ValueError, match="strict"):
+        FrameRatePolicy(
+            mode=FrameRateMode.STRICT,
+            accepted_source_fps=(25.0,),
+        )
+
+
+def test_normalize_policy_blocks_unexpected_24_fps_before_ffmpeg_and_f7(
+    tmp_path: Path,
+) -> None:
+    def forbidden_ffmpeg(command):
+        pytest.fail("Un FPS no autorizado debe bloquear antes de ejecutar FFmpeg.")
+
+    policy = FrameRatePolicy(
+        mode=FrameRateMode.NORMALIZE_TO_MANIFEST,
+        accepted_source_fps=(25.0,),
+    )
+    project_path, _, acceptance, _, prepared = _prepare(
+        tmp_path,
+        probe_payload=_probe_payload(fps="24/1"),
+        frame_rate_policy=policy,
+        frame_rate_runner=forbidden_ffmpeg,
+    )
+
+    with pytest.raises(ProductionAcceptanceBlockedError, match="frame-rate"):
+        acceptance.finalize(
+            prepared,
+            render_result=_render_result(prepared),
+            render_path=_render_file(tmp_path),
+            review_decision=_approval(),
+        )
+
+    evidence = json.loads(
+        (project_path / "acceptance" / "frame_rate_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert evidence["action"] == "blocked"
+    assert evidence["input_probe"]["fps"] == 24.0
+    assert evidence["output_probe"]["fps"] == 24.0
     assert not (project_path / "final_review").exists()
     assert not (project_path / "final" / "short.mp4").exists()
 
@@ -586,6 +749,74 @@ def test_real_ffmpeg_ffprobe_validates_physical_vertical_mp4(tmp_path: Path) -> 
     assert report.video_codec == "h264"
     assert report.audio_codec == "aac"
     assert report.audio_sample_rate_hz == 48000
+
+
+@pytest.mark.skipif(
+    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
+    reason="FFmpeg/ffprobe no están instalados.",
+)
+def test_real_ffmpeg_normalizes_25_to_30_with_f3_evidence(tmp_path: Path) -> None:
+    projects_root = tmp_path / "04_PROYECTOS"
+    outputs_root = tmp_path / "05_OUTPUTS"
+    project = projects_root / "PROYECTO_PM9_FPS_0001"
+    project.mkdir(parents=True)
+    outputs_root.mkdir()
+    source = project / "video" / "provider" / "source.mp4"
+    source.parent.mkdir(parents=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=#0F172A:s=270x480:r=25:d=1",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000:duration=1",
+            "-shortest",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-y",
+            str(source),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=90,
+    )
+    workspace = WorkspaceResolver(projects_root, outputs_root)
+    result = FrameRateProcessor(workspace).process(
+        source,
+        workspace_root=project,
+        input_artifact_id="provider-render-25fps",
+        normalized_relative_path="video/normalized/final.mp4",
+        policy=FrameRatePolicy(
+            mode=FrameRateMode.NORMALIZE_TO_MANIFEST,
+            accepted_source_fps=(25.0,),
+        ),
+        target_fps=30.0,
+        expected_width=270,
+        expected_height=480,
+        expected_duration_seconds=1.0,
+    )
+
+    assert result.evidence.action is FrameRateAction.NORMALIZED
+    assert result.evidence.input_probe.fps == 25.0
+    assert result.evidence.output_probe.fps == 30.0
+    assert result.output_probe.approved is True
+    assert result.output_path.is_file()
+    assert Path(f"{result.output_path}.meta.json").is_file()
+    assert result.evidence.input_probe.file_sha256 != (
+        result.evidence.output_probe.file_sha256
+    )
 
 
 def test_pm9_keeps_universal_manifest_free_of_provider_fields() -> None:

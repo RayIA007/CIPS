@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -44,6 +45,7 @@ class FFprobeInspector:
         expected_duration_seconds: float,
         duration_tolerance_seconds: float = 1.0,
         fps_tolerance: float = 0.15,
+        acceptable_fps: Sequence[float] | None = None,
     ) -> MediaProbeReport:
         media_path = Path(path).expanduser().resolve(strict=False)
         if not media_path.is_file() or media_path.stat().st_size <= 0:
@@ -115,6 +117,10 @@ class FFprobeInspector:
         if not formats:
             raise MediaProbeError("FFprobe no identificó el contenedor multimedia.")
 
+        fps_candidates = _fps_candidates(expected_fps, acceptable_fps)
+        fps_expectation = " o ".join(
+            f"{candidate:.3f}" for candidate in fps_candidates
+        )
         checks = (
             MediaCheck(
                 check_id="container-mp4",
@@ -130,8 +136,11 @@ class FFprobeInspector:
             ),
             MediaCheck(
                 check_id="frame-rate",
-                passed=abs(fps - float(expected_fps)) <= float(fps_tolerance),
-                expected=f"{float(expected_fps):.3f} fps ± {float(fps_tolerance):.3f}",
+                passed=any(
+                    abs(fps - candidate) <= float(fps_tolerance)
+                    for candidate in fps_candidates
+                ),
+                expected=f"{fps_expectation} fps ± {float(fps_tolerance):.3f}",
                 actual=f"{fps:.3f} fps",
             ),
             MediaCheck(
@@ -233,9 +242,26 @@ def _positive_float(value: Any, label: str) -> float:
         number = float(value)
     except (TypeError, ValueError) as error:
         raise MediaProbeError(f"FFprobe devolvió {label} inválido.") from error
-    if number <= 0.0:
+    if not math.isfinite(number) or number <= 0.0:
         raise MediaProbeError(f"FFprobe devolvió {label} no positivo.")
     return round(number, 6)
+
+
+def _fps_candidates(
+    expected_fps: float,
+    acceptable_fps: Sequence[float] | None,
+) -> tuple[float, ...]:
+    raw_values: tuple[Any, ...] = (expected_fps,)
+    if acceptable_fps is not None:
+        if isinstance(acceptable_fps, (str, bytes, bytearray)):
+            raise TypeError("acceptable_fps debe ser una secuencia numérica.")
+        raw_values += tuple(acceptable_fps)
+    normalized: set[float] = set()
+    for value in raw_values:
+        if isinstance(value, bool):
+            raise TypeError("Los FPS aceptables deben ser numéricos.")
+        normalized.add(_positive_float(value, "frame rate esperado"))
+    return tuple(sorted(normalized))
 
 
 def _frame_rate(value: Any) -> float:
