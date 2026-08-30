@@ -17,6 +17,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from asset_resolution import AssetResolutionBundle, MediaFamily, ResolutionStatus
+from canonical_subtitles import (
+    CanonicalSubtitleAlignmentError,
+    CanonicalSubtitleTrack,
+    validate_canonical_subtitle_track,
+    validate_srt_against_manifest,
+)
 from production_manifest import (
     AssetType,
     CameraMovement,
@@ -61,7 +67,7 @@ _IMAGE_ASSET_TYPES = {
 }
 _VIDEO_ASSET_TYPES = {AssetType.AI_VIDEO, AssetType.STOCK_VIDEO}
 _ALLOWED_ELEMENT_TYPES = {"audio", "image", "subtitles", "text", "video"}
-_SUBTITLE_MODES = {"inline_srt", "automatic_whisper"}
+_SUBTITLE_MODES = {"inline_srt", "automatic_whisper", "canonical_srt"}
 _DIAGRAM_HINTS = (
     "diagram",
     "diagrama",
@@ -103,7 +109,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
     """Compile a CIPS manifest to a directly submittable Movie JSON body."""
 
     adapter_name = "JSON2VideoAdapter"
-    adapter_version = "1.4"
+    adapter_version = "1.5"
     target_id = "json2video.movie"
 
     def __init__(
@@ -114,6 +120,7 @@ class JSON2VideoAdapter(RenderTargetAdapter):
         music_volume_ceiling: float = 0.2,
         sound_effect_gain: float = 1.0,
         subtitle_mode: str = "inline_srt",
+        canonical_subtitle_track: CanonicalSubtitleTrack | None = None,
         ambient_diagram_background: bool = False,
     ) -> None:
         if not isinstance(resolved_assets, AssetResolutionBundle):
@@ -132,11 +139,31 @@ class JSON2VideoAdapter(RenderTargetAdapter):
         normalized_subtitle_mode = str(subtitle_mode).strip().casefold()
         if normalized_subtitle_mode not in _SUBTITLE_MODES:
             raise ValueError(
-                "subtitle_mode debe ser inline_srt o automatic_whisper."
+                "subtitle_mode debe ser inline_srt, canonical_srt o "
+                "automatic_whisper."
+            )
+        if canonical_subtitle_track is not None and not isinstance(
+            canonical_subtitle_track, CanonicalSubtitleTrack
+        ):
+            raise TypeError(
+                "canonical_subtitle_track debe ser CanonicalSubtitleTrack o None."
+            )
+        if normalized_subtitle_mode == "canonical_srt" and (
+            canonical_subtitle_track is None
+        ):
+            raise ValueError(
+                "canonical_srt requiere un canonical_subtitle_track validado."
+            )
+        if normalized_subtitle_mode != "canonical_srt" and (
+            canonical_subtitle_track is not None
+        ):
+            raise ValueError(
+                "canonical_subtitle_track sólo corresponde a canonical_srt."
             )
         if not isinstance(ambient_diagram_background, bool):
             raise TypeError("ambient_diagram_background debe ser booleano.")
         self._subtitle_mode = normalized_subtitle_mode
+        self._canonical_subtitle_track = canonical_subtitle_track
         self._ambient_diagram_background = ambient_diagram_background
         super().__init__(capabilities=capabilities or json2video_capabilities())
 
@@ -209,6 +236,46 @@ class JSON2VideoAdapter(RenderTargetAdapter):
             raise RenderAdapterContractError(
                 f"Movie JSON inválido después de compilar: {error}"
             ) from error
+        if self._subtitle_mode == "canonical_srt":
+            track = self._canonical_subtitle_track
+            if track is None:
+                raise RenderAdapterContractError(
+                    "El plan canonical_srt perdió su track validado."
+                )
+            try:
+                validate_canonical_subtitle_track(track, manifest)
+            except CanonicalSubtitleAlignmentError as error:
+                raise RenderAdapterContractError(
+                    f"El track canonical_srt no superó congruencia: {error}"
+                ) from error
+            subtitles = next(
+                (
+                    element
+                    for element in plan.target_payload.get("elements", [])
+                    if isinstance(element, Mapping)
+                    and element.get("type") == "subtitles"
+                ),
+                None,
+            )
+            if not isinstance(subtitles, Mapping):
+                raise RenderAdapterContractError(
+                    "El plan canonical_srt no contiene subtítulos."
+                )
+            captions = subtitles.get("captions")
+            if not isinstance(captions, str):
+                raise RenderAdapterContractError(
+                    "El plan canonical_srt no contiene SRT inline."
+                )
+            try:
+                validate_srt_against_manifest(
+                    captions,
+                    manifest,
+                    expected_track=track,
+                )
+            except CanonicalSubtitleAlignmentError as error:
+                raise RenderAdapterContractError(
+                    f"El payload canonical_srt no superó congruencia: {error}"
+                ) from error
 
     def _compile_scene(
         self,
@@ -456,6 +523,33 @@ class JSON2VideoAdapter(RenderTargetAdapter):
                     "model": "whisper",
                     "comment": (
                         "Audio-synchronized Spanish transcription from the final mix"
+                    ),
+                }
+            )
+            return element
+        if self._subtitle_mode == "canonical_srt":
+            track = self._canonical_subtitle_track
+            if track is None:
+                raise RenderCompilationError(
+                    "canonical_srt requiere un track canónico validado."
+                )
+            try:
+                validate_canonical_subtitle_track(track, manifest)
+                captions = track.to_srt()
+                validate_srt_against_manifest(
+                    captions,
+                    manifest,
+                    expected_track=track,
+                )
+            except CanonicalSubtitleAlignmentError as error:
+                raise RenderCompilationError(
+                    f"El track canonical_srt no superó congruencia: {error}"
+                ) from error
+            element.update(
+                {
+                    "captions": captions,
+                    "comment": (
+                        "Canonical CIPS words aligned from physical narration audio"
                     ),
                 }
             )

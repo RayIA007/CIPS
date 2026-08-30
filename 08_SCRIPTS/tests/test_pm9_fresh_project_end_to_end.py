@@ -21,6 +21,11 @@ from asset_resolution import (  # noqa: E402
     WikimediaCommonsProvider,
 )
 from capability_resolver import CapabilityResolver  # noqa: E402
+from canonical_subtitles import (  # noqa: E402
+    CanonicalSubtitleAlignmentError,
+    PhysicalAudioDurationProbe,
+    validate_srt_against_manifest,
+)
 from json2video_adapter import JSON2VideoAdapter  # noqa: E402
 from media_provider_registry import MediaProviderRegistry  # noqa: E402
 from metadata_store import MetadataStore  # noqa: E402
@@ -265,7 +270,7 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
     assert config["on_screen_text_mode"] == "captions_only"
     assert config["json2video_music_volume"] == 0.32
     assert config["json2video_sound_effect_gain"] == 1.4
-    assert config["json2video_subtitle_mode"] == "automatic_whisper"
+    assert config["json2video_subtitle_mode"] == "canonical_srt"
     assert config["json2video_ambient_diagram_background"] is True
     assert len(planned.source_references) == 7
     assert all(
@@ -491,6 +496,9 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
             ),
             workspace_resolver=workspace,
         ),
+        subtitle_duration_probe=PhysicalAudioDurationProbe(
+            runner=lambda command: {"format": {"duration": "8.820"}}
+        ),
     )
     prepared = acceptance.prepare(
         project,
@@ -498,16 +506,18 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         existing_asset_ids_by_sequence=config["existing_asset_ids_by_sequence"],
         stock_queries_by_sequence=config["stock_queries_by_sequence"],
         on_screen_text_mode=config["on_screen_text_mode"],
-        adapter_factory=lambda bundle: JSON2VideoAdapter(
+        adapter_factory=lambda bundle, canonical_track: JSON2VideoAdapter(
             resolved_assets=bundle,
             music_volume_ceiling=config["json2video_music_volume"],
             sound_effect_gain=config["json2video_sound_effect_gain"],
             subtitle_mode=config["json2video_subtitle_mode"],
+            canonical_subtitle_track=canonical_track,
             ambient_diagram_background=config[
                 "json2video_ambient_diagram_background"
             ],
         ),
         payload_relative_path=Path("video/json2video/json2video_payload.json"),
+        canonical_subtitles=True,
     )
 
     assert prepared.evidence.ready_for_real_render is True
@@ -586,9 +596,31 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         for element in prepared.plan.target_payload["elements"]
         if element["type"] == "subtitles"
     )
-    assert subtitles["model"] == "whisper"
+    assert "model" not in subtitles
     assert subtitles["language"] == "es-419"
-    assert "captions" not in subtitles
+    assert "desvían" in subtitles["captions"]
+    assert "desvidan" not in subtitles["captions"]
+    assert prepared.canonical_subtitles is not None
+    assert subtitles["captions"] == prepared.canonical_subtitles.srt_text
+    assert prepared.canonical_subtitles.artifact_path.is_file()
+    assert prepared.canonical_subtitles.sidecar_path.is_file()
+    assert prepared.evidence.canonical_subtitles_sha256 == (
+        prepared.canonical_subtitles.content_sha256
+    )
+    assert all(
+        cue.end_ms - cue.start_ms >= 650
+        for cue in prepared.canonical_subtitles.track.cues
+    )
+    assert all(
+        len(cue.text.split()) >= 2
+        for cue in prepared.canonical_subtitles.track.cues
+    )
+    assert {cue.text for cue in prepared.canonical_subtitles.track.cues}.isdisjoint(
+        {"en", "cruza"}
+    )
+    tampered = subtitles["captions"].replace("desvían", "desvidan", 1)
+    with pytest.raises(CanonicalSubtitleAlignmentError, match="Congruencia"):
+        validate_srt_against_manifest(tampered, prepared.manifest)
     assert prepared.plan.target_payload["fps"] == 30
     assert prepared.plan.target_payload["client-data"]["publication_performed"] is False
     assert not (project / "final").exists()

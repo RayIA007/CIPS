@@ -212,6 +212,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             on_screen_text_mode=config["on_screen_text_mode"],
             adapter_factory=_adapter_factory(args.provider, config=config),
             payload_relative_path=_payload_relative_path(args.provider),
+            canonical_subtitles=(
+                args.provider == "json2video"
+                and config["json2video_subtitle_mode"] == "canonical_srt"
+            ),
         )
         if args.command == "prepare":
             estimated = _estimated_credits(prepared.plan, args.provider)
@@ -389,9 +393,14 @@ def _load_project_config(
     json2video_subtitle_mode = str(
         raw.get("json2video_subtitle_mode", "inline_srt")
     ).strip().casefold()
-    if json2video_subtitle_mode not in {"inline_srt", "automatic_whisper"}:
+    if json2video_subtitle_mode not in {
+        "inline_srt",
+        "canonical_srt",
+        "automatic_whisper",
+    }:
         raise ValueError(
-            "json2video_subtitle_mode debe ser inline_srt o automatic_whisper."
+            "json2video_subtitle_mode debe ser inline_srt, canonical_srt o "
+            "automatic_whisper."
         )
     json2video_ambient_diagram_background = raw.get(
         "json2video_ambient_diagram_background", False
@@ -953,9 +962,11 @@ def _asset_inventory(manifest: ProductionManifest) -> dict[str, Any]:
 def _adapter_factory(provider: str, *, config: Mapping[str, Any] | None = None):
     project_config = config or {}
     if provider == "creatomate":
-        return lambda bundle: CreatomateAdapter(resolved_assets=bundle)
+        return lambda bundle, canonical_track=None: CreatomateAdapter(
+            resolved_assets=bundle
+        )
     if provider == "json2video":
-        return lambda bundle: JSON2VideoAdapter(
+        return lambda bundle, canonical_track=None: JSON2VideoAdapter(
             resolved_assets=bundle,
             music_volume_ceiling=float(
                 project_config.get("json2video_music_volume", 0.2)
@@ -966,6 +977,7 @@ def _adapter_factory(provider: str, *, config: Mapping[str, Any] | None = None):
             subtitle_mode=str(
                 project_config.get("json2video_subtitle_mode", "inline_srt")
             ),
+            canonical_subtitle_track=canonical_track,
             ambient_diagram_background=bool(
                 project_config.get(
                     "json2video_ambient_diagram_background", False
@@ -1044,7 +1056,14 @@ def _render_command(
         api_config = JSON2VideoApiConfig.from_environment()
         render_adapter = _adapter_factory(
             "json2video", config=config
-        )(prepared.asset_run.bundle)
+        )(
+            prepared.asset_run.bundle,
+            (
+                None
+                if prepared.canonical_subtitles is None
+                else prepared.canonical_subtitles.track
+            ),
+        )
         if not isinstance(render_adapter, JSON2VideoAdapter):
             raise TypeError("La fábrica JSON2Video devolvió un adapter inválido.")
         service = JSON2VideoRenderService(

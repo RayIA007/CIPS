@@ -13,6 +13,13 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
+from canonical_subtitles import (  # noqa: E402
+    CanonicalSubtitleAlignmentError,
+    CanonicalSubtitleService,
+    PhysicalAudioDurationProbe,
+    validate_srt_against_manifest,
+)
+from artifact_store import CollisionPolicy  # noqa: E402
 from json2video_adapter import (  # noqa: E402
     JSON2VideoAdapter,
     estimate_json2video_credits,
@@ -26,7 +33,11 @@ from json2video_api import (  # noqa: E402
     JSON2VideoTransportError,
 )
 from production_acceptance import ProductionAcceptanceBlockedError  # noqa: E402
-from render_adapter import RenderResult, RenderStatus  # noqa: E402
+from render_adapter import (  # noqa: E402
+    RenderCompilationError,
+    RenderResult,
+    RenderStatus,
+)
 import run_pm9_full_production_acceptance as pm9_cli  # noqa: E402
 from test_pm9_full_production_acceptance import (  # noqa: E402
     ASSET_TYPES,
@@ -72,21 +83,44 @@ def _json2video_prepare(
     music_volume_ceiling: float = 0.2,
     sound_effect_gain: float = 1.0,
     subtitle_mode: str = "inline_srt",
+    subtitle_audio_duration: float = 10.5,
     ambient_diagram_background: bool = False,
+    seed_legacy_canonical_subtitles: bool = False,
 ):
     project, _, acceptance, planned = _environment(tmp_path)
+    if seed_legacy_canonical_subtitles:
+        acceptance.canonical_subtitle_service.text_store.persist_text(
+            workspace_root=project,
+            relative_path=Path("subtitles") / "canonical_subtitles.srt",
+            content="legacy canonical subtitles\n",
+            artifact_type="canonical_subtitles",
+            mime_type="text/plain",
+            artifact_id=f"canonical-subtitles-{planned.manifest_id}",
+            collision_policy=CollisionPolicy.REPLACE,
+        )
+    if subtitle_mode == "canonical_srt":
+        acceptance.canonical_subtitle_service = CanonicalSubtitleService(
+            acceptance.workspace_resolver,
+            duration_probe=PhysicalAudioDurationProbe(
+                runner=lambda command: {
+                    "format": {"duration": f"{subtitle_audio_duration:.3f}"}
+                }
+            ),
+        )
     prepared = acceptance.prepare(
         project,
         asset_types_by_sequence=ASSET_TYPES,
         existing_asset_ids_by_sequence=EXISTING_IDS,
-        adapter_factory=lambda bundle: JSON2VideoAdapter(
+        adapter_factory=lambda bundle, canonical_track: JSON2VideoAdapter(
             resolved_assets=bundle,
             music_volume_ceiling=music_volume_ceiling,
             sound_effect_gain=sound_effect_gain,
             subtitle_mode=subtitle_mode,
+            canonical_subtitle_track=canonical_track,
             ambient_diagram_background=ambient_diagram_background,
         ),
         payload_relative_path=Path("render") / "json2video_payload.json",
+        canonical_subtitles=subtitle_mode == "canonical_srt",
     )
     return project, acceptance, planned, prepared
 
@@ -198,6 +232,109 @@ def test_adapter_can_delegate_subtitle_timing_to_spanish_whisper(
     assert subtitles["model"] == "whisper"
     assert "captions" not in subtitles
     assert "Audio-synchronized" in subtitles["comment"]
+
+
+def test_adapter_uses_physical_timing_with_canonical_words_and_f3_evidence(
+    tmp_path: Path,
+) -> None:
+    project, _, planned, prepared = _json2video_prepare(
+        tmp_path,
+        subtitle_mode="canonical_srt",
+    )
+
+    result = prepared.canonical_subtitles
+    assert result is not None
+    assert result.artifact_path == project / "subtitles" / "canonical_subtitles.srt"
+    assert result.artifact_path.is_file()
+    assert result.sidecar_path.is_file()
+    assert len(result.content_sha256) == 64
+    assert set(result.track.audio_duration_ms_by_scene.values()) == {10500}
+    subtitles = next(
+        element
+        for element in prepared.plan.target_payload["elements"]
+        if element["type"] == "subtitles"
+    )
+    assert subtitles["captions"] == result.srt_text
+    assert "model" not in subtitles
+    assert "músculos" in subtitles["captions"]
+    assert prepared.evidence.canonical_subtitles_sha256 == result.content_sha256
+    assert prepared.evidence.canonical_subtitles_relative_path == (
+        "subtitles/canonical_subtitles.srt"
+    )
+    for scene in planned.scenes:
+        if scene.captions is None:
+            continue
+        scene_cues = [
+            cue for cue in result.track.cues if cue.scene_id == scene.scene_id
+        ]
+        assert scene_cues[0].start_ms == round(scene.start_seconds * 1000)
+        assert scene_cues[-1].end_ms == round(scene.start_seconds * 1000) + 10500
+        assert all(
+            left.end_ms == right.start_ms
+            for left, right in zip(scene_cues, scene_cues[1:])
+        )
+        assert " ".join(cue.text for cue in scene_cues) == scene.narration_text
+        assert all(cue.end_ms - cue.start_ms >= 650 for cue in scene_cues)
+        assert all(len(cue.text.split()) >= 2 for cue in scene_cues)
+
+    tampered = subtitles["captions"].replace("músculos", "musculos", 1)
+    with pytest.raises(CanonicalSubtitleAlignmentError, match="Congruencia"):
+        validate_srt_against_manifest(tampered, planned)
+
+    cue_position = next(
+        index
+        for index, cue in enumerate(result.track.cues)
+        if "músculos" in cue.text
+    )
+    tampered_cue = result.track.cues[cue_position].model_copy(
+        update={
+            "text": result.track.cues[cue_position].text.replace(
+                "músculos", "musculos"
+            )
+        }
+    )
+    tampered_cues = list(result.track.cues)
+    tampered_cues[cue_position] = tampered_cue
+    tampered_track = result.track.model_copy(
+        update={"cues": tuple(tampered_cues)}
+    )
+    adapter = JSON2VideoAdapter(
+        resolved_assets=prepared.asset_run.bundle,
+        subtitle_mode="canonical_srt",
+        canonical_subtitle_track=tampered_track,
+    )
+    with pytest.raises(RenderCompilationError, match="congruencia"):
+        adapter.compile(planned)
+
+
+def test_canonical_subtitles_replace_legacy_content_with_content_addressed_id(
+    tmp_path: Path,
+) -> None:
+    _, _, planned, prepared = _json2video_prepare(
+        tmp_path,
+        subtitle_mode="canonical_srt",
+        seed_legacy_canonical_subtitles=True,
+    )
+
+    result = prepared.canonical_subtitles
+    assert result is not None
+    sidecar = json.loads(result.sidecar_path.read_text(encoding="utf-8"))
+    artifact_ids = {event["artifact_id"] for event in sidecar["events"]}
+    assert result.artifact_path.read_text(encoding="utf-8") == result.srt_text
+    assert artifact_ids == {
+        f"canonical-subtitles-{planned.manifest_id}-{result.content_sha256}"
+    }
+
+
+def test_canonical_subtitles_block_audio_that_exceeds_its_scene(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ProductionAcceptanceBlockedError, match="excede su escena"):
+        _json2video_prepare(
+            tmp_path,
+            subtitle_mode="canonical_srt",
+            subtitle_audio_duration=99.0,
+        )
 
 
 @pytest.mark.parametrize(

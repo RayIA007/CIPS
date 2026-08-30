@@ -1,5 +1,21 @@
 """Public PM9 full-production acceptance surface."""
 
+from canonical_subtitles import (
+    CANONICAL_SUBTITLE_RELATIVE_PATH,
+    CANONICAL_SUBTITLE_SCHEMA_NAME,
+    CANONICAL_SUBTITLE_SCHEMA_VERSION,
+    CanonicalSubtitleAlignmentError,
+    CanonicalSubtitleCue,
+    CanonicalSubtitleError,
+    CanonicalSubtitleProbeError,
+    CanonicalSubtitleResult,
+    CanonicalSubtitleService,
+    CanonicalSubtitleTrack,
+    PhysicalAudioDurationProbe,
+    validate_canonical_subtitle_track,
+    validate_srt_against_manifest,
+)
+
 from .catalog import (
     ApprovedAssetCatalog,
     ApprovedAssetCatalogProvider,
@@ -48,6 +64,9 @@ from .visual_fulfillment import (
 )
 
 __all__ = [
+    "CANONICAL_SUBTITLE_RELATIVE_PATH",
+    "CANONICAL_SUBTITLE_SCHEMA_NAME",
+    "CANONICAL_SUBTITLE_SCHEMA_VERSION",
     "FINAL_ACCEPTANCE_RELATIVE_PATH",
     "FINAL_VIDEO_RELATIVE_PATH",
     "PAYLOAD_RELATIVE_PATH",
@@ -61,6 +80,13 @@ __all__ = [
     "BUILD_REPORT_FILENAME",
     "CATALOG_FILENAME",
     "CatalogEntry",
+    "CanonicalSubtitleAlignmentError",
+    "CanonicalSubtitleCue",
+    "CanonicalSubtitleError",
+    "CanonicalSubtitleProbeError",
+    "CanonicalSubtitleResult",
+    "CanonicalSubtitleService",
+    "CanonicalSubtitleTrack",
     "DeliveryVerificationResult",
     "FFprobeInspector",
     "FinalizedProduction",
@@ -71,6 +97,7 @@ __all__ = [
     "PIPER_PACKAGE_VERSION",
     "PIPER_VOICE_ID",
     "PM9SourceAssetBuilder",
+    "PhysicalAudioDurationProbe",
     "PreparedProduction",
     "ProbeRunner",
     "ProductionAcceptanceBlockedError",
@@ -86,4 +113,6 @@ __all__ = [
     "VisualAssetFulfillmentError",
     "VisualAssetFulfillmentResult",
     "VisualAssetFulfillmentService",
+    "validate_canonical_subtitle_track",
+    "validate_srt_against_manifest",
 ]

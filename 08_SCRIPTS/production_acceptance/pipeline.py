@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,14 @@ from asset_resolution import (
     ResolutionStatus,
 )
 from artifact_store import CollisionPolicy
+from canonical_subtitles import (
+    CANONICAL_SUBTITLE_RELATIVE_PATH,
+    CanonicalSubtitleError,
+    CanonicalSubtitleResult,
+    CanonicalSubtitleService,
+    CanonicalSubtitleTrack,
+    PhysicalAudioDurationProbe,
+)
 from creative_direction_planner import CreativeDirectionPlanner
 from creatomate_adapter import CreatomateAdapter
 from final_review import (
@@ -78,6 +87,7 @@ class PreparedProduction:
     evidence: ProductionPreparationEvidence
     preparation_path: Path
     payload_path: Path
+    canonical_subtitles: CanonicalSubtitleResult | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +112,7 @@ class FullProductionAcceptance:
         workspace_resolver: WorkspaceResolver,
         asset_resolver: ManifestAssetResolver,
         ffprobe_inspector: FFprobeInspector | None = None,
+        subtitle_duration_probe: PhysicalAudioDurationProbe | None = None,
         telemetry_engine: TelemetryEngine | None = None,
     ) -> None:
         if not isinstance(workspace_resolver, WorkspaceResolver):
@@ -113,6 +124,10 @@ class FullProductionAcceptance:
         self.workspace_resolver = workspace_resolver
         self.asset_resolver = asset_resolver
         self.ffprobe_inspector = ffprobe_inspector or FFprobeInspector()
+        self.canonical_subtitle_service = CanonicalSubtitleService(
+            workspace_resolver,
+            duration_probe=subtitle_duration_probe,
+        )
         self.telemetry_engine = telemetry_engine or TelemetryEngine()
         self.metadata_store = MetadataStore(workspace_resolver)
         self.video_store = VideoStore(workspace_resolver)
@@ -126,9 +141,14 @@ class FullProductionAcceptance:
         stock_queries_by_sequence: Mapping[int, str] | None = None,
         on_screen_text_mode: str = "auto",
         adapter_factory: (
-            Callable[[AssetResolutionBundle], RenderTargetAdapter] | None
+            Callable[..., RenderTargetAdapter]
+            | None
         ) = None,
         payload_relative_path: str | Path = PAYLOAD_RELATIVE_PATH,
+        canonical_subtitles: bool = False,
+        canonical_subtitle_relative_path: (
+            str | Path
+        ) = CANONICAL_SUBTITLE_RELATIVE_PATH,
     ) -> PreparedProduction:
         """Compile, plan, resolve, and persist a real-render submission."""
 
@@ -173,10 +193,33 @@ class FullProductionAcceptance:
             planned.manifest,
             workspace_root=project,
         )
+        canonical_subtitle_result: CanonicalSubtitleResult | None = None
+        if canonical_subtitles:
+            try:
+                canonical_subtitle_result = (
+                    self.canonical_subtitle_service.build_and_persist(
+                        planned.manifest,
+                        asset_run.bundle,
+                        workspace_root=project,
+                        relative_path=canonical_subtitle_relative_path,
+                    )
+                )
+            except CanonicalSubtitleError as error:
+                raise ProductionAcceptanceBlockedError(
+                    f"El gate editorial de subtítulos canónicos bloqueó PM9: {error}"
+                ) from error
         adapter = (
             CreatomateAdapter(resolved_assets=asset_run.bundle)
             if adapter_factory is None
-            else adapter_factory(asset_run.bundle)
+            else _invoke_adapter_factory(
+                adapter_factory,
+                asset_run.bundle,
+                (
+                    None
+                    if canonical_subtitle_result is None
+                    else canonical_subtitle_result.track
+                ),
+            )
         )
         if not isinstance(adapter, RenderTargetAdapter):
             raise TypeError(
@@ -228,6 +271,26 @@ class FullProductionAcceptance:
             manifest_relative_path=_relative(planned.manifest_path, project),
             asset_bundle_relative_path=asset_run.bundle_relative_path,
             payload_relative_path=_relative(Path(payload_write.artifact.path), project),
+            canonical_subtitles_relative_path=(
+                None
+                if canonical_subtitle_result is None
+                else _relative(canonical_subtitle_result.artifact_path, project)
+            ),
+            canonical_subtitles_sha256=(
+                None
+                if canonical_subtitle_result is None
+                else canonical_subtitle_result.content_sha256
+            ),
+            canonical_subtitles_lexical_source=(
+                None
+                if canonical_subtitle_result is None
+                else canonical_subtitle_result.track.lexical_source
+            ),
+            canonical_subtitles_timing_source=(
+                None
+                if canonical_subtitle_result is None
+                else canonical_subtitle_result.track.timing_source
+            ),
             ready_for_real_render=not blockers,
             blockers=blockers,
         )
@@ -279,6 +342,7 @@ class FullProductionAcceptance:
             evidence=evidence,
             preparation_path=Path(preparation_write.artifact.path),
             payload_path=Path(payload_write.artifact.path),
+            canonical_subtitles=canonical_subtitle_result,
         )
 
     def finalize(
@@ -699,6 +763,37 @@ def _scene_overrides(
             + ", ".join(str(item) for item in unknown)
         )
     return {by_sequence[int(sequence)]: value for sequence, value in values.items()}
+
+
+def _invoke_adapter_factory(
+    factory: Callable[..., RenderTargetAdapter],
+    bundle: AssetResolutionBundle,
+    canonical_track: CanonicalSubtitleTrack | None,
+) -> RenderTargetAdapter:
+    """Preserve legacy one-argument factories outside canonical subtitle mode."""
+
+    try:
+        signature = inspect.signature(factory)
+    except (TypeError, ValueError):
+        if canonical_track is None:
+            return factory(bundle)
+        return factory(bundle, canonical_track)
+    try:
+        signature.bind(bundle, canonical_track)
+    except TypeError as two_argument_error:
+        if canonical_track is not None:
+            raise TypeError(
+                "adapter_factory debe aceptar (bundle, canonical_track) cuando "
+                "canonical_subtitles=True."
+            ) from two_argument_error
+        try:
+            signature.bind(bundle)
+        except TypeError as one_argument_error:
+            raise TypeError(
+                "adapter_factory debe aceptar bundle o (bundle, canonical_track)."
+            ) from one_argument_error
+        return factory(bundle)
+    return factory(bundle, canonical_track)
 
 
 def _provider_name(plan: RenderPlan) -> str:

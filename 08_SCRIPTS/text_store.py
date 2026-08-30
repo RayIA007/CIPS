@@ -36,6 +36,8 @@ _TEXT_MIME_BY_SUFFIX: dict[str, str] = {
     ".xml": "text/xml",
     ".yaml": "text/yaml",
     ".yml": "text/yaml",
+    ".srt": "text/plain",
+    ".vtt": "text/vtt",
 }
 
 

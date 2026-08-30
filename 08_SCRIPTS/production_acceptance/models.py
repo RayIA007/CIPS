@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 PRODUCTION_ACCEPTANCE_SCHEMA_NAME = "cips.production_acceptance"
@@ -91,6 +91,10 @@ class ProductionPreparationEvidence(AcceptanceModel):
     manifest_relative_path: str = Field(..., min_length=1)
     asset_bundle_relative_path: str = Field(..., min_length=1)
     payload_relative_path: str = Field(..., min_length=1)
+    canonical_subtitles_relative_path: str | None = Field(default=None, min_length=1)
+    canonical_subtitles_sha256: str | None = None
+    canonical_subtitles_lexical_source: str | None = Field(default=None, min_length=1)
+    canonical_subtitles_timing_source: str | None = Field(default=None, min_length=1)
     ready_for_real_render: bool
     blockers: tuple[str, ...] = ()
 
@@ -103,6 +107,34 @@ class ProductionPreparationEvidence(AcceptanceModel):
         ):
             raise ValueError("Se esperaba un SHA-256 hexadecimal.")
         return normalized
+
+    @field_validator("canonical_subtitles_sha256")
+    @classmethod
+    def _validate_optional_hash(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        if len(normalized) != 64 or any(
+            character not in "0123456789abcdef" for character in normalized
+        ):
+            raise ValueError("canonical_subtitles_sha256 debe ser SHA-256 hexadecimal.")
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_canonical_subtitle_evidence(self) -> "ProductionPreparationEvidence":
+        subtitle_fields = (
+            self.canonical_subtitles_relative_path,
+            self.canonical_subtitles_sha256,
+            self.canonical_subtitles_lexical_source,
+            self.canonical_subtitles_timing_source,
+        )
+        if any(value is not None for value in subtitle_fields) and any(
+            value is None for value in subtitle_fields
+        ):
+            raise ValueError(
+                "La evidencia de subtítulos canónicos debe estar completa o ausente."
+            )
+        return self
 
 
 class ProductionAcceptanceEvidence(AcceptanceModel):
