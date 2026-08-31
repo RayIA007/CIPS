@@ -947,7 +947,15 @@ def verify_catalog_delivery(
         remote = fetch(entry.delivery_uri)
         local_sha = hashlib.sha256(local).hexdigest()
         remote_sha = hashlib.sha256(remote).hexdigest()
-        passed = bool(local) and local_sha == remote_sha
+        query = dict(
+            parse_qsl(
+                urlsplit(entry.delivery_uri).query,
+                keep_blank_values=True,
+            )
+        )
+        declared_sha = query.get(DELIVERY_URI_VERSION_PARAMETER)
+        version_matches = declared_sha is None or declared_sha == local_sha
+        passed = bool(local) and local_sha == remote_sha and version_matches
         checks.append(
             {
                 "entry_id": entry.entry_id,
@@ -955,10 +963,17 @@ def verify_catalog_delivery(
                 "size_bytes": len(remote),
                 "local_sha256": local_sha,
                 "remote_sha256": remote_sha,
+                "delivery_uri_content_sha256": declared_sha,
+                "delivery_uri_version_matches": version_matches,
                 "passed": passed,
             }
         )
         if not passed:
+            if not version_matches:
+                raise SourceAssetBuildError(
+                    f"El content_sha256 de {entry.entry_id} no coincide con "
+                    "el archivo local. Regenera el catálogo combinado."
+                )
             raise SourceAssetBuildError(
                 f"El asset público {entry.entry_id} no coincide con el archivo local."
             )

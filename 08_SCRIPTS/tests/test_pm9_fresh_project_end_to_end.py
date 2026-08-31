@@ -373,7 +373,7 @@ def test_audio_rebuild_refreshes_combined_catalog_without_replacing_visuals(
             mime_type="image/jpeg",
             media_family=MediaFamily.IMAGE,
             file_extension=".jpg",
-            scene_id=scene.scene_id,
+            scene_id=f"stale-scene-{scene.sequence}",
             source_url=f"https://source.example.test/visual-{scene.sequence}",
             license_name="CC BY-SA 4.0",
             attribution="Offline fixture",
@@ -406,10 +406,15 @@ def test_audio_rebuild_refreshes_combined_catalog_without_replacing_visuals(
 
     assert refreshed_path == combined_path.resolve()
     refreshed = ApprovedAssetCatalog.load(combined_path)
-    assert (
-        tuple(entry for entry in refreshed.entries if entry.role == "scene_visual")
-        == visuals
+    refreshed_visuals = tuple(
+        entry for entry in refreshed.entries if entry.role == "scene_visual"
     )
+    assert tuple(entry.scene_id for entry in refreshed_visuals) == tuple(
+        scene.scene_id for scene in planned.scenes
+    )
+    assert tuple(
+        entry.model_copy(update={"scene_id": None}) for entry in refreshed_visuals
+    ) == tuple(entry.model_copy(update={"scene_id": None}) for entry in visuals)
     assert (
         tuple(entry for entry in refreshed.entries if entry.role != "scene_visual")
         == seed.catalog.entries
@@ -419,6 +424,12 @@ def test_audio_rebuild_refreshes_combined_catalog_without_replacing_visuals(
         for entry in refreshed.entries
         if entry.role != "scene_visual"
     )
+    sidecar = json.loads(Path(f"{combined_path}.meta.json").read_text(encoding="utf-8"))
+    event_metadata = sidecar["events"][-1]["metadata"]
+    assert event_metadata["visual_scene_ids_rebound"] is True
+    assert event_metadata["visual_scene_id_mapping"] == {
+        f"stale-scene-{scene.sequence}": scene.scene_id for scene in planned.scenes
+    }
 
 
 def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(

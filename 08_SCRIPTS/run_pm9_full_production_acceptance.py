@@ -578,13 +578,32 @@ def _refresh_fulfilled_catalog_from_seed(
     visuals = tuple(
         entry for entry in fulfilled.entries if entry.role == "scene_visual"
     )
-    expected_scene_ids = {scene.scene_id for scene in manifest.scenes}
+    ordered_scenes = tuple(sorted(manifest.scenes, key=lambda scene: scene.sequence))
+    expected_scene_ids = {scene.scene_id for scene in ordered_scenes}
     visual_scene_ids = {entry.scene_id for entry in visuals}
-    if (
-        len(visuals) != len(expected_scene_ids)
-        or visual_scene_ids != expected_scene_ids
-    ):
+    if len(visuals) != len(ordered_scenes):
         return None
+    rebound_scene_ids: dict[str, str] = {}
+    if visual_scene_ids != expected_scene_ids:
+        old_scene_ids = tuple(entry.scene_id for entry in visuals)
+        if None in old_scene_ids or len(set(old_scene_ids)) != len(old_scene_ids):
+            return None
+        current_scene_ids = tuple(scene.scene_id for scene in ordered_scenes)
+        if any(
+            old_scene_id in expected_scene_ids
+            and old_scene_id != current_scene_ids[index]
+            for index, old_scene_id in enumerate(old_scene_ids)
+        ):
+            return None
+        rebound_scene_ids = {
+            str(old_scene_id): current_scene_ids[index]
+            for index, old_scene_id in enumerate(old_scene_ids)
+            if old_scene_id != current_scene_ids[index]
+        }
+        visuals = tuple(
+            entry.model_copy(update={"scene_id": current_scene_ids[index]})
+            for index, entry in enumerate(visuals)
+        )
 
     refreshed = ApprovedAssetCatalog(entries=(*visuals, *seed_catalog.entries))
     digest = _catalog_content_sha256(refreshed)
@@ -599,6 +618,8 @@ def _refresh_fulfilled_catalog_from_seed(
             "manifest_id": manifest.manifest_id,
             "entry_count": len(refreshed.entries),
             "seed_catalog_sha256": _catalog_content_sha256(seed_catalog),
+            "visual_scene_ids_rebound": bool(rebound_scene_ids),
+            "visual_scene_id_mapping": rebound_scene_ids,
         },
         collision_policy=CollisionPolicy.REPLACE,
     )

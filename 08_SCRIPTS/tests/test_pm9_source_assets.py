@@ -338,6 +338,26 @@ def test_verify_catalog_delivery_compares_exact_bytes(
     assert passed.verified_count == 1
     assert passed.total_bytes == len(b"exact-public-bytes")
     assert passed.checks[0]["passed"] is True
+    assert passed.checks[0]["delivery_uri_content_sha256"] is None
+    assert passed.checks[0]["delivery_uri_version_matches"] is True
+
+    stale_catalog = ApprovedAssetCatalog(
+        entries=(
+            catalog.entries[0].model_copy(
+                update={
+                    "delivery_uri": (
+                        "https://cdn.example.test/hook.mp4?content_sha256=" + "0" * 64
+                    )
+                }
+            ),
+        )
+    )
+    with pytest.raises(SourceAssetBuildError, match="content_sha256"):
+        verify_catalog_delivery(
+            stale_catalog,
+            assets_root=assets_root,
+            fetch_bytes=lambda url: b"exact-public-bytes",
+        )
 
     with pytest.raises(SourceAssetBuildError, match="no coincide"):
         verify_catalog_delivery(
