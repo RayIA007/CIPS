@@ -265,6 +265,42 @@ def test_enriched_manifest_replaces_pm2_canonical_file_and_is_idempotent_in_f3(
     assert second.artifact_write.event_created is False
 
 
+def test_changed_plan_uses_content_bound_artifact_identity(planning_env) -> None:
+    project_path, compiler, planner = planning_env
+    compiled = compiler.compile(project_path)
+    scene_id = compiled.scenes[0].scene_id
+
+    first = planner.plan_and_persist(
+        compiled,
+        workspace_root=project_path,
+        asset_types={scene_id: AssetType.STOCK_IMAGE},
+        stock_queries={scene_id: "first approved stock query"},
+    )
+    second = planner.plan_and_persist(
+        compiled,
+        workspace_root=project_path,
+        asset_types={scene_id: AssetType.STOCK_IMAGE},
+        stock_queries={scene_id: "second approved stock query"},
+    )
+    repeated = planner.plan_and_persist(
+        compiled,
+        workspace_root=project_path,
+        asset_types={scene_id: AssetType.STOCK_IMAGE},
+        stock_queries={scene_id: "second approved stock query"},
+    )
+
+    assert first.artifact_write.artifact.content_hash != (
+        second.artifact_write.artifact.content_hash
+    )
+    assert first.artifact_write.artifact.artifact_id != (
+        second.artifact_write.artifact.artifact_id
+    )
+    assert second.manifest_path == first.manifest_path
+    assert repeated.manifest == second.manifest
+    assert repeated.artifact_write.deduplicated is True
+    assert repeated.artifact_write.event_created is False
+
+
 def test_planner_rejects_wrong_manifest_type(planning_env) -> None:
     _, _, planner = planning_env
 

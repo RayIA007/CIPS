@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from artifact_store import CollisionPolicy
+from artifact_store import ArtifactStoreError, CollisionPolicy
 from asset_resolution import ManifestAssetResolver, WikimediaCommonsProvider
 from capability_resolver import CapabilityResolver
 from creative_direction_planner import CreativeDirectionPlanner
@@ -284,6 +284,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
     except (
+        ArtifactStoreError,
         OSError,
         UnicodeError,
         ValueError,

@@ -418,6 +418,7 @@ class CreativeDirectionPlanner:
             on_screen_text_mode=on_screen_text_mode,
         )
         serialized = serialize_manifest(planned).encode("utf-8")
+        planned_hash = hashlib.sha256(serialized).hexdigest()
         source_hash = str(planned.metadata["creative_source_manifest_sha256"])
         artifact_write = self._metadata_store.persist_bytes(
             workspace_root=workspace_root,
@@ -427,7 +428,7 @@ class CreativeDirectionPlanner:
             mime_type="application/json",
             artifact_id=(
                 f"artifact-{planned.manifest_id}-creative-"
-                f"{self.planner_version.replace('.', '-')}"
+                f"{self.planner_version.replace('.', '-')}-{planned_hash[:24]}"
             ),
             metadata={
                 "schema_name": planned.schema_name,
@@ -436,6 +437,7 @@ class CreativeDirectionPlanner:
                 "planner": self.planner_name,
                 "planner_version": self.planner_version,
                 "source_manifest_sha256": source_hash,
+                "planned_manifest_sha256": planned_hash,
             },
             collision_policy=CollisionPolicy.REPLACE,
         )
