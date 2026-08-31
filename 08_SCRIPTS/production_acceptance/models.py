@@ -8,7 +8,6 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
 PRODUCTION_ACCEPTANCE_SCHEMA_NAME = "cips.production_acceptance"
 PRODUCTION_ACCEPTANCE_SCHEMA_VERSION = "1.1"
 
@@ -110,9 +109,7 @@ class FrameRatePolicy(AcceptanceModel):
     @model_validator(mode="after")
     def _validate_strict_sources(self) -> "FrameRatePolicy":
         if self.mode is FrameRateMode.STRICT and self.accepted_source_fps:
-            raise ValueError(
-                "El modo strict no admite FPS físicos alternativos."
-            )
+            raise ValueError("El modo strict no admite FPS físicos alternativos.")
         return self
 
     def accepted_fps(self, target_fps: float) -> tuple[float, ...]:
@@ -134,9 +131,7 @@ class FrameRateTransformationEvidence(AcceptanceModel):
     video_filter: str = Field(..., min_length=1)
     video_codec: Literal["libx264"] = "libx264"
     audio_strategy: Literal["copy"] = "copy"
-    temporal_strategy: Literal["duplicate_drop_nearest"] = (
-        "duplicate_drop_nearest"
-    )
+    temporal_strategy: Literal["duplicate_drop_nearest"] = "duplicate_drop_nearest"
     pixel_format: Literal["yuv420p"] = "yuv420p"
     quality_profile: Literal["crf18-medium"] = "crf18-medium"
 
@@ -209,6 +204,10 @@ class ProductionPreparationEvidence(AcceptanceModel):
     canonical_subtitles_sha256: str | None = None
     canonical_subtitles_lexical_source: str | None = Field(default=None, min_length=1)
     canonical_subtitles_timing_source: str | None = Field(default=None, min_length=1)
+    narration_conformance_required: bool = False
+    narration_conformance_relative_path: str | None = Field(default=None, min_length=1)
+    narration_conformance_sha256: str | None = None
+    narration_conformance_approved: bool | None = None
     ready_for_real_render: bool
     blockers: tuple[str, ...] = ()
 
@@ -222,7 +221,10 @@ class ProductionPreparationEvidence(AcceptanceModel):
             raise ValueError("Se esperaba un SHA-256 hexadecimal.")
         return normalized
 
-    @field_validator("canonical_subtitles_sha256")
+    @field_validator(
+        "canonical_subtitles_sha256",
+        "narration_conformance_sha256",
+    )
     @classmethod
     def _validate_optional_hash(cls, value: str | None) -> str | None:
         if value is None:
@@ -247,6 +249,39 @@ class ProductionPreparationEvidence(AcceptanceModel):
         ):
             raise ValueError(
                 "La evidencia de subtítulos canónicos debe estar completa o ausente."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_narration_conformance_evidence(
+        self,
+    ) -> "ProductionPreparationEvidence":
+        if not self.narration_conformance_required:
+            if any(
+                value is not None
+                for value in (
+                    self.narration_conformance_relative_path,
+                    self.narration_conformance_sha256,
+                    self.narration_conformance_approved,
+                )
+            ):
+                raise ValueError(
+                    "La evidencia acústica sólo corresponde a una política requerida."
+                )
+            return self
+        if self.narration_conformance_relative_path is None:
+            raise ValueError("La política acústica requiere la ruta de su evidencia.")
+        if self.narration_conformance_approved is True and (
+            self.narration_conformance_sha256 is None
+        ):
+            raise ValueError("Una aprobación acústica requiere SHA-256 de evidencia.")
+        if (
+            self.ready_for_real_render
+            and self.narration_conformance_approved is not True
+        ):
+            raise ValueError(
+                "ready_for_real_render requiere aprobación acústica "
+                "cuando es obligatoria."
             )
         return self
 

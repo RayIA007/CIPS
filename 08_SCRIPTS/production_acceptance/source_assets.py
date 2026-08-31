@@ -30,15 +30,40 @@ from urllib.request import Request, urlopen
 from production_manifest import AssetType, ProductionManifest
 
 from .catalog import ApprovedAssetCatalog, CatalogEntry
-
+from .narration_conformance import (
+    NarrationConformanceError,
+    NarrationConformanceGate,
+    inspect_narration_conformance,
+)
 
 PIPER_PACKAGE_VERSION = "1.7.0"
 PIPER_VOICE_ID = "es_MX-claude-high"
+PIPER_FALLBACK_VOICE_ID = "es_ES-sharvard-medium"
+PIPER_VOICE_CANDIDATES = (PIPER_VOICE_ID, PIPER_FALLBACK_VOICE_ID)
 PIPER_SENTENCE_SILENCE_SECONDS = 0.0
-PIPER_MODEL_CARD_URL = (
-    "https://huggingface.co/rhasspy/piper-voices/blob/main/"
-    "es/es_MX/claude/high/MODEL_CARD"
-)
+PIPER_VOICE_PROFILES: dict[str, dict[str, str]] = {
+    PIPER_VOICE_ID: {
+        "locale": "es-MX",
+        "model_card_url": (
+            "https://huggingface.co/rhasspy/piper-voices/blob/main/"
+            "es/es_MX/claude/high/MODEL_CARD"
+        ),
+        "dataset_license": "Apache-2.0",
+        "dataset_attribution": "HirCoir Piper-TTS-Spanish dataset",
+    },
+    PIPER_FALLBACK_VOICE_ID: {
+        "locale": "es-ES",
+        "model_card_url": (
+            "https://huggingface.co/rhasspy/piper-voices/blob/main/"
+            "es/es_ES/sharvard/medium/MODEL_CARD"
+        ),
+        "dataset_license": "CC BY 3.0",
+        "dataset_attribution": (
+            "Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75"
+        ),
+    },
+}
+PIPER_MODEL_CARD_URL = PIPER_VOICE_PROFILES[PIPER_VOICE_ID]["model_card_url"]
 WIKIMEDIA_FILE_PAGE = (
     "https://commons.wikimedia.org/wiki/"
     "File:Fitness_enthusiast_performs_plank_exercise_at_home_on_yoga_mat.jpg"
@@ -71,6 +96,8 @@ class SourceAssetBuildResult:
     generated_count: int
     reused_existing: bool
     network_called: bool
+    conformance_report_path: Path | None = None
+    narration_conformance_approved: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +133,8 @@ class PM9SourceAssetBuilder:
         runner: CommandRunner | None = None,
         fetch_bytes: ByteFetcher | None = None,
         python_executable: str | Path | None = None,
+        narration_conformance_gate: NarrationConformanceGate | None = None,
+        narration_voice_candidates: Sequence[str] = PIPER_VOICE_CANDIDATES,
     ) -> None:
         if not isinstance(manifest, ProductionManifest):
             raise TypeError("manifest debe ser ProductionManifest.")
@@ -117,10 +146,35 @@ class PM9SourceAssetBuilder:
         self.runner = runner or _run_command
         self.fetch_bytes = fetch_bytes or _fetch_public_bytes
         self.python_executable = str(python_executable or sys.executable)
+        if narration_conformance_gate is not None and not isinstance(
+            narration_conformance_gate, NarrationConformanceGate
+        ):
+            raise TypeError(
+                "narration_conformance_gate debe ser NarrationConformanceGate."
+            )
+        self.narration_conformance_gate = narration_conformance_gate
+        candidates = tuple(str(value).strip() for value in narration_voice_candidates)
+        if (
+            not candidates
+            or any(not value for value in candidates)
+            or len(set(candidates)) != len(candidates)
+        ):
+            raise ValueError(
+                "narration_voice_candidates debe contener voces únicas y no vacías."
+            )
+        unsupported = sorted(set(candidates) - set(PIPER_VOICE_PROFILES))
+        if unsupported:
+            raise ValueError(
+                "Voces Piper sin perfil de procedencia aprobado: "
+                + ", ".join(unsupported)
+            )
+        self.narration_voice_candidates = candidates
         try:
             self.assets_root.relative_to(self.project_path)
         except ValueError as error:
-            raise ValueError("assets_root debe permanecer dentro del proyecto.") from error
+            raise ValueError(
+                "assets_root debe permanecer dentro del proyecto."
+            ) from error
 
     def build(self, *, force: bool = False) -> SourceAssetBuildResult:
         """Build all media and write a strict catalog plus provenance report."""
@@ -158,17 +212,63 @@ class PM9SourceAssetBuilder:
                     "visual/scene-004-aligned-plank-v2.png",
                 )
 
-            voice_model_cached = self._voice_model_is_cached()
-            model_path = self._ensure_voice_model()
-            for scene in self.manifest.scenes:
-                if scene.narration_text is None:
-                    continue
-                files[f"narration_{scene.sequence}"] = self._build_narration(
-                    scene.narration_text,
-                    scene.duration_seconds,
-                    model_path=model_path,
-                    temporary_root=temp,
-                    sequence=scene.sequence,
+            selected_voice_id: str | None = None
+            attempted_voice_ids: list[str] = []
+            voice_model_downloaded = False
+            voice_candidates = (
+                self.narration_voice_candidates
+                if self.narration_conformance_gate is not None
+                else self.narration_voice_candidates[:1]
+            )
+            if self.narration_conformance_gate is not None:
+                self.narration_conformance_gate.reset_attempt_history()
+            for candidate_index, voice_id in enumerate(voice_candidates):
+                voice_cached = self._voice_model_is_cached(voice_id)
+                model_path = self._ensure_voice_model(voice_id)
+                voice_model_downloaded = voice_model_downloaded or not voice_cached
+                attempted_voice_ids.append(voice_id)
+                for scene in self.manifest.scenes:
+                    if scene.narration_text is None:
+                        continue
+                    files[f"narration_{scene.sequence}"] = self._build_narration(
+                        scene.narration_text,
+                        scene.duration_seconds,
+                        model_path=model_path,
+                        temporary_root=temp,
+                        sequence=scene.sequence,
+                    )
+
+                if self.narration_conformance_gate is not None:
+                    try:
+                        self.narration_conformance_gate.validate_and_persist(
+                            self.manifest,
+                            {
+                                scene.scene_id: files[f"narration_{scene.sequence}"]
+                                for scene in self.manifest.scenes
+                                if scene.narration_text is not None
+                            },
+                            project_path=self.project_path,
+                            synthesis_voice_id=voice_id,
+                        )
+                    except NarrationConformanceError as error:
+                        report = self.narration_conformance_gate.last_report
+                        only_lexical_mismatches = bool(
+                            report is not None
+                            and report.blockers
+                            and all(
+                                blocker.startswith("narration_acoustic_mismatch:")
+                                for blocker in report.blockers
+                            )
+                        )
+                        has_next_candidate = candidate_index + 1 < len(voice_candidates)
+                        if only_lexical_mismatches and has_next_candidate:
+                            continue
+                        raise SourceAssetBuildError(str(error)) from error
+                selected_voice_id = voice_id
+                break
+            if selected_voice_id is None:
+                raise SourceAssetBuildError(
+                    "Ninguna voz local produjo narración acústicamente conforme."
                 )
 
             if self.manifest.audio_design.music is not None:
@@ -187,7 +287,11 @@ class PM9SourceAssetBuilder:
                     temporary_root=temp,
                 )
 
-        catalog = self._catalog(files, include_legacy_visuals=legacy_visuals)
+        catalog = self._catalog(
+            files,
+            include_legacy_visuals=legacy_visuals,
+            voice_id=selected_voice_id,
+        )
         catalog_path = self.assets_root / CATALOG_FILENAME
         _write_json_atomic(
             catalog_path,
@@ -199,6 +303,8 @@ class PM9SourceAssetBuilder:
             files,
             photo_bytes,
             include_legacy_visuals=legacy_visuals,
+            voice_id=selected_voice_id,
+            attempted_voice_ids=tuple(attempted_voice_ids),
         )
         _write_json_atomic(report_path, report)
         return SourceAssetBuildResult(
@@ -209,7 +315,23 @@ class PM9SourceAssetBuilder:
             delivery_base_uri=self.delivery_base_uri,
             generated_count=len(catalog.entries),
             reused_existing=False,
-            network_called=legacy_visuals or not voice_model_cached,
+            network_called=(
+                legacy_visuals
+                or voice_model_downloaded
+                or bool(
+                    self.narration_conformance_gate is not None
+                    and self.narration_conformance_gate.network_called
+                )
+            ),
+            conformance_report_path=(
+                None
+                if self.narration_conformance_gate is None
+                else self.project_path
+                / self.narration_conformance_gate.report_relative_path
+            ),
+            narration_conformance_approved=(
+                None if self.narration_conformance_gate is None else True
+            ),
         )
 
     def _preflight(self) -> None:
@@ -229,6 +351,8 @@ class PM9SourceAssetBuilder:
         report_path = self.assets_root / BUILD_REPORT_FILENAME
         if not catalog_path.is_file() or not report_path.is_file():
             return None
+        conformance_path: Path | None = None
+        conformance_approved: bool | None = None
         try:
             catalog = ApprovedAssetCatalog.load(catalog_path)
             report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -239,6 +363,9 @@ class PM9SourceAssetBuilder:
                 or not isinstance(report.get("voice"), Mapping)
                 or report["voice"].get("sentence_silence_seconds")
                 != PIPER_SENTENCE_SILENCE_SECONDS
+                or report["voice"].get("candidate_policy")
+                != list(self.narration_voice_candidates)
+                or report["voice"].get("model") not in self.narration_voice_candidates
             ):
                 return None
             for entry in catalog.entries:
@@ -257,6 +384,31 @@ class PM9SourceAssetBuilder:
                 )
                 if query.get(DELIVERY_URI_VERSION_PARAMETER) != expected:
                     return None
+            if self.narration_conformance_gate is not None:
+                audio_hashes = {
+                    entry.scene_id: _sha256_path(self.assets_root / entry.relative_path)
+                    for entry in catalog.entries
+                    if entry.role == "scene_narration" and entry.scene_id is not None
+                }
+                inspection = inspect_narration_conformance(
+                    self.manifest,
+                    project_path=self.project_path,
+                    audio_sha256_by_scene_id=audio_hashes,
+                    policy=self.narration_conformance_gate.policy,
+                    report_relative_path=(
+                        self.narration_conformance_gate.report_relative_path
+                    ),
+                )
+                if inspection.blockers:
+                    return None
+                if (
+                    inspection.report is None
+                    or inspection.report.synthesis_voice_id
+                    != report["voice"].get("model")
+                ):
+                    return None
+                conformance_path = inspection.report_path
+                conformance_approved = True
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
             return None
         return SourceAssetBuildResult(
@@ -268,6 +420,8 @@ class PM9SourceAssetBuilder:
             generated_count=0,
             reused_existing=True,
             network_called=False,
+            conformance_report_path=conformance_path,
+            narration_conformance_approved=conformance_approved,
         )
 
     def _build_hook_video(self, photo_path: Path) -> Path:
@@ -370,9 +524,10 @@ class PM9SourceAssetBuilder:
             )
         return destination
 
-    def _ensure_voice_model(self) -> Path:
-        model_path = self.model_dir / f"{PIPER_VOICE_ID}.onnx"
-        config_path = self.model_dir / f"{PIPER_VOICE_ID}.onnx.json"
+    def _ensure_voice_model(self, voice_id: str = PIPER_VOICE_ID) -> Path:
+        _piper_voice_profile(voice_id)
+        model_path = self.model_dir / f"{voice_id}.onnx"
+        config_path = self.model_dir / f"{voice_id}.onnx.json"
         if model_path.is_file() and config_path.is_file():
             return model_path
         self.runner(
@@ -380,7 +535,7 @@ class PM9SourceAssetBuilder:
                 self.python_executable,
                 "-m",
                 "piper.download_voices",
-                PIPER_VOICE_ID,
+                voice_id,
                 "--data-dir",
                 str(self.model_dir),
             )
@@ -389,11 +544,11 @@ class PM9SourceAssetBuilder:
         _require_nonempty(config_path, "configuración de voz Piper")
         return model_path
 
-    def _voice_model_is_cached(self) -> bool:
-        return (
-            (self.model_dir / f"{PIPER_VOICE_ID}.onnx").is_file()
-            and (self.model_dir / f"{PIPER_VOICE_ID}.onnx.json").is_file()
-        )
+    def _voice_model_is_cached(self, voice_id: str = PIPER_VOICE_ID) -> bool:
+        _piper_voice_profile(voice_id)
+        return (self.model_dir / f"{voice_id}.onnx").is_file() and (
+            self.model_dir / f"{voice_id}.onnx.json"
+        ).is_file()
 
     def _build_narration(
         self,
@@ -519,7 +674,9 @@ class PM9SourceAssetBuilder:
         files: Mapping[str, Path],
         *,
         include_legacy_visuals: bool,
+        voice_id: str,
     ) -> ApprovedAssetCatalog:
+        voice_profile = _piper_voice_profile(voice_id)
         scenes = {scene.sequence: scene for scene in self.manifest.scenes}
         entries: list[CatalogEntry] = []
         if include_legacy_visuals:
@@ -603,14 +760,15 @@ class PM9SourceAssetBuilder:
                     mime_type="audio/mpeg",
                     media_family="audio",
                     scene_id=scene.scene_id,
-                    source_url=PIPER_MODEL_CARD_URL,
+                    source_url=voice_profile["model_card_url"],
                     license_name=(
-                        "Piper es_MX-claude-high generated speech "
-                        "(dataset Apache-2.0)"
+                        f"Piper {voice_id} generated speech "
+                        f"(dataset {voice_profile['dataset_license']})"
                     ),
                     attribution=(
-                        "Voz sintetizada localmente con Piper y el modelo "
-                        "es_MX-claude-high (español de México)."
+                        f"Voz sintetizada localmente con Piper y {voice_id}; "
+                        f"fuente: {voice_profile['dataset_attribution']}; "
+                        f"licencia {voice_profile['dataset_license']}."
                     ),
                 )
             )
@@ -703,8 +861,14 @@ class PM9SourceAssetBuilder:
         photo_bytes: bytes | None,
         *,
         include_legacy_visuals: bool,
+        voice_id: str,
+        attempted_voice_ids: tuple[str, ...],
     ) -> dict[str, Any]:
         del files
+        voice_profile = _piper_voice_profile(voice_id)
+        attempted_profiles = tuple(
+            _piper_voice_profile(candidate) for candidate in attempted_voice_ids
+        )
         report: dict[str, Any] = {
             "schema_name": "cips.production_acceptance.asset_build_report",
             "schema_version": "1.0",
@@ -717,31 +881,34 @@ class PM9SourceAssetBuilder:
             ),
             "catalog_entry_count": len(catalog.entries),
             "delivery_base_uri": self.delivery_base_uri,
-            "delivery_uri_versioning": (
-                f"{DELIVERY_URI_VERSION_PARAMETER}_query_v1"
-            ),
+            "delivery_uri_versioning": (f"{DELIVERY_URI_VERSION_PARAMETER}_query_v1"),
             "actual_cost_usd": 0.0,
             "paid_provider_called": False,
             "publication_performed": False,
             "network_sources": (
-                [WIKIMEDIA_PHOTO_URL, PIPER_MODEL_CARD_URL]
-                if include_legacy_visuals
-                else [PIPER_MODEL_CARD_URL]
+                ([WIKIMEDIA_PHOTO_URL] if include_legacy_visuals else [])
+                + [profile["model_card_url"] for profile in attempted_profiles]
             ),
             "voice": {
                 "engine": "Piper",
                 "package_version": PIPER_PACKAGE_VERSION,
-                "model": PIPER_VOICE_ID,
-                "locale": "es-MX",
+                "model": voice_id,
+                "locale": voice_profile["locale"],
                 "sentence_silence_seconds": PIPER_SENTENCE_SILENCE_SECONDS,
-                "model_card_url": PIPER_MODEL_CARD_URL,
-                "dataset_license": "Apache-2.0",
+                "model_card_url": voice_profile["model_card_url"],
+                "dataset_license": voice_profile["dataset_license"],
+                "dataset_attribution": voice_profile["dataset_attribution"],
+                "candidate_policy": list(self.narration_voice_candidates),
+                "attempted_models": list(attempted_voice_ids),
+                "fallback_used": voice_id != self.narration_voice_candidates[0],
             },
             "files": {
                 entry.entry_id: {
                     "relative_path": entry.relative_path,
                     "sha256": _sha256_path(self.assets_root / entry.relative_path),
-                    "size_bytes": (self.assets_root / entry.relative_path).stat().st_size,
+                    "size_bytes": (self.assets_root / entry.relative_path)
+                    .stat()
+                    .st_size,
                     "delivery_uri": entry.delivery_uri,
                     "license_name": entry.license_name,
                     "attribution": entry.attribution,
@@ -876,8 +1043,19 @@ def _public_base_uri(value: str) -> str:
         or parsed.query
         or parsed.fragment
     ):
-        raise ValueError("delivery_base_uri debe ser HTTPS pública, estable y sin query.")
+        raise ValueError(
+            "delivery_base_uri debe ser HTTPS pública, estable y sin query."
+        )
     return normalized
+
+
+def _piper_voice_profile(voice_id: str) -> dict[str, str]:
+    try:
+        return PIPER_VOICE_PROFILES[voice_id]
+    except KeyError as error:
+        raise ValueError(
+            f"La voz Piper {voice_id!r} no tiene procedencia aprobada."
+        ) from error
 
 
 def _quote_path(value: str) -> str:
@@ -976,22 +1154,22 @@ def _write_procedural_audio(path: Path, duration_seconds: float, *, kind: str) -
                 hat = noise * math.exp(-65 * hat_phase)
                 bass_note = (55.0, 65.41, 73.42, 49.0)[int(time / 2) % 4]
                 bass = math.sin(2 * math.pi * bass_note * time) * 0.22
-                pulse = math.sin(2 * math.pi * 220 * time) * (0.05 if beat < 0.08 else 0)
+                pulse = math.sin(2 * math.pi * 220 * time) * (
+                    0.05 if beat < 0.08 else 0
+                )
                 value = 0.34 * kick + 0.07 * hat + bass + pulse
             elif kind == "whoosh":
                 position = index / max(1, frame_count - 1)
                 envelope = math.sin(math.pi * position) ** 1.4
                 value = noise * envelope * (0.22 + 0.3 * position)
             elif kind == "impact":
-                value = (
-                    0.68 * math.sin(2 * math.pi * 78 * time) * math.exp(-10 * time)
-                    + 0.13 * noise * math.exp(-24 * time)
-                )
+                value = 0.68 * math.sin(2 * math.pi * 78 * time) * math.exp(
+                    -10 * time
+                ) + 0.13 * noise * math.exp(-24 * time)
             else:
-                value = (
-                    0.45 * math.sin(2 * math.pi * 330 * time) * math.exp(-13 * time)
-                    + 0.16 * math.sin(2 * math.pi * 165 * time) * math.exp(-9 * time)
-                )
+                value = 0.45 * math.sin(2 * math.pi * 330 * time) * math.exp(
+                    -13 * time
+                ) + 0.16 * math.sin(2 * math.pi * 165 * time) * math.exp(-9 * time)
             sample = max(-32767, min(32767, round(value * 32767 * 0.72)))
             buffer.extend(struct.pack("<h", sample))
             if len(buffer) >= 131_072:
@@ -1033,8 +1211,11 @@ __all__ = [
     "BUILD_REPORT_FILENAME",
     "CATALOG_FILENAME",
     "DeliveryVerificationResult",
+    "PIPER_FALLBACK_VOICE_ID",
     "PIPER_PACKAGE_VERSION",
     "PIPER_SENTENCE_SILENCE_SECONDS",
+    "PIPER_VOICE_CANDIDATES",
+    "PIPER_VOICE_PROFILES",
     "PIPER_VOICE_ID",
     "PM9SourceAssetBuilder",
     "SourceAssetBuildError",

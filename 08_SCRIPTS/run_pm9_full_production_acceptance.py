@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from asset_resolution import ManifestAssetResolver, WikimediaCommonsProvider
 from artifact_store import CollisionPolicy
+from asset_resolution import ManifestAssetResolver, WikimediaCommonsProvider
 from capability_resolver import CapabilityResolver
 from creative_direction_planner import CreativeDirectionPlanner
 from creatomate_adapter import CreatomateAdapter
@@ -31,6 +31,7 @@ from creatomate_api import (
     CreatomateRenderService,
     estimate_render_credits,
 )
+from final_review import ReviewAction, ReviewDecision
 from json2video_adapter import (
     JSON2VIDEO_PAYLOAD_FILENAME,
     JSON2VideoAdapter,
@@ -43,21 +44,24 @@ from json2video_api import (
     JSON2VideoApiError,
     JSON2VideoRenderService,
 )
-from final_review import ReviewAction, ReviewDecision
 from media_provider_registry import MediaProviderRegistry
 from metadata_store import MetadataStore
 from production_acceptance import (
+    VERIFY_REPORT_RELATIVE_PATH,
     ApprovedAssetCatalog,
     ApprovedAssetCatalogProvider,
+    FasterWhisperTranscriber,
     FrameRatePolicy,
     FullProductionAcceptance,
+    NarrationConformanceGate,
+    NarrationConformancePolicy,
+    PIPER_VOICE_CANDIDATES,
     PM9SourceAssetBuilder,
     ProductionAcceptanceBlockedError,
     ProductionAcceptanceError,
     SourceAssetBuildError,
     VisualAssetFulfillmentError,
     VisualAssetFulfillmentService,
-    VERIFY_REPORT_RELATIVE_PATH,
     derive_github_raw_base,
     verify_catalog_delivery,
 )
@@ -66,7 +70,6 @@ from production_manifest_compiler import ProductionManifestCompiler
 from render_adapter import RenderResult, RenderStatus
 from workspace_resolver import WorkspaceResolver
 
-
 CONFIRMATION_ENV = "CIPS_PM9_REAL_RENDER_CONFIRM"
 CONFIRMATION_VALUE = "I_AUTHORIZE_REAL_RENDER"
 ASSET_CONFIRMATION_ENV = "CIPS_PM9_REAL_ASSET_CONFIRM"
@@ -74,9 +77,7 @@ ASSET_CONFIRMATION_VALUE = "I_AUTHORIZE_FREE_VISUAL_ACQUISITION"
 PROJECT_CONFIG_FILENAME = "production_acceptance_config.json"
 INVENTORY_RELATIVE_PATH = Path("acceptance") / "asset_requirements.json"
 RENDER_RESULT_RELATIVE_PATH = Path("render") / "creatomate_result.json"
-JSON2VIDEO_RENDER_RESULT_RELATIVE_PATH = (
-    Path("render") / "json2video_result.json"
-)
+JSON2VIDEO_RENDER_RESULT_RELATIVE_PATH = Path("render") / "json2video_result.json"
 JSON2VIDEO_PAYLOAD_RELATIVE_PATH = Path("render") / JSON2VIDEO_PAYLOAD_FILENAME
 _PROVIDERS = ("creatomate", "json2video")
 
@@ -145,6 +146,14 @@ def _parser() -> argparse.ArgumentParser:
         help="Caché local del modelo Piper; por defecto vive bajo 05_OUTPUTS.",
     )
     parser.add_argument(
+        "--asr-model-dir",
+        type=Path,
+        help=(
+            "Caché local de Faster-Whisper; por defecto vive bajo 05_OUTPUTS. "
+            "Sólo build-assets puede descargar el modelo faltante."
+        ),
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Regenera assets existentes que ya coincidan con el manifiesto.",
@@ -206,9 +215,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prepared = acceptance.prepare(
             project,
             asset_types_by_sequence=config["asset_types_by_sequence"],
-            existing_asset_ids_by_sequence=config[
-                "existing_asset_ids_by_sequence"
-            ],
+            existing_asset_ids_by_sequence=config["existing_asset_ids_by_sequence"],
             stock_queries_by_sequence=config["stock_queries_by_sequence"],
             on_screen_text_mode=config["on_screen_text_mode"],
             adapter_factory=_adapter_factory(args.provider, config=config),
@@ -231,9 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
             if args.provider == "creatomate":
                 prepared_output["estimated_creatomate_credits"] = estimated
-            _print_json(
-                prepared_output
-            )
+            _print_json(prepared_output)
             return 0 if prepared.evidence.ready_for_real_render else 2
         if args.command == "render":
             return _render_command(
@@ -278,7 +283,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         )
         return 1
-    except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError) as error:
+    except (
+        OSError,
+        UnicodeError,
+        ValueError,
+        TypeError,
+        json.JSONDecodeError,
+    ) as error:
         _print_json(
             {
                 "success": False,
@@ -312,14 +323,14 @@ def _load_project_config(
     override: Path | None = None,
 ) -> dict[str, Any]:
     path = (
-        project / PROJECT_CONFIG_FILENAME
-        if override is None
-        else (
-            override
-            if override.is_absolute()
-            else project / override
+        (
+            project / PROJECT_CONFIG_FILENAME
+            if override is None
+            else (override if override.is_absolute() else project / override)
         )
-    ).expanduser().resolve(strict=False)
+        .expanduser()
+        .resolve(strict=False)
+    )
     try:
         path.relative_to(project)
     except ValueError as error:
@@ -343,6 +354,8 @@ def _load_project_config(
         "json2video_subtitle_mode",
         "json2video_ambient_diagram_background",
         "frame_rate_policy",
+        "narration_conformance_policy",
+        "narration_voice_candidates",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -352,12 +365,8 @@ def _load_project_config(
     if raw.get("schema_version") != "1.0":
         raise ValueError("schema_version PM9 no soportado.")
     asset_types = _sequence_mapping(raw.get("asset_types_by_sequence"), AssetType)
-    existing_ids = _sequence_mapping(
-        raw.get("existing_asset_ids_by_sequence", {}), str
-    )
-    stock_queries = _sequence_mapping(
-        raw.get("stock_queries_by_sequence", {}), str
-    )
+    existing_ids = _sequence_mapping(raw.get("existing_asset_ids_by_sequence", {}), str)
+    stock_queries = _sequence_mapping(raw.get("stock_queries_by_sequence", {}), str)
     catalog_relative = _safe_relative(raw.get("catalog_relative_path"), "catalog")
     assets_relative = _safe_relative(
         raw.get("assets_root_relative_path"), "assets_root"
@@ -377,9 +386,7 @@ def _load_project_config(
     )
     on_screen_text_mode = str(raw.get("on_screen_text_mode", "auto")).strip().casefold()
     if on_screen_text_mode not in {"auto", "captions_only"}:
-        raise ValueError(
-            "on_screen_text_mode debe ser auto o captions_only."
-        )
+        raise ValueError("on_screen_text_mode debe ser auto o captions_only.")
     json2video_music_volume = _bounded_config_float(
         raw.get("json2video_music_volume", 0.2),
         label="json2video_music_volume",
@@ -392,9 +399,9 @@ def _load_project_config(
         minimum=0.0,
         maximum=4.0,
     )
-    json2video_subtitle_mode = str(
-        raw.get("json2video_subtitle_mode", "inline_srt")
-    ).strip().casefold()
+    json2video_subtitle_mode = (
+        str(raw.get("json2video_subtitle_mode", "inline_srt")).strip().casefold()
+    )
     if json2video_subtitle_mode not in {
         "inline_srt",
         "canonical_srt",
@@ -408,11 +415,13 @@ def _load_project_config(
         "json2video_ambient_diagram_background", False
     )
     if not isinstance(json2video_ambient_diagram_background, bool):
-        raise ValueError(
-            "json2video_ambient_diagram_background debe ser booleano."
-        )
-    frame_rate_policy = FrameRatePolicy.model_validate(
-        raw.get("frame_rate_policy", {})
+        raise ValueError("json2video_ambient_diagram_background debe ser booleano.")
+    frame_rate_policy = FrameRatePolicy.model_validate(raw.get("frame_rate_policy", {}))
+    narration_conformance_policy = NarrationConformancePolicy.model_validate(
+        raw.get("narration_conformance_policy", {})
+    )
+    narration_voice_candidates = _narration_voice_candidates(
+        raw.get("narration_voice_candidates", PIPER_VOICE_CANDIDATES)
     )
     return {
         "asset_types_by_sequence": asset_types,
@@ -430,7 +439,24 @@ def _load_project_config(
             json2video_ambient_diagram_background
         ),
         "frame_rate_policy": frame_rate_policy,
+        "narration_conformance_policy": narration_conformance_policy,
+        "narration_voice_candidates": narration_voice_candidates,
     }
+
+
+def _narration_voice_candidates(value: Any) -> tuple[str, ...]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValueError("narration_voice_candidates debe ser una lista JSON.")
+    candidates = tuple(str(item).strip() for item in value)
+    if (
+        not candidates
+        or any(not item for item in candidates)
+        or len(set(candidates)) != len(candidates)
+    ):
+        raise ValueError(
+            "narration_voice_candidates requiere voces únicas y no vacías."
+        )
+    return candidates
 
 
 def _sequence_mapping(value: Any, converter: Any) -> dict[int, Any]:
@@ -471,9 +497,7 @@ def _bounded_config_float(
         raise ValueError(f"{label} debe ser numérico.")
     normalized = float(value)
     if not math.isfinite(normalized) or not minimum <= normalized <= maximum:
-        raise ValueError(
-            f"{label} debe estar entre {minimum:.1f} y {maximum:.1f}."
-        )
+        raise ValueError(f"{label} debe estar entre {minimum:.1f} y {maximum:.1f}.")
     return normalized
 
 
@@ -506,6 +530,7 @@ def _acceptance_for(
         workspace_resolver=workspace,
         asset_resolver=resolver,
         frame_rate_policy=config["frame_rate_policy"],
+        narration_conformance_policy=config["narration_conformance_policy"],
     )
 
 
@@ -537,14 +562,12 @@ def _refresh_fulfilled_catalog_from_seed(
 ) -> Path | None:
     """Replace stale nonvisual entries while preserving approved visuals."""
 
-    configured_assets_root = (
-        project / config["assets_root_relative_path"]
-    ).resolve(strict=False)
+    configured_assets_root = (project / config["assets_root_relative_path"]).resolve(
+        strict=False
+    )
     if assets_root.resolve(strict=False) != configured_assets_root:
         return None
-    fulfilled_path = (
-        project / config["catalog_relative_path"]
-    ).resolve(strict=False)
+    fulfilled_path = (project / config["catalog_relative_path"]).resolve(strict=False)
     seed_path = (assets_root / "asset_catalog.json").resolve(strict=False)
     if fulfilled_path == seed_path or not fulfilled_path.is_file():
         return None
@@ -647,12 +670,45 @@ def _build_assets_command(
         if args.model_dir is not None
         else workspace.outputs_root / "pm9_models" / "piper"
     )
+    conformance_policy = config["narration_conformance_policy"]
+    conformance_gate = None
+    if conformance_policy.enabled:
+        asr_model_dir = (
+            args.asr_model_dir.expanduser().resolve(strict=False)
+            if args.asr_model_dir is not None
+            else workspace.outputs_root / "pm9_models" / "faster_whisper"
+        )
+        adjudicator = None
+        if conformance_policy.adjudication_model is not None:
+            adjudication_policy = conformance_policy.model_copy(
+                update={
+                    "model": conformance_policy.adjudication_model,
+                    "adjudication_model": None,
+                }
+            )
+            adjudicator = FasterWhisperTranscriber(
+                adjudication_policy,
+                model_dir=asr_model_dir,
+                allow_model_download=True,
+            )
+        conformance_gate = NarrationConformanceGate(
+            conformance_policy,
+            FasterWhisperTranscriber(
+                conformance_policy,
+                model_dir=asr_model_dir,
+                allow_model_download=True,
+            ),
+            metadata_store=MetadataStore(workspace),
+            adjudicator=adjudicator,
+        )
     builder = PM9SourceAssetBuilder(
         planned,
         project_path=project,
         assets_root=assets_root,
         model_dir=model_dir,
         delivery_base_uri=delivery_base,
+        narration_conformance_gate=conformance_gate,
+        narration_voice_candidates=config["narration_voice_candidates"],
     )
     result = builder.build(force=args.force)
     refreshed_catalog_path = _refresh_fulfilled_catalog_from_seed(
@@ -676,6 +732,12 @@ def _build_assets_command(
             "catalog_entries": len(result.catalog.entries),
             "generated_count": result.generated_count,
             "reused_existing": result.reused_existing,
+            "narration_conformance_approved": (result.narration_conformance_approved),
+            "narration_conformance_report_path": (
+                None
+                if result.conformance_report_path is None
+                else str(result.conformance_report_path.resolve())
+            ),
             "fulfilled_catalog_refreshed": refreshed_catalog_path is not None,
             "fulfilled_catalog_path": (
                 str(refreshed_catalog_path)
@@ -726,9 +788,7 @@ def _fulfill_assets_command(
         )
     seed_path = (project / seed_relative).resolve(strict=False)
     seed_catalog = ApprovedAssetCatalog.load(seed_path)
-    assets_root = (project / config["assets_root_relative_path"]).resolve(
-        strict=False
-    )
+    assets_root = (project / config["assets_root_relative_path"]).resolve(strict=False)
     delivery_base = (
         str(args.delivery_base).strip()
         if args.delivery_base
@@ -868,9 +928,7 @@ def _planned_manifest(
     }
     existing = {
         by_sequence[sequence]: asset_id
-        for sequence, asset_id in config[
-            "existing_asset_ids_by_sequence"
-        ].items()
+        for sequence, asset_id in config["existing_asset_ids_by_sequence"].items()
     }
     return CreativeDirectionPlanner().plan(
         manifest,
@@ -916,9 +974,7 @@ def _asset_inventory(manifest: ProductionManifest) -> dict[str, Any]:
                 }
             )
         else:
-            raise ValueError(
-                f"PM9 no inventaría asset_type={asset.asset_type.value}."
-            )
+            raise ValueError(f"PM9 no inventaría asset_type={asset.asset_type.value}.")
         if scene.narration_text:
             requirements.append(
                 {
@@ -986,9 +1042,7 @@ def _adapter_factory(provider: str, *, config: Mapping[str, Any] | None = None):
             ),
             canonical_subtitle_track=canonical_track,
             ambient_diagram_background=bool(
-                project_config.get(
-                    "json2video_ambient_diagram_background", False
-                )
+                project_config.get("json2video_ambient_diagram_background", False)
             ),
         )
     raise ValueError(f"Proveedor no soportado: {provider}.")
@@ -1061,9 +1115,7 @@ def _render_command(
         credential_source = CREATOMATE_API_KEY_ENV
     elif provider == "json2video":
         api_config = JSON2VideoApiConfig.from_environment()
-        render_adapter = _adapter_factory(
-            "json2video", config=config
-        )(
+        render_adapter = _adapter_factory("json2video", config=config)(
             prepared.asset_run.bundle,
             (
                 None
@@ -1150,9 +1202,8 @@ def _accept_command(
         (prepared.evidence.run_id, args.action, args.actor, timestamp)
     )
     decision = ReviewDecision(
-        decision_id="human-pm9-" + hashlib.sha256(
-            decision_basis.encode("utf-8")
-        ).hexdigest()[:24],
+        decision_id="human-pm9-"
+        + hashlib.sha256(decision_basis.encode("utf-8")).hexdigest()[:24],
         action=action,
         actor=args.actor,
         decided_at=timestamp,

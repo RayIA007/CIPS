@@ -14,19 +14,22 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+import production_acceptance.source_assets as source_assets  # noqa: E402
 from creative_direction_planner import CreativeDirectionPlanner  # noqa: E402
+from metadata_store import MetadataStore  # noqa: E402
 from production_acceptance import (  # noqa: E402
     ApprovedAssetCatalog,
+    NarrationConformanceGate,
+    NarrationConformancePolicy,
+    NarrationTranscription,
     PM9SourceAssetBuilder,
     SourceAssetBuildError,
     derive_github_raw_base,
     verify_catalog_delivery,
 )
-import production_acceptance.source_assets as source_assets  # noqa: E402
 from production_manifest import AssetType  # noqa: E402
 from production_manifest_compiler import ProductionManifestCompiler  # noqa: E402
 from workspace_resolver import WorkspaceResolver  # noqa: E402
-
 
 FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm9" / "editorial_project"
 ASSET_TYPES = {
@@ -66,6 +69,34 @@ def _write_wav(path: Path, *, seconds: float = 0.1) -> None:
         stream.setsampwidth(2)
         stream.setframerate(8_000)
         stream.writeframes(b"\x00\x00" * max(1, round(seconds * 8_000)))
+
+
+class _ExactManifestTranscriber:
+    def __init__(self, manifest) -> None:
+        self.text_by_filename = {
+            f"narration-{scene.sequence:03d}.mp3": scene.narration_text or ""
+            for scene in manifest.scenes
+            if scene.narration_text is not None
+        }
+        self.network_called = False
+
+    def transcribe(self, audio_path: Path) -> NarrationTranscription:
+        return NarrationTranscription(text=self.text_by_filename[audio_path.name])
+
+
+class _PrimaryVoiceMismatchThenExactTranscriber(_ExactManifestTranscriber):
+    def __init__(self, manifest) -> None:
+        super().__init__(manifest)
+        self.scene_count = len(self.text_by_filename)
+        self.call_count = 0
+
+    def transcribe(self, audio_path: Path) -> NarrationTranscription:
+        attempt = self.call_count // self.scene_count
+        self.call_count += 1
+        text = self.text_by_filename[audio_path.name]
+        if attempt == 0 and audio_path.name == "narration-001.mp3":
+            text += " desvidan"
+        return NarrationTranscription(text=text)
 
 
 def test_derive_github_raw_base_supports_https_origin(tmp_path: Path) -> None:
@@ -125,7 +156,9 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
         (visual_root / name).write_bytes(b"\x89PNG\r\n\x1a\ncurated-pm9")
 
     monkeypatch.setattr(source_assets.shutil, "which", lambda name: f"/bin/{name}")
-    monkeypatch.setattr(source_assets.importlib.util, "find_spec", lambda name: object())
+    monkeypatch.setattr(
+        source_assets.importlib.util, "find_spec", lambda name: object()
+    )
     monkeypatch.setattr(
         source_assets,
         "_write_procedural_audio",
@@ -137,10 +170,9 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
         command = tuple(str(item) for item in command)
         calls.append(command)
         if "piper.download_voices" in command:
-            (model_dir / "es_MX-claude-high.onnx").write_bytes(b"onnx-model")
-            (model_dir / "es_MX-claude-high.onnx.json").write_text(
-                "{}", encoding="utf-8"
-            )
+            voice_id = command[command.index("piper.download_voices") + 1]
+            (model_dir / f"{voice_id}.onnx").write_bytes(b"onnx-model")
+            (model_dir / f"{voice_id}.onnx.json").write_text("{}", encoding="utf-8")
         elif command[0] == sys.executable and "piper" in command:
             _write_wav(Path(command[command.index("-f") + 1]), seconds=1.0)
         elif command[0] == "ffprobe":
@@ -151,6 +183,7 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
             destination.write_bytes(b"generated-media-" + destination.name.encode())
         return _completed()
 
+    conformance_transcriber = _PrimaryVoiceMismatchThenExactTranscriber(manifest)
     builder = PM9SourceAssetBuilder(
         manifest,
         project_path=project,
@@ -162,6 +195,13 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
         ),
         runner=runner,
         fetch_bytes=lambda url: b"\xff\xd8" + (b"x" * 100_001),
+        narration_conformance_gate=NarrationConformanceGate(
+            NarrationConformancePolicy(enabled=True),
+            conformance_transcriber,
+            metadata_store=MetadataStore(
+                WorkspaceResolver(project.parent, outputs_root)
+            ),
+        ),
     )
 
     first = builder.build()
@@ -171,9 +211,14 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     assert first.generated_count == 13
     assert first.network_called is True
     assert first.reused_existing is False
+    assert first.narration_conformance_approved is True
+    assert first.conformance_report_path is not None
+    assert first.conformance_report_path.is_file()
+    assert Path(f"{first.conformance_report_path}.meta.json").is_file()
     assert second.generated_count == 0
     assert second.network_called is False
     assert second.reused_existing is True
+    assert second.narration_conformance_approved is True
     assert all(entry.actual_cost_usd == 0 for entry in first.catalog.entries)
     assert all(
         parse_qs(urlsplit(entry.delivery_uri).query).get("content_sha256")
@@ -192,7 +237,27 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
     assert report["publication_performed"] is False
     assert report["delivery_uri_versioning"] == "content_sha256_query_v1"
     assert len(report["files"]) == 13
-    assert any("piper.download_voices" in command for command in calls)
+    assert report["voice"]["model"] == "es_ES-sharvard-medium"
+    assert report["voice"]["fallback_used"] is True
+    assert report["voice"]["attempted_models"] == [
+        "es_MX-claude-high",
+        "es_ES-sharvard-medium",
+    ]
+    conformance = json.loads(first.conformance_report_path.read_text(encoding="utf-8"))
+    assert [attempt["approved"] for attempt in conformance["synthesis_attempts"]] == [
+        False,
+        True,
+    ]
+    assert conformance["synthesis_voice_id"] == "es_ES-sharvard-medium"
+    downloaded_voices = [
+        command[command.index("piper.download_voices") + 1]
+        for command in calls
+        if "piper.download_voices" in command
+    ]
+    assert downloaded_voices == [
+        "es_MX-claude-high",
+        "es_ES-sharvard-medium",
+    ]
     narration_calls = [
         command
         for command in calls
@@ -219,6 +284,17 @@ def test_full_asset_build_is_zero_cost_and_idempotent(
         encoding="utf-8",
     )
     assert builder._reuse_existing() is None
+
+    first_scene = manifest.scenes[0]
+    narration_name = f"narration-{first_scene.sequence:03d}.mp3"
+    conformance_transcriber.text_by_filename[narration_name] += " desvidan"
+    with pytest.raises(SourceAssetBuildError, match="gate acústico bloqueó"):
+        builder.build(force=True)
+    rejected = json.loads(first.conformance_report_path.read_text(encoding="utf-8"))
+    assert rejected["approved"] is False
+    assert rejected["render_performed"] is False
+    assert len(rejected["synthesis_attempts"]) == 2
+    assert all(not attempt["approved"] for attempt in rejected["synthesis_attempts"])
 
 
 def test_verify_catalog_delivery_compares_exact_bytes(

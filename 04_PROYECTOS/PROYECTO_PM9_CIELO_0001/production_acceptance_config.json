@@ -28,6 +28,23 @@
     ],
     "tolerance_fps": 0.15
   },
+  "narration_conformance_policy": {
+    "enabled": true,
+    "engine": "faster_whisper",
+    "model": "small",
+    "adjudication_model": "medium",
+    "language": "es",
+    "device": "cpu",
+    "compute_type": "int8",
+    "word_timestamps": true,
+    "vad_filter": true,
+    "comparison": "exact_lexical",
+    "automatic_script_rewrite": false
+  },
+  "narration_voice_candidates": [
+    "es_MX-claude-high",
+    "es_ES-sharvard-medium"
+  ],
   "catalog_relative_path": "source_assets/automated_asset_catalog.json",
   "assets_root_relative_path": "source_assets",
   "seed_catalog_relative_path": "source_assets/asset_catalog.json",

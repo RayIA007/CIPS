@@ -15,17 +15,19 @@ REPOSITORY_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+import production_acceptance.source_assets as source_assets  # noqa: E402
+import run_pm9_full_production_acceptance as pm9_cli  # noqa: E402
 from asset_resolution import (  # noqa: E402
     ManifestAssetResolver,
     MediaFamily,
     WikimediaCommonsProvider,
 )
-from capability_resolver import CapabilityResolver  # noqa: E402
 from canonical_subtitles import (  # noqa: E402
     CanonicalSubtitleAlignmentError,
     PhysicalAudioDurationProbe,
     validate_srt_against_manifest,
 )
+from capability_resolver import CapabilityResolver  # noqa: E402
 from json2video_adapter import JSON2VideoAdapter  # noqa: E402
 from media_provider_registry import MediaProviderRegistry  # noqa: E402
 from metadata_store import MetadataStore  # noqa: E402
@@ -37,16 +39,11 @@ from production_acceptance import (  # noqa: E402
     PM9SourceAssetBuilder,
     VisualAssetFulfillmentService,
 )
-import production_acceptance.source_assets as source_assets  # noqa: E402
 from production_manifest import AssetType, serialize_manifest  # noqa: E402
 from production_manifest_compiler import ProductionManifestCompiler  # noqa: E402
-import run_pm9_full_production_acceptance as pm9_cli  # noqa: E402
 from workspace_resolver import WorkspaceResolver  # noqa: E402
 
-
-FRESH_PROJECT = (
-    REPOSITORY_ROOT / "04_PROYECTOS" / "PROYECTO_PM9_CIELO_0001"
-)
+FRESH_PROJECT = REPOSITORY_ROOT / "04_PROYECTOS" / "PROYECTO_PM9_CIELO_0001"
 FRESH_PROJECT_SOURCE_PATHS = (
     "memoria.yaml",
     "narration",
@@ -105,9 +102,7 @@ def _build_audio_seed(
     model_dir = outputs_root / "pm9_models" / "piper"
     model_dir.mkdir(parents=True)
     (model_dir / "es_MX-claude-high.onnx").write_bytes(b"offline-model")
-    (model_dir / "es_MX-claude-high.onnx.json").write_text(
-        "{}", encoding="utf-8"
-    )
+    (model_dir / "es_MX-claude-high.onnx.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(source_assets.shutil, "which", lambda name: f"/bin/{name}")
     monkeypatch.setattr(
         source_assets.importlib.util,
@@ -129,7 +124,9 @@ def _build_audio_seed(
         elif command[0] == "ffmpeg":
             destination = Path(command[-1])
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(b"ID3\x04\x00\x00PM9.2-" + destination.name.encode())
+            destination.write_bytes(
+                b"ID3\x04\x00\x00PM9.2-" + destination.name.encode()
+            )
         return _completed()
 
     builder = PM9SourceAssetBuilder(
@@ -170,8 +167,7 @@ def _wikimedia_provider() -> WikimediaCommonsProvider:
         width = 1280 + call_index
         height = 720 + call_index
         source_url = (
-            "https://upload.wikimedia.org/wikipedia/commons/"
-            f"pm9-fresh-{call_index}.png"
+            f"https://upload.wikimedia.org/wikipedia/commons/pm9-fresh-{call_index}.png"
         )
         delivery_url = source_url
         title = f"File:PM9 fresh {call_index}.png"
@@ -180,8 +176,7 @@ def _wikimedia_provider() -> WikimediaCommonsProvider:
         thumbnail_fields = {}
         if call_index == 2:
             source_url = (
-                "https://upload.wikimedia.org/wikipedia/commons/"
-                "pm9-fresh-diagram.svg"
+                "https://upload.wikimedia.org/wikipedia/commons/pm9-fresh-diagram.svg"
             )
             delivery_url = f"{source_url}/1280px-pm9-fresh-diagram.svg.png"
             title = "File:PM9 fresh diagram.svg"
@@ -274,6 +269,17 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
     assert config["json2video_ambient_diagram_background"] is True
     assert config["frame_rate_policy"].mode.value == "normalize_to_manifest"
     assert config["frame_rate_policy"].accepted_source_fps == (25.0,)
+    assert config["narration_conformance_policy"].enabled is True
+    assert config["narration_conformance_policy"].model == "small"
+    assert config["narration_conformance_policy"].adjudication_model == "medium"
+    assert config["narration_conformance_policy"].automatic_script_rewrite is False
+    assert config["narration_voice_candidates"] == (
+        "es_MX-claude-high",
+        "es_ES-sharvard-medium",
+    )
+    assert "dispersan" in " ".join(
+        scene.narration_text or "" for scene in planned.scenes
+    )
     assert len(planned.source_references) == 7
     assert all(
         len(reference.content_hash or "") == 64
@@ -293,10 +299,7 @@ def test_fresh_project_compiles_short_distinct_provider_neutral_plan(
 @pytest.mark.parametrize(
     "relative_path",
     [
-        (
-            "04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/"
-            "narration-005.mp3"
-        ),
+        ("04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-005.mp3"),
         (
             "04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/"
             "sfx-005-resolution.mp3"
@@ -338,8 +341,7 @@ def test_generic_builder_creates_idempotent_audio_seed_without_curated_visuals(
     assert second.generated_count == 0
     assert second.network_called is False
     assert all(
-        "?content_sha256=" in entry.delivery_uri
-        for entry in first.catalog.entries
+        "?content_sha256=" in entry.delivery_uri for entry in first.catalog.entries
     )
     report = json.loads(first.report_path.read_text(encoding="utf-8"))
     assert report["build_profile"] == "generic_audio_seed"
@@ -367,9 +369,7 @@ def test_audio_rebuild_refreshes_combined_catalog_without_replacing_visuals(
             capability="stock_image_search",
             role="scene_visual",
             relative_path=f"fulfilled/visual-{scene.sequence}.jpg",
-            delivery_uri=(
-                f"https://cdn.example.test/visual-{scene.sequence}.jpg"
-            ),
+            delivery_uri=(f"https://cdn.example.test/visual-{scene.sequence}.jpg"),
             mime_type="image/jpeg",
             media_family=MediaFamily.IMAGE,
             file_extension=".jpg",
@@ -406,12 +406,14 @@ def test_audio_rebuild_refreshes_combined_catalog_without_replacing_visuals(
 
     assert refreshed_path == combined_path.resolve()
     refreshed = ApprovedAssetCatalog.load(combined_path)
-    assert tuple(
-        entry for entry in refreshed.entries if entry.role == "scene_visual"
-    ) == visuals
-    assert tuple(
-        entry for entry in refreshed.entries if entry.role != "scene_visual"
-    ) == seed.catalog.entries
+    assert (
+        tuple(entry for entry in refreshed.entries if entry.role == "scene_visual")
+        == visuals
+    )
+    assert (
+        tuple(entry for entry in refreshed.entries if entry.role != "scene_visual")
+        == seed.catalog.entries
+    )
     assert all(
         "?content_sha256=" in entry.delivery_uri
         for entry in refreshed.entries
@@ -459,9 +461,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     assert len(fulfillment.catalog.entries) == 16
     assert fulfillment.resolution.bundle.total_actual_cost_usd == 0.0
     assert fulfillment.resolution.bundle.unknown_cost_count == 0
-    assert all(
-        entry.actual_cost_usd == 0.0 for entry in fulfillment.catalog.entries
-    )
+    assert all(entry.actual_cost_usd == 0.0 for entry in fulfillment.catalog.entries)
     visual_entries = [
         entry for entry in fulfillment.catalog.entries if entry.role == "scene_visual"
     ]
@@ -514,9 +514,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
             sound_effect_gain=config["json2video_sound_effect_gain"],
             subtitle_mode=config["json2video_subtitle_mode"],
             canonical_subtitle_track=canonical_track,
-            ambient_diagram_background=config[
-                "json2video_ambient_diagram_background"
-            ],
+            ambient_diagram_background=config["json2video_ambient_diagram_background"],
         ),
         payload_relative_path=Path("video/json2video/json2video_payload.json"),
         canonical_subtitles=True,
@@ -533,9 +531,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
             for element in scene["elements"]
             if element.get("id") == f"visual-{index:03d}"
         )
-        for index, scene in enumerate(
-            prepared.plan.target_payload["scenes"], start=1
-        )
+        for index, scene in enumerate(prepared.plan.target_payload["scenes"], start=1)
     ]
     assert [element["resize"] for element in primary_visuals] == [
         "cover",
@@ -556,11 +552,14 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         "visual-004-ambient",
     ]
     assert all(element["resize"] == "cover" for element in ambient_layers)
-    assert all(element["correction"]["brightness"] == -0.58 for element in ambient_layers)
-    visual_sources = [
-        element["src"] for element in primary_visuals
-    ]
-    assert all("raw.githubusercontent.com/example/CIPS/main" in source for source in visual_sources)
+    assert all(
+        element["correction"]["brightness"] == -0.58 for element in ambient_layers
+    )
+    visual_sources = [element["src"] for element in primary_visuals]
+    assert all(
+        "raw.githubusercontent.com/example/CIPS/main" in source
+        for source in visual_sources
+    )
     assert all(
         not any(element["type"] == "text" for element in scene["elements"])
         for scene in prepared.plan.target_payload["scenes"]
@@ -600,7 +599,7 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
     )
     assert "model" not in subtitles
     assert subtitles["language"] == "es-419"
-    assert "desvían" in subtitles["captions"]
+    assert "dispersan" in subtitles["captions"]
     assert "desvidan" not in subtitles["captions"]
     assert prepared.canonical_subtitles is not None
     assert subtitles["captions"] == prepared.canonical_subtitles.srt_text
@@ -614,13 +613,12 @@ def test_offline_fresh_chain_reaches_json2video_preparation_without_publication(
         for cue in prepared.canonical_subtitles.track.cues
     )
     assert all(
-        len(cue.text.split()) >= 2
-        for cue in prepared.canonical_subtitles.track.cues
+        len(cue.text.split()) >= 2 for cue in prepared.canonical_subtitles.track.cues
     )
     assert {cue.text for cue in prepared.canonical_subtitles.track.cues}.isdisjoint(
         {"en", "cruza"}
     )
-    tampered = subtitles["captions"].replace("desvían", "desvidan", 1)
+    tampered = subtitles["captions"].replace("dispersan", "desvidan", 1)
     with pytest.raises(CanonicalSubtitleAlignmentError, match="Congruencia"):
         validate_srt_against_manifest(tampered, prepared.manifest)
     assert prepared.plan.target_payload["fps"] == 30

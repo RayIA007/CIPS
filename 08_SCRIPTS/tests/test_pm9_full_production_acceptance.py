@@ -12,10 +12,10 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+import run_pm9_full_production_acceptance as pm9_cli  # noqa: E402
 from asset_resolution import (  # noqa: E402
     ManifestAssetResolver,
     MediaFamily,
-    ResolutionStatus,
 )
 from capability_resolver import CapabilityResolver  # noqa: E402
 from creative_direction_planner import CreativeDirectionPlanner  # noqa: E402
@@ -32,15 +32,17 @@ from production_acceptance import (  # noqa: E402
     FrameRateProcessor,
     FullProductionAcceptance,
     MediaProbeError,
+    NarrationConformanceGate,
+    NarrationConformanceMismatchError,
+    NarrationConformancePolicy,
+    NarrationTranscription,
     ProductionAcceptanceBlockedError,
 )
 from production_manifest import AssetType  # noqa: E402
 from production_manifest_compiler import ProductionManifestCompiler  # noqa: E402
 from render_adapter import RenderResult, RenderStatus  # noqa: E402
-import run_pm9_full_production_acceptance as pm9_cli  # noqa: E402
 from style_profiles import IMMERSIVE_PROCESS_EXPLAINER_ID  # noqa: E402
 from workspace_resolver import WorkspaceResolver  # noqa: E402
-
 
 FIXTURE_PROJECT = Path(__file__).parent / "fixtures" / "pm9" / "editorial_project"
 ASSET_TYPES = {
@@ -155,13 +157,11 @@ def _environment(
         outputs_root=outputs_root,
     )
 
-    source = ProductionManifestCompiler(
-        workspace_resolver=workspace
-    ).compile(project_path)
+    source = ProductionManifestCompiler(workspace_resolver=workspace).compile(
+        project_path
+    )
     scene_ids = {scene.sequence: scene.scene_id for scene in source.scenes}
-    planned = CreativeDirectionPlanner(
-        workspace_resolver=workspace
-    ).plan(
+    planned = CreativeDirectionPlanner(workspace_resolver=workspace).plan(
         source,
         asset_types={scene_ids[key]: value for key, value in ASSET_TYPES.items()},
         existing_asset_ids={
@@ -314,7 +314,56 @@ def _approval() -> ReviewDecision:
     )
 
 
-def test_new_editorial_project_is_scientifically_traced_and_vertical(tmp_path: Path) -> None:
+class _PhysicalTranscriptMap:
+    def __init__(self, values: dict[str, str]) -> None:
+        self.values = values
+        self.network_called = False
+
+    def transcribe(self, audio_path: Path) -> NarrationTranscription:
+        return NarrationTranscription(text=self.values[audio_path.name])
+
+
+def _persist_acoustic_evidence(
+    project_path: Path,
+    manifest,
+    asset_run,
+    *,
+    mismatch_scene_sequence: int | None = None,
+) -> NarrationConformancePolicy:
+    audio_paths: dict[str, Path] = {}
+    transcripts: dict[str, str] = {}
+    scenes = {scene.scene_id: scene for scene in manifest.scenes}
+    for asset in asset_run.bundle.assets:
+        if asset.role.value != "scene_narration":
+            continue
+        path = project_path / str(asset.artifact_relative_path)
+        audio_paths[str(asset.scene_id)] = path
+        scene = scenes[str(asset.scene_id)]
+        text = scene.narration_text or ""
+        if scene.sequence == mismatch_scene_sequence:
+            text = text + " desvidan"
+        transcripts[path.name] = text
+    policy = NarrationConformancePolicy(enabled=True)
+    gate = NarrationConformanceGate(policy, _PhysicalTranscriptMap(transcripts))
+    if mismatch_scene_sequence is None:
+        gate.validate_and_persist(
+            manifest,
+            audio_paths,
+            project_path=project_path,
+        )
+    else:
+        with pytest.raises(NarrationConformanceMismatchError):
+            gate.validate_and_persist(
+                manifest,
+                audio_paths,
+                project_path=project_path,
+            )
+    return policy
+
+
+def test_new_editorial_project_is_scientifically_traced_and_vertical(
+    tmp_path: Path,
+) -> None:
     project_path, _, _, planned = _environment(tmp_path)
 
     assert planned.project.project_id == "PROYECTO_PM9_PLANCHA_0001"
@@ -323,13 +372,13 @@ def test_new_editorial_project_is_scientifically_traced_and_vertical(tmp_path: P
     assert planned.output.aspect_ratio == "9:16"
     assert len(planned.scenes) == 4
     assert len(planned.source_references) == 7
-    assert all(len(reference.content_hash or "") == 64 for reference in planned.source_references)
+    assert all(
+        len(reference.content_hash or "") == 64
+        for reference in planned.source_references
+    )
     research = (project_path / "research" / "01_INVESTIGACION.md").read_text(
         encoding="utf-8"
     )
-    verification = (
-        project_path / "verification" / "02_VERIFICACION.md"
-    ).read_text(encoding="utf-8")
     assert "https://pubmed.ncbi.nlm.nih.gov/10656518/" in research
     assert "inferencia fisiológica prudente" in research
     assert "no mide por sí solo progreso" in (
@@ -383,7 +432,9 @@ def test_prepare_reuses_pm1_pm8_and_compiles_only_https_sources(tmp_path: Path) 
         if element["type"] in {"audio", "image", "video"}
     ]
     assert media
-    assert all(element["source"].startswith("https://cdn.example.test/") for element in media)
+    assert all(
+        element["source"].startswith("https://cdn.example.test/") for element in media
+    )
     assert all("provider" not in element for element in media)
 
     call_count = len(provider.calls)
@@ -395,6 +446,84 @@ def test_prepare_reuses_pm1_pm8_and_compiles_only_https_sources(tmp_path: Path) 
     assert repeated.evidence == prepared.evidence
     assert repeated.asset_run.reused_existing is True
     assert len(provider.calls) == call_count
+
+
+def test_missing_acoustic_evidence_blocks_real_render_readiness(
+    tmp_path: Path,
+) -> None:
+    project, _, acceptance, _ = _environment(tmp_path)
+    guarded = FullProductionAcceptance(
+        workspace_resolver=acceptance.workspace_resolver,
+        asset_resolver=acceptance.asset_resolver,
+        narration_conformance_policy=NarrationConformancePolicy(enabled=True),
+    )
+
+    prepared = guarded.prepare(
+        project,
+        asset_types_by_sequence=ASSET_TYPES,
+        existing_asset_ids_by_sequence=EXISTING_IDS,
+    )
+
+    assert prepared.evidence.ready_for_real_render is False
+    assert prepared.evidence.narration_conformance_approved is False
+    assert "narration_conformance_missing_or_stale" in prepared.evidence.blockers
+
+
+def test_approved_acoustic_evidence_enables_real_render_readiness(
+    tmp_path: Path,
+) -> None:
+    project, _, acceptance, manifest = _environment(tmp_path)
+    asset_run = acceptance.asset_resolver.resolve(manifest, workspace_root=project)
+    policy = _persist_acoustic_evidence(project, manifest, asset_run)
+    guarded = FullProductionAcceptance(
+        workspace_resolver=acceptance.workspace_resolver,
+        asset_resolver=acceptance.asset_resolver,
+        narration_conformance_policy=policy,
+    )
+
+    prepared = guarded.prepare(
+        project,
+        asset_types_by_sequence=ASSET_TYPES,
+        existing_asset_ids_by_sequence=EXISTING_IDS,
+    )
+
+    assert prepared.evidence.ready_for_real_render is True
+    assert prepared.evidence.narration_conformance_required is True
+    assert prepared.evidence.narration_conformance_approved is True
+    assert prepared.evidence.narration_conformance_sha256 is not None
+    assert prepared.narration_conformance is not None
+
+
+def test_acoustic_mismatch_blocks_render_readiness_without_provider_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project, _, acceptance, manifest = _environment(tmp_path)
+    asset_run = acceptance.asset_resolver.resolve(manifest, workspace_root=project)
+    policy = _persist_acoustic_evidence(
+        project,
+        manifest,
+        asset_run,
+        mismatch_scene_sequence=2,
+    )
+    guarded = FullProductionAcceptance(
+        workspace_resolver=acceptance.workspace_resolver,
+        asset_resolver=acceptance.asset_resolver,
+        narration_conformance_policy=policy,
+    )
+
+    prepared = guarded.prepare(
+        project,
+        asset_types_by_sequence=ASSET_TYPES,
+        existing_asset_ids_by_sequence=EXISTING_IDS,
+    )
+
+    assert prepared.evidence.ready_for_real_render is False
+    assert "narration_acoustic_mismatch" in prepared.evidence.blockers
+    assert prepared.evidence.narration_conformance_approved is False
+    monkeypatch.setenv(pm9_cli.CONFIRMATION_ENV, pm9_cli.CONFIRMATION_VALUE)
+    with pytest.raises(ProductionAcceptanceBlockedError, match="blockers"):
+        pm9_cli._render_command(prepared, guarded, max_credits=999)
 
 
 def test_real_render_command_is_blocked_without_explicit_credit_authorization(
@@ -411,7 +540,9 @@ def test_real_render_command_is_blocked_without_explicit_credit_authorization(
         pm9_cli._render_command(prepared, acceptance, max_credits=999)
 
 
-def test_finalize_requires_explicit_human_publishability_decision(tmp_path: Path) -> None:
+def test_finalize_requires_explicit_human_publishability_decision(
+    tmp_path: Path,
+) -> None:
     project_path, _, acceptance, _, prepared = _prepare(tmp_path)
     render = _render_file(tmp_path)
 
@@ -467,7 +598,9 @@ def test_f7_persists_request_changes_and_blocks_export(tmp_path: Path) -> None:
     assert not (project_path / "acceptance" / "final_acceptance.json").exists()
 
 
-def test_full_acceptance_persists_f7_export_f8_and_reuses_result(tmp_path: Path) -> None:
+def test_full_acceptance_persists_f7_export_f8_and_reuses_result(
+    tmp_path: Path,
+) -> None:
     project_path, provider, acceptance, _, prepared = _prepare(tmp_path)
     render = _render_file(tmp_path)
     result = acceptance.finalize(
@@ -515,7 +648,9 @@ def test_full_acceptance_persists_f7_export_f8_and_reuses_result(tmp_path: Path)
     assert len(provider.calls) == calls
 
 
-def test_technical_gate_blocks_wrong_vertical_resolution_before_f7(tmp_path: Path) -> None:
+def test_technical_gate_blocks_wrong_vertical_resolution_before_f7(
+    tmp_path: Path,
+) -> None:
     project_path, _, acceptance, _, prepared = _prepare(
         tmp_path,
         probe_payload=_probe_payload(width=720, height=1280),
@@ -554,9 +689,7 @@ def test_normalize_policy_converts_known_25_fps_before_qa_f7_and_export(
                 stderr="",
             )
         normalization_calls.append(command)
-        Path(command[-1]).write_bytes(
-            b"\x00\x00\x00\x18ftypmp42PM9-normalized-30fps"
-        )
+        Path(command[-1]).write_bytes(b"\x00\x00\x00\x18ftypmp42PM9-normalized-30fps")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
     policy = FrameRatePolicy(
@@ -820,9 +953,11 @@ def test_real_ffmpeg_normalizes_25_to_30_with_f3_evidence(tmp_path: Path) -> Non
 
 
 def test_pm9_keeps_universal_manifest_free_of_provider_fields() -> None:
-    manifest_source = (SCRIPTS_DIR / "production_manifest" / "models.py").read_text(
-        encoding="utf-8"
-    ).lower()
+    manifest_source = (
+        (SCRIPTS_DIR / "production_manifest" / "models.py")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     package_source = "\n".join(
         path.read_text(encoding="utf-8").lower()
         for path in sorted((SCRIPTS_DIR / "production_acceptance").glob("*.py"))

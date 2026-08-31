@@ -9,13 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from artifact_store import CollisionPolicy
 from asset_resolution import (
     AssetResolutionBundle,
     AssetResolutionRun,
+    AssetRole,
     ManifestAssetResolver,
     ResolutionStatus,
 )
-from artifact_store import CollisionPolicy
 from canonical_subtitles import (
     CANONICAL_SUBTITLE_RELATIVE_PATH,
     CanonicalSubtitleError,
@@ -55,11 +56,14 @@ from .frame_rate import FrameRateProcessingError, FrameRateProcessor
 from .media_probe import FFprobeInspector
 from .models import (
     FrameRatePolicy,
-    MediaProbeReport,
     ProductionAcceptanceEvidence,
     ProductionPreparationEvidence,
 )
-
+from .narration_conformance import (
+    NarrationConformanceInspection,
+    NarrationConformancePolicy,
+    inspect_narration_conformance,
+)
 
 PREPARATION_RELATIVE_PATH = Path("acceptance") / "preparation.json"
 PAYLOAD_RELATIVE_PATH = Path("render") / "creatomate_payload.json"
@@ -92,6 +96,7 @@ class PreparedProduction:
     preparation_path: Path
     payload_path: Path
     canonical_subtitles: CanonicalSubtitleResult | None
+    narration_conformance: NarrationConformanceInspection | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +125,7 @@ class FullProductionAcceptance:
         frame_rate_processor: FrameRateProcessor | None = None,
         subtitle_duration_probe: PhysicalAudioDurationProbe | None = None,
         telemetry_engine: TelemetryEngine | None = None,
+        narration_conformance_policy: NarrationConformancePolicy | None = None,
     ) -> None:
         if not isinstance(workspace_resolver, WorkspaceResolver):
             raise TypeError("workspace_resolver debe ser WorkspaceResolver.")
@@ -146,6 +152,15 @@ class FullProductionAcceptance:
             duration_probe=subtitle_duration_probe,
         )
         self.telemetry_engine = telemetry_engine or TelemetryEngine()
+        self.narration_conformance_policy = (
+            narration_conformance_policy or NarrationConformancePolicy()
+        )
+        if not isinstance(
+            self.narration_conformance_policy, NarrationConformancePolicy
+        ):
+            raise TypeError(
+                "narration_conformance_policy debe ser NarrationConformancePolicy."
+            )
         self.metadata_store = MetadataStore(workspace_resolver)
         self.video_store = VideoStore(workspace_resolver)
 
@@ -157,10 +172,7 @@ class FullProductionAcceptance:
         existing_asset_ids_by_sequence: Mapping[int, str] | None = None,
         stock_queries_by_sequence: Mapping[int, str] | None = None,
         on_screen_text_mode: str = "auto",
-        adapter_factory: (
-            Callable[..., RenderTargetAdapter]
-            | None
-        ) = None,
+        adapter_factory: (Callable[..., RenderTargetAdapter] | None) = None,
         payload_relative_path: str | Path = PAYLOAD_RELATIVE_PATH,
         canonical_subtitles: bool = False,
         canonical_subtitle_relative_path: (
@@ -210,6 +222,20 @@ class FullProductionAcceptance:
             planned.manifest,
             workspace_root=project,
         )
+        narration_inspection: NarrationConformanceInspection | None = None
+        if self.narration_conformance_policy.enabled:
+            narration_inspection = inspect_narration_conformance(
+                planned.manifest,
+                project_path=project,
+                audio_sha256_by_scene_id={
+                    asset.scene_id: asset.content_sha256
+                    for asset in asset_run.bundle.assets
+                    if asset.role is AssetRole.SCENE_NARRATION
+                    and asset.scene_id is not None
+                    and asset.content_sha256 is not None
+                },
+                policy=self.narration_conformance_policy,
+            )
         canonical_subtitle_result: CanonicalSubtitleResult | None = None
         if canonical_subtitles:
             try:
@@ -261,7 +287,13 @@ class FullProductionAcceptance:
             collision_policy=CollisionPolicy.REPLACE,
         )
         run_id = f"pm9-{submission.submission_id[-24:]}"
-        blockers = _preparation_blockers(planned.manifest, asset_run)
+        blockers = _preparation_blockers(
+            planned.manifest,
+            asset_run,
+            narration_blockers=(
+                () if narration_inspection is None else narration_inspection.blockers
+            ),
+        )
         evidence = ProductionPreparationEvidence(
             project_id=planned.manifest.project.project_id,
             production_id=planned.manifest.project.production_id,
@@ -307,6 +339,26 @@ class FullProductionAcceptance:
                 None
                 if canonical_subtitle_result is None
                 else canonical_subtitle_result.track.timing_source
+            ),
+            narration_conformance_required=(self.narration_conformance_policy.enabled),
+            narration_conformance_relative_path=(
+                None
+                if narration_inspection is None
+                else _relative(narration_inspection.report_path, project)
+            ),
+            narration_conformance_sha256=(
+                None
+                if narration_inspection is None
+                else narration_inspection.report_sha256
+            ),
+            narration_conformance_approved=(
+                None
+                if narration_inspection is None
+                else bool(
+                    narration_inspection.report is not None
+                    and narration_inspection.report.approved
+                    and not narration_inspection.blockers
+                )
             ),
             ready_for_real_render=not blockers,
             blockers=blockers,
@@ -360,6 +412,7 @@ class FullProductionAcceptance:
             preparation_path=Path(preparation_write.artifact.path),
             payload_path=Path(payload_write.artifact.path),
             canonical_subtitles=canonical_subtitle_result,
+            narration_conformance=narration_inspection,
         )
 
     def finalize(
@@ -570,9 +623,7 @@ class FullProductionAcceptance:
             export_operation,
         )
         export_path = Path(export_write.artifact.path)
-        external_job_id = _optional_text(
-            render_result.metadata.get("external_job_id")
-        )
+        external_job_id = _optional_text(render_result.metadata.get("external_job_id"))
         estimated_cost = round(
             prepared.asset_run.bundle.total_estimated_cost_usd
             + _non_negative_float(render_result.metadata.get("estimated_cost_usd")),
@@ -798,8 +849,7 @@ class FullProductionAcceptance:
             )
         if (
             not render_path.is_file()
-            or _sha256(render_path)
-            != evidence.frame_rate.input_probe.file_sha256
+            or _sha256(render_path) != evidence.frame_rate.input_probe.file_sha256
         ):
             raise ProductionAcceptanceError(
                 "El render físico no coincide con la evidencia PM9 persistida."
@@ -902,8 +952,10 @@ def _payload_element_count(payload: Mapping[str, Any]) -> int:
 def _preparation_blockers(
     manifest: ProductionManifest,
     asset_run: AssetResolutionRun,
+    *,
+    narration_blockers: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
-    blockers: list[str] = []
+    blockers: list[str] = list(narration_blockers)
     if manifest.output.width_px != 1080 or manifest.output.height_px != 1920:
         blockers.append("output_not_1080x1920")
     if manifest.output.aspect_ratio != "9:16":
@@ -916,8 +968,7 @@ def _preparation_blockers(
     ):
         blockers.append("persisted_asset_without_https_delivery")
     if any(
-        asset.status is ResolutionStatus.PERSISTED
-        and asset.selected_from_alternative
+        asset.status is ResolutionStatus.PERSISTED and asset.selected_from_alternative
         for asset in asset_run.bundle.assets
     ):
         blockers.append("fallback_asset_requires_human_review")

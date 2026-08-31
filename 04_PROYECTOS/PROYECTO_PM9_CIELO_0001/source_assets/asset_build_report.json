@@ -14,44 +14,44 @@
       "size_bytes": 720812
     },
     "narration-001": {
-      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-001.mp3?content_sha256=943a975c22ece4cd4490acd83c2893d0a595ce9e239818fb54710fbbf34ccfad",
-      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "attribution": "Voz sintetizada localmente con Piper y es_ES-sharvard-medium; fuente: Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75; licencia CC BY 3.0.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-001.mp3?content_sha256=2723c479349cf006779501e58a311c78c4550038936e64426c137c761a982543",
+      "license_name": "Piper es_ES-sharvard-medium generated speech (dataset CC BY 3.0)",
       "relative_path": "audio/narration-001.mp3",
-      "sha256": "943a975c22ece4cd4490acd83c2893d0a595ce9e239818fb54710fbbf34ccfad",
-      "size_bytes": 140588
+      "sha256": "2723c479349cf006779501e58a311c78c4550038936e64426c137c761a982543",
+      "size_bytes": 140972
     },
     "narration-002": {
-      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-002.mp3?content_sha256=817f0dcd3c268d221725cb6595b39ce2239486735b56fa58660e0a26a1260794",
-      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "attribution": "Voz sintetizada localmente con Piper y es_ES-sharvard-medium; fuente: Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75; licencia CC BY 3.0.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-002.mp3?content_sha256=39cfd8b09f5aed89f7ab548b8c3f944c28a10c98757a7e4aa0df76763ebb4c1b",
+      "license_name": "Piper es_ES-sharvard-medium generated speech (dataset CC BY 3.0)",
       "relative_path": "audio/narration-002.mp3",
-      "sha256": "817f0dcd3c268d221725cb6595b39ce2239486735b56fa58660e0a26a1260794",
-      "size_bytes": 141356
+      "sha256": "39cfd8b09f5aed89f7ab548b8c3f944c28a10c98757a7e4aa0df76763ebb4c1b",
+      "size_bytes": 141740
     },
     "narration-003": {
-      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-003.mp3?content_sha256=c26e1bc844b4fcd99dc7977603fe968c987d32fe61ad1269125573b6a7ca2dc1",
-      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "attribution": "Voz sintetizada localmente con Piper y es_ES-sharvard-medium; fuente: Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75; licencia CC BY 3.0.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-003.mp3?content_sha256=ca3486f13c0da7b85bcbb93c9de6efccd013bde8534dc764339fe790bee2c3c8",
+      "license_name": "Piper es_ES-sharvard-medium generated speech (dataset CC BY 3.0)",
       "relative_path": "audio/narration-003.mp3",
-      "sha256": "c26e1bc844b4fcd99dc7977603fe968c987d32fe61ad1269125573b6a7ca2dc1",
-      "size_bytes": 140588
+      "sha256": "ca3486f13c0da7b85bcbb93c9de6efccd013bde8534dc764339fe790bee2c3c8",
+      "size_bytes": 141356
     },
     "narration-004": {
-      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-004.mp3?content_sha256=5b2f8100aa72f5a3038a0d078fd782291fe18ff685617a148771985b6aa4d5a5",
-      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "attribution": "Voz sintetizada localmente con Piper y es_ES-sharvard-medium; fuente: Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75; licencia CC BY 3.0.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-004.mp3?content_sha256=1703522801002811247e72088274e5a500a0ae7af6ea87cd6c05df4e9b60b608",
+      "license_name": "Piper es_ES-sharvard-medium generated speech (dataset CC BY 3.0)",
       "relative_path": "audio/narration-004.mp3",
-      "sha256": "5b2f8100aa72f5a3038a0d078fd782291fe18ff685617a148771985b6aa4d5a5",
+      "sha256": "1703522801002811247e72088274e5a500a0ae7af6ea87cd6c05df4e9b60b608",
       "size_bytes": 141740
     },
     "narration-005": {
-      "attribution": "Voz sintetizada localmente con Piper y el modelo es_MX-claude-high (español de México).",
-      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-005.mp3?content_sha256=01b19baf9ae0699d724b3c88a15e1379c70bf53d705d86f3234cf68371ebfc35",
-      "license_name": "Piper es_MX-claude-high generated speech (dataset Apache-2.0)",
+      "attribution": "Voz sintetizada localmente con Piper y es_ES-sharvard-medium; fuente: Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75; licencia CC BY 3.0.",
+      "delivery_uri": "https://raw.githubusercontent.com/RayIA007/CIPS/main/04_PROYECTOS/PROYECTO_PM9_CIELO_0001/source_assets/audio/narration-005.mp3?content_sha256=db28d43caa95c58321716f0e961ba1142ffa9f38ce86f2fe021b4479290c90d8",
+      "license_name": "Piper es_ES-sharvard-medium generated speech (dataset CC BY 3.0)",
       "relative_path": "audio/narration-005.mp3",
-      "sha256": "01b19baf9ae0699d724b3c88a15e1379c70bf53d705d86f3234cf68371ebfc35",
-      "size_bytes": 142124
+      "sha256": "db28d43caa95c58321716f0e961ba1142ffa9f38ce86f2fe021b4479290c90d8",
+      "size_bytes": 140972
     },
     "sfx-001-hook": {
       "attribution": "Efecto sonoro original sintetizado localmente por CIPS.",
@@ -96,7 +96,8 @@
   },
   "manifest_id": "pm-122693f89ab51d9225d777d7",
   "network_sources": [
-    "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD"
+    "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD",
+    "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_ES/sharvard/medium/MODEL_CARD"
   ],
   "paid_provider_called": false,
   "project_id": "PROYECTO_PM9_CIELO_0001",
@@ -104,11 +105,21 @@
   "schema_name": "cips.production_acceptance.asset_build_report",
   "schema_version": "1.0",
   "voice": {
-    "dataset_license": "Apache-2.0",
+    "attempted_models": [
+      "es_MX-claude-high",
+      "es_ES-sharvard-medium"
+    ],
+    "candidate_policy": [
+      "es_MX-claude-high",
+      "es_ES-sharvard-medium"
+    ],
+    "dataset_attribution": "Sharvard_IJA, Aubanel, García Lecumberri y Cooke (2014), doi:10.7488/ds/75",
+    "dataset_license": "CC BY 3.0",
     "engine": "Piper",
-    "locale": "es-MX",
-    "model": "es_MX-claude-high",
-    "model_card_url": "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_MX/claude/high/MODEL_CARD",
+    "fallback_used": true,
+    "locale": "es-ES",
+    "model": "es_ES-sharvard-medium",
+    "model_card_url": "https://huggingface.co/rhasspy/piper-voices/blob/main/es/es_ES/sharvard/medium/MODEL_CARD",
     "package_version": "1.7.0",
     "sentence_silence_seconds": 0.0
   }
