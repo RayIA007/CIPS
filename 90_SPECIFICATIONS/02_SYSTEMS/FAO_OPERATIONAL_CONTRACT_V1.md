@@ -2,7 +2,7 @@
 document:
   id: FAO-OPS-001
   title: Contrato Operativo y Baseline Reproducible de FAO
-  version: 1.0.0
+  version: 1.0.1
   status: APPROVED
   classification: Production System Contract
   owner: ConsejoIA_V5 Architecture
@@ -17,8 +17,9 @@ existente al cierre de PM9.
 
 El contrato separa la experiencia objetivo de su implementación. FAO.1 no une
 los pipelines ni cambia su comportamiento: fija entradas, salidas, gates
-humanos, estados, invariantes y evidencia de baseline para que FAO.2 pueda crear
-el punto de entrada oficial sin reinterpretar el objetivo.
+humanos, estados, invariantes y evidencia de baseline para que FAO.2 pueda
+implementar la integración desde el punto de entrada oficial existente sin
+reinterpretar el objetivo.
 
 # 2. Alcance
 
@@ -28,12 +29,12 @@ y evidencia F8. Durante FAO la publicación permanece desactivada.
 FAO.1 comprende exclusivamente:
 
 - el contrato operativo versionado `cips.fao.operational_contract` 1.0;
-- el mapa de los dos pipelines actuales;
+- el mapa de los dos pipelines actuales desde `CIPS/run.py`;
 - el diagnóstico `cips.fao.operational_baseline` 1.0;
 - una prueba estática, determinista y offline de la separación actual.
 
-FAO.1 no crea el punto de entrada unificado, no genera un proyecto nuevo, no
-invoca proveedores, no consume créditos, no renderiza y no publica.
+FAO.1 no amplía ni conecta la entrada oficial existente, no genera un proyecto
+nuevo, no invoca proveedores, no consume créditos, no renderiza y no publica.
 
 # 3. Objetivos
 
@@ -57,27 +58,31 @@ orquestador humano, y obtenga un MP4 con trazabilidad técnica y editorial.
 
 ```mermaid
 flowchart TD
-    U["Tema del usuario"] --> L["MenuController y pipeline heredado"]
-    L --> LM["Salida multimedia heredada"]
+    U["CIPS/run.py"] --> M["Menú: opción 1"]
+    M --> L["MenuController.new_project"]
+    L --> T["Tema y workspace"]
+    T --> E["PipelineEngine"]
+    E --> LM["Media Production heredada"]
     P["Proyecto editorial preconstruido"] --> A["Cadena de aceptación PM9"]
     C["Configuración JSON manual"] --> A
     A --> R["Preparación, render autorizado, F7 y F8"]
 ```
 
-No existe una frontera que conecte la entrada por tema con la cadena PM9.
+La entrada oficial y la captura del tema ya existen. No existe una frontera que
+conecte esa ruta operativa con la cadena PM9.
 
 ## 4.2 Arquitectura objetivo
 
 ```mermaid
 flowchart TD
-    I["Entrada oficial"] --> E["Producción editorial verificable"]
+    I["CIPS/run.py ampliado"] --> E["Producción editorial verificable"]
     E --> D["Derivación provider-neutral"]
     D --> P["Cadena PM9 existente"]
     P --> G["Gates humanos y F7/F8"]
 ```
 
-La entrada oficial será responsabilidad de FAO.2. FAO.1 sólo fija el contrato
-que gobernará esa integración.
+FAO.2 reutilizará y ampliará la entrada oficial existente; no creará otro CLI o
+menú paralelo. FAO.1 sólo fija el contrato que gobernará esa integración.
 
 # 5. Componentes
 
@@ -89,16 +94,27 @@ que gobernará esa integración.
 - `inspect_operational_baseline()` para diagnosticar la brecha;
 - un CLI que emite evidencia JSON legible por herramientas.
 
-## 5.2 Pipeline de entrada por tema
+## 5.2 Pipeline oficial de entrada por tema
 
 | Propiedad | Valor comprobado |
 |---|---|
-| Entrada | `MenuController.new_project` |
-| Dato inicial | `tema` |
+| Entrada principal | `CIPS/run.py:main` |
+| Menú | `build_menu()` declara `1 — Nuevo Proyecto` |
+| Despacho | `MenuController.dispatch("1") → new_project` |
+| Dato inicial | `new_project` solicita `tema` |
+| Workspace | `ProjectManager.create_project(tema)` |
 | Editorial | `PipelineEngine` |
 | Multimedia | `ejecutar_media_production` heredado |
 | Cadena PM9 | no invocada |
 | F7/F8 PM9 | no integradas |
+
+Ruta comprobada:
+
+```text
+CIPS/run.py → build_menu() → MenuController.dispatch("1")
+→ MenuController.new_project → ProjectManager.create_project(tema)
+→ PipelineEngine.execute() → ejecutar_media_production(project_path)
+```
 
 ## 5.3 Pipeline de aceptación PM9
 
@@ -207,19 +223,28 @@ JSON, Markdown ni conocimiento de componentes internos.
 
 ## 9.1 Diagnóstico reproducible
 
-El diagnóstico analiza el AST de tres archivos locales:
+El diagnóstico analiza el AST de ocho archivos locales:
 
+- `CIPS/run.py`;
+- `08_SCRIPTS/menu.py`;
 - `08_SCRIPTS/menu_controller.py`;
+- `08_SCRIPTS/project_manager.py`;
+- `08_SCRIPTS/pipeline_engine.py`;
+- `11_MEDIA_PRODUCTION/media_pipeline.py`;
 - `08_SCRIPTS/run_pm9_full_production_acceptance.py`;
 - `08_SCRIPTS/tests/test_pm9_fresh_project_end_to_end.py`.
 
 Para confirmar la brecha debe demostrar simultáneamente que:
 
-1. el pipeline heredado recibe un tema;
-2. ese pipeline no invoca la aceptación PM9;
-3. PM9 recibe un proyecto, pero no un tema;
-4. la prueba Fresh Project copia entregables editoriales y configuración;
-5. no existe todavía el puente oficial.
+1. `CIPS/run.py` construye el menú, instancia `MenuController`, recibe una opción
+   y la despacha desde su guardia ejecutable;
+2. `build_menu()` declara la opción `1 — Nuevo Proyecto`;
+3. `dispatch("1")` enruta a `new_project`, que recibe el tema, crea el workspace,
+   usa `PipelineEngine` y llama la producción multimedia heredada;
+4. la ruta oficial no invoca la aceptación PM9;
+5. PM9 recibe un proyecto, pero no un tema;
+6. la prueba Fresh Project copia entregables editoriales y configuración;
+7. no existe todavía el puente entre la entrada oficial y PM9.
 
 La evidencia incluye SHA-256 de las fuentes inspeccionadas y declara siempre:
 
@@ -247,7 +272,7 @@ La evidencia incluye SHA-256 de las fuentes inspeccionadas y declara siempre:
 
 | Subfase | Uso de este contrato |
 |---|---|
-| FAO.2 | implementar la entrada oficial y checkpoints |
+| FAO.2 | ampliar la entrada oficial existente y añadir checkpoints |
 | FAO.3 | producir y validar el paquete editorial |
 | FAO.4 | derivar manifest y configuración |
 | FAO.5 | conectar la entrada con la cadena PM9 |
@@ -261,3 +286,4 @@ La evidencia incluye SHA-256 de las fuentes inspeccionadas y declara siempre:
 | Versión | Fecha | Descripción |
 |---|---|---|
 | 1.0.0 | 2026-08-31 | Contrato operativo, mapa de pipelines y baseline reproducible de FAO.1. |
+| 1.0.1 | 2026-09-01 | Corrige el baseline para partir de `CIPS/run.py` y recorrer la ruta oficial completa. |

@@ -12,7 +12,7 @@ import ast
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Sequence
 
 
@@ -21,8 +21,13 @@ OPERATIONAL_CONTRACT_SCHEMA_VERSION = "1.0"
 BASELINE_SCHEMA_NAME = "cips.fao.operational_baseline"
 BASELINE_SCHEMA_VERSION = "1.0"
 
+OFFICIAL_ENTRYPOINT = Path("CIPS/run.py")
+MENU_DEFINITION = Path("08_SCRIPTS/menu.py")
+MENU_CONTROLLER = Path("08_SCRIPTS/menu_controller.py")
+PROJECT_MANAGER = Path("08_SCRIPTS/project_manager.py")
+PIPELINE_ENGINE = Path("08_SCRIPTS/pipeline_engine.py")
+LEGACY_MEDIA_PIPELINE = Path("11_MEDIA_PRODUCTION/media_pipeline.py")
 PM9_ENTRYPOINT = Path("08_SCRIPTS/run_pm9_full_production_acceptance.py")
-LEGACY_ENTRYPOINT = Path("08_SCRIPTS/menu_controller.py")
 FRESH_PROJECT_TEST = Path("08_SCRIPTS/tests/test_pm9_fresh_project_end_to_end.py")
 
 
@@ -316,9 +321,9 @@ def build_operational_contract() -> FaoOperationalContract:
         ),
         current_pipelines=(
             PipelineBoundary(
-                "legacy_topic_pipeline",
-                "08_SCRIPTS/menu_controller.py:MenuController.new_project",
-                "topic",
+                "official_topic_pipeline",
+                "CIPS/run.py:main",
+                "interactive menu option 1 plus topic",
                 "legacy editorial and media workspace",
                 "No invoca la cadena de aceptación PM9, F7 ni F8.",
             ),
@@ -365,19 +370,59 @@ def inspect_operational_baseline(repository_root: Path) -> dict[str, Any]:
 
     root = repository_root.expanduser().resolve(strict=True)
     sources = {
-        str(PM9_ENTRYPOINT): _read_source(root, PM9_ENTRYPOINT),
-        str(LEGACY_ENTRYPOINT): _read_source(root, LEGACY_ENTRYPOINT),
-        str(FRESH_PROJECT_TEST): _read_source(root, FRESH_PROJECT_TEST),
+        _portable_path(OFFICIAL_ENTRYPOINT): _read_source(root, OFFICIAL_ENTRYPOINT),
+        _portable_path(MENU_DEFINITION): _read_source(root, MENU_DEFINITION),
+        _portable_path(MENU_CONTROLLER): _read_source(root, MENU_CONTROLLER),
+        _portable_path(PROJECT_MANAGER): _read_source(root, PROJECT_MANAGER),
+        _portable_path(PIPELINE_ENGINE): _read_source(root, PIPELINE_ENGINE),
+        _portable_path(LEGACY_MEDIA_PIPELINE): _read_source(
+            root,
+            LEGACY_MEDIA_PIPELINE,
+        ),
+        _portable_path(PM9_ENTRYPOINT): _read_source(root, PM9_ENTRYPOINT),
+        _portable_path(FRESH_PROJECT_TEST): _read_source(root, FRESH_PROJECT_TEST),
     }
-    pm9_tree = ast.parse(sources[str(PM9_ENTRYPOINT)])
-    legacy_tree = ast.parse(sources[str(LEGACY_ENTRYPOINT)])
-    fresh_tree = ast.parse(sources[str(FRESH_PROJECT_TEST)])
+    official_tree = ast.parse(sources[_portable_path(OFFICIAL_ENTRYPOINT)])
+    menu_tree = ast.parse(sources[_portable_path(MENU_DEFINITION)])
+    controller_tree = ast.parse(sources[_portable_path(MENU_CONTROLLER)])
+    project_manager_tree = ast.parse(sources[_portable_path(PROJECT_MANAGER)])
+    pipeline_engine_tree = ast.parse(sources[_portable_path(PIPELINE_ENGINE)])
+    legacy_media_tree = ast.parse(sources[_portable_path(LEGACY_MEDIA_PIPELINE)])
+    pm9_tree = ast.parse(sources[_portable_path(PM9_ENTRYPOINT)])
+    fresh_tree = ast.parse(sources[_portable_path(FRESH_PROJECT_TEST)])
 
+    official_main = _find_function(official_tree, "main")
+    menu_builder = _find_function(menu_tree, "build_menu")
+    controller_init = _find_method(controller_tree, "MenuController", "__init__")
+    controller_dispatch = _find_method(controller_tree, "MenuController", "dispatch")
+    controller_new_project = _find_method(
+        controller_tree,
+        "MenuController",
+        "new_project",
+    )
+    project_creator = _find_method(
+        project_manager_tree,
+        "ProjectManager",
+        "create_project",
+    )
+    pipeline_execute = _find_method(
+        pipeline_engine_tree,
+        "PipelineEngine",
+        "execute",
+    )
+    legacy_media_execute = _find_function(
+        legacy_media_tree,
+        "ejecutar_media_production",
+    )
+
+    official_input_targets = _input_assignment_targets(official_main)
+    controller_input_targets = _input_assignment_targets(controller_new_project)
+    official_imports = _imported_names(official_tree)
+    controller_imports = _imported_names(controller_tree)
+    official_calls = _called_names(official_main)
+    controller_calls = _called_names(controller_new_project)
+    legacy_media_calls = _called_names(legacy_media_execute)
     pm9_arguments = _argument_names(pm9_tree)
-    legacy_method = _find_method(legacy_tree, "MenuController", "new_project")
-    legacy_input_targets = _input_assignment_targets(legacy_method)
-    legacy_imports = _imported_names(legacy_tree)
-    legacy_calls = _called_names(legacy_method)
     copied_source_paths = _literal_string_sequence(
         fresh_tree,
         "FRESH_PROJECT_SOURCE_PATHS",
@@ -394,23 +439,111 @@ def inspect_operational_baseline(repository_root: Path) -> dict[str, Any]:
         "verification",
     }
     pm9_accepts_topic = "--topic" in pm9_arguments or "--tema" in pm9_arguments
-    legacy_accepts_topic = "tema" in legacy_input_targets or "topic" in legacy_input_targets
-    legacy_invokes_pm9 = bool(
+    official_reads_menu_option = "option" in official_input_targets
+    official_instantiates_controller = _assigns_call_to_name(
+        official_main,
+        "controller",
+        "MenuController",
+    )
+    official_builds_menu = "build_menu" in official_calls
+    official_dispatches_selection = _calls_attribute(
+        official_main,
+        ("controller", "dispatch"),
+        argument_name="option",
+    )
+    official_main_is_executable = _module_guard_calls(official_tree, "main")
+    menu_declares_new_project = _calls_with_literal_arguments(
+        menu_builder,
+        "add_row",
+        ("1", "Nuevo Proyecto"),
+    )
+    dispatch_routes_new_project = _mapping_routes_method(
+        controller_dispatch,
+        "1",
+        "new_project",
+    )
+    controller_accepts_topic = (
+        "tema" in controller_input_targets or "topic" in controller_input_targets
+    )
+    controller_has_project_manager = _assigns_call_to_attribute(
+        controller_init,
+        ("self", "project_manager"),
+        "ProjectManager",
+    )
+    controller_has_pipeline_engine = _assigns_call_to_attribute(
+        controller_init,
+        ("self", "pipeline_engine"),
+        "PipelineEngine",
+    )
+    controller_creates_project = _calls_attribute(
+        controller_new_project,
+        ("self", "project_manager", "create_project"),
+        argument_name="tema",
+    )
+    controller_runs_pipeline_engine = _calls_attribute(
+        controller_new_project,
+        ("self", "pipeline_engine", "execute"),
+    )
+    controller_runs_legacy_media = "ejecutar_media_production" in controller_calls
+    project_accepts_topic = "tema" in _function_argument_names(project_creator)
+    project_creates_workspace = "ensure_directory" in _called_names(project_creator)
+    project_returns_workspace_path = "path" in _returned_dict_keys(project_creator)
+    pipeline_loads_project = _calls_attribute(
+        pipeline_execute,
+        ("self", "project_manager", "load_project"),
+    )
+    legacy_media_sequence = {
+        "generar_voz_desde_guion",
+        "generar_imagenes_storyboard",
+        "ensamblar_video_vertical",
+    }.issubset(legacy_media_calls)
+    official_route_trees = (
+        official_tree,
+        menu_tree,
+        controller_tree,
+        project_manager_tree,
+        pipeline_engine_tree,
+        legacy_media_tree,
+    )
+    official_route_symbols: set[str] = set()
+    for tree in official_route_trees:
+        official_route_symbols.update(_imported_names(tree))
+        official_route_symbols.update(_called_names(tree))
+    official_route_invokes_pm9 = bool(
         {
             "run_pm9_full_production_acceptance",
             "FullProductionAcceptance",
         }
-        & (legacy_imports | legacy_calls)
+        & official_route_symbols
     )
     copies_prebuilt_editorial = required_prebuilt_sources.issubset(
         set(copied_source_paths)
     )
     gap_confirmed = all(
         (
-            legacy_accepts_topic,
-            "PipelineEngine" in legacy_imports,
-            "ejecutar_media_production" in legacy_calls,
-            not legacy_invokes_pm9,
+            "MenuController" in official_imports,
+            "build_menu" in official_imports,
+            official_reads_menu_option,
+            official_instantiates_controller,
+            official_builds_menu,
+            official_dispatches_selection,
+            official_main_is_executable,
+            menu_declares_new_project,
+            dispatch_routes_new_project,
+            controller_accepts_topic,
+            "ProjectManager" in controller_imports,
+            "PipelineEngine" in controller_imports,
+            controller_has_project_manager,
+            controller_has_pipeline_engine,
+            controller_creates_project,
+            controller_runs_pipeline_engine,
+            controller_runs_legacy_media,
+            project_accepts_topic,
+            project_creates_workspace,
+            project_returns_workspace_path,
+            pipeline_loads_project,
+            legacy_media_sequence,
+            not official_route_invokes_pm9,
             "--project" in pm9_arguments,
             not pm9_accepts_topic,
             copies_prebuilt_editorial,
@@ -423,21 +556,48 @@ def inspect_operational_baseline(repository_root: Path) -> dict[str, Any]:
         "phase": "FAO.1",
         "gap_confirmed": gap_confirmed,
         "bridge_status": "missing" if gap_confirmed else "requires_review",
-        "legacy_topic_pipeline": {
-            "entrypoint": str(LEGACY_ENTRYPOINT),
-            "accepts_topic": legacy_accepts_topic,
-            "calls_pipeline_engine": "PipelineEngine" in legacy_imports,
-            "calls_legacy_media_pipeline": "ejecutar_media_production" in legacy_calls,
-            "invokes_pm9_acceptance": legacy_invokes_pm9,
+        "official_entrypoint": {
+            "entrypoint": _portable_path(OFFICIAL_ENTRYPOINT),
+            "calls_build_menu": official_builds_menu,
+            "instantiates_menu_controller": official_instantiates_controller,
+            "reads_menu_option": official_reads_menu_option,
+            "dispatches_selected_option": official_dispatches_selection,
+            "main_guard_calls_main": official_main_is_executable,
+        },
+        "main_menu": {
+            "path": _portable_path(MENU_DEFINITION),
+            "declares_new_project_option": menu_declares_new_project,
+            "new_project_option": "1",
+        },
+        "official_topic_pipeline": {
+            "entrypoint": _portable_path(OFFICIAL_ENTRYPOINT),
+            "controller": _portable_path(MENU_CONTROLLER),
+            "dispatches_option_1_to_new_project": dispatch_routes_new_project,
+            "accepts_topic": controller_accepts_topic,
+            "creates_project_workspace": (
+                controller_creates_project
+                and project_accepts_topic
+                and project_creates_workspace
+                and project_returns_workspace_path
+            ),
+            "calls_pipeline_engine": (
+                controller_has_pipeline_engine
+                and controller_runs_pipeline_engine
+                and pipeline_loads_project
+            ),
+            "calls_legacy_media_pipeline": (
+                controller_runs_legacy_media and legacy_media_sequence
+            ),
+            "invokes_pm9_acceptance": official_route_invokes_pm9,
         },
         "pm9_acceptance_pipeline": {
-            "entrypoint": str(PM9_ENTRYPOINT),
+            "entrypoint": _portable_path(PM9_ENTRYPOINT),
             "cli_arguments": list(pm9_arguments),
             "accepts_project": "--project" in pm9_arguments,
             "accepts_topic": pm9_accepts_topic,
         },
         "existing_fresh_project_test": {
-            "path": str(FRESH_PROJECT_TEST),
+            "path": _portable_path(FRESH_PROJECT_TEST),
             "copied_source_paths": list(copied_source_paths),
             "copies_prebuilt_editorial_project": copies_prebuilt_editorial,
         },
@@ -454,6 +614,12 @@ def inspect_operational_baseline(repository_root: Path) -> dict[str, Any]:
             for relative_path, content in sorted(sources.items())
         },
     }
+
+
+def _portable_path(path: PurePath) -> str:
+    """Serializa rutas del repositorio de forma estable en Windows y POSIX."""
+
+    return path.as_posix()
 
 
 def _read_source(repository_root: Path, relative_path: Path) -> str:
@@ -476,6 +642,13 @@ def _argument_names(tree: ast.AST) -> tuple[str, ...]:
     return tuple(sorted(arguments))
 
 
+def _find_function(tree: ast.AST, function_name: str) -> ast.FunctionDef:
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == function_name:
+            return node
+    raise ValueError(f"No se encontró la función {function_name}.")
+
+
 def _find_method(tree: ast.AST, class_name: str, method_name: str) -> ast.FunctionDef:
     for node in ast.iter_child_nodes(tree):
         if not isinstance(node, ast.ClassDef) or node.name != class_name:
@@ -484,6 +657,22 @@ def _find_method(tree: ast.AST, class_name: str, method_name: str) -> ast.Functi
             if isinstance(child, ast.FunctionDef) and child.name == method_name:
                 return child
     raise ValueError(f"No se encontró {class_name}.{method_name}.")
+
+
+def _function_argument_names(function: ast.FunctionDef) -> set[str]:
+    arguments = {
+        argument.arg
+        for argument in (
+            *function.args.posonlyargs,
+            *function.args.args,
+            *function.args.kwonlyargs,
+        )
+    }
+    if function.args.vararg is not None:
+        arguments.add(function.args.vararg.arg)
+    if function.args.kwarg is not None:
+        arguments.add(function.args.kwarg.arg)
+    return arguments
 
 
 def _input_assignment_targets(function: ast.FunctionDef) -> set[str]:
@@ -499,6 +688,153 @@ def _input_assignment_targets(function: ast.FunctionDef) -> set[str]:
             if isinstance(target, ast.Name):
                 targets.add(target.id)
     return targets
+
+
+def _attribute_chain(node: ast.AST) -> tuple[str, ...]:
+    names: list[str] = []
+    current = node
+    while isinstance(current, ast.Attribute):
+        names.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        names.append(current.id)
+    else:
+        return ()
+    return tuple(reversed(names))
+
+
+def _calls_attribute(
+    function: ast.FunctionDef,
+    attribute_chain: tuple[str, ...],
+    *,
+    argument_name: str | None = None,
+) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        if _attribute_chain(node.func) != attribute_chain:
+            continue
+        if argument_name is None:
+            return True
+        if any(
+            isinstance(argument, ast.Name) and argument.id == argument_name
+            for argument in node.args
+        ):
+            return True
+    return False
+
+
+def _assigns_call_to_name(
+    function: ast.FunctionDef,
+    target_name: str,
+    callable_name: str,
+) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if not any(
+            isinstance(target, ast.Name) and target.id == target_name
+            for target in targets
+        ):
+            continue
+        if _attribute_chain(value.func) == (callable_name,):
+            return True
+    return False
+
+
+def _assigns_call_to_attribute(
+    function: ast.FunctionDef,
+    target_chain: tuple[str, ...],
+    callable_name: str,
+) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if not any(_attribute_chain(target) == target_chain for target in targets):
+            continue
+        if _attribute_chain(value.func) == (callable_name,):
+            return True
+    return False
+
+
+def _module_guard_calls(tree: ast.AST, function_name: str) -> bool:
+    for node in ast.iter_child_nodes(tree):
+        if not isinstance(node, ast.If) or not isinstance(node.test, ast.Compare):
+            continue
+        comparison = node.test
+        if not (
+            isinstance(comparison.left, ast.Name)
+            and comparison.left.id == "__name__"
+            and len(comparison.ops) == 1
+            and isinstance(comparison.ops[0], ast.Eq)
+            and len(comparison.comparators) == 1
+            and isinstance(comparison.comparators[0], ast.Constant)
+            and comparison.comparators[0].value == "__main__"
+        ):
+            continue
+        if function_name in _called_names(node):
+            return True
+    return False
+
+
+def _calls_with_literal_arguments(
+    function: ast.FunctionDef,
+    callable_name: str,
+    expected_arguments: tuple[str, ...],
+) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        chain = _attribute_chain(node.func)
+        if not chain or chain[-1] != callable_name:
+            continue
+        if len(node.args) < len(expected_arguments):
+            continue
+        values = tuple(
+            argument.value if isinstance(argument, ast.Constant) else None
+            for argument in node.args[: len(expected_arguments)]
+        )
+        if values == expected_arguments:
+            return True
+    return False
+
+
+def _mapping_routes_method(
+    function: ast.FunctionDef,
+    option: str,
+    method_name: str,
+) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Dict):
+            continue
+        for key, value in zip(node.keys, node.values):
+            if not (
+                isinstance(key, ast.Constant)
+                and key.value == option
+                and _attribute_chain(value) == ("self", method_name)
+            ):
+                continue
+            return True
+    return False
+
+
+def _returned_dict_keys(function: ast.FunctionDef) -> set[str]:
+    keys: set[str] = set()
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Return) or not isinstance(node.value, ast.Dict):
+            continue
+        for key in node.value.keys:
+            if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                keys.add(key.value)
+    return keys
 
 
 def _imported_names(tree: ast.AST) -> set[str]:
