@@ -505,6 +505,10 @@ class PipelineEngine:
             project=project,
             next_stage=next_stage,
         )
+        if self.state_manager is not None:
+            self.state_manager.update_current_stage(
+                next_stage
+            )
 
         return EngineResult.ok(
             data={
@@ -932,6 +936,10 @@ class PipelineEngine:
             project=project,
             next_stage=next_stage,
         )
+        if self.state_manager is not None:
+            self.state_manager.update_current_stage(
+                next_stage
+            )
 
         response_path = self._get_response_path_for_stage(
             project=project,

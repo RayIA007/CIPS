@@ -14,19 +14,40 @@ def template_markdown(title: str, body: str = "Pendiente") -> str:
     """)
 
 
-def tema_md(tema: str) -> str:
+def tema_md(
+    tema: str,
+    *,
+    plataforma: str = "YouTube Shorts",
+    duracion_segundos: int = 45,
+    audiencia: str = "público general",
+    estilo_creativo: str = "educativo, claro y dinámico",
+) -> str:
     return dedent(f"""\
     # Tema del Proyecto
 
     {tema}
 
+    ## Solicitud operativa
+
+    - Plataforma: {plataforma}
+    - Duración objetivo: {duracion_segundos} segundos
+    - Audiencia: {audiencia}
+    - Estilo creativo: {estilo_creativo}
+
     ## Objetivo inicial
 
-    Producir contenido confiable, claro y monetizable sobre alimentación, ejercicio y salud.
+    Producir contenido confiable, claro y adecuado para la solicitud del operador.
     """)
 
 
-def contexto_md(tema: str) -> str:
+def contexto_md(
+    tema: str,
+    *,
+    plataforma: str = "YouTube Shorts",
+    duracion_segundos: int = 45,
+    audiencia: str = "público general",
+    estilo_creativo: str = "educativo, claro y dinámico",
+) -> str:
     return dedent(f"""\
     # Contexto del Proyecto
 
@@ -34,17 +55,25 @@ def contexto_md(tema: str) -> str:
 
     {tema}
 
-    ## Nicho
+    ## Plataforma
 
-    Alimentación, ejercicio y salud.
+    {plataforma}
 
-    ## Objetivo
+    ## Duración objetivo
 
-    Crear contenido educativo, confiable, útil y monetizable.
+    {duracion_segundos} segundos.
 
     ## Público objetivo
 
-    Personas interesadas en mejorar su salud, alimentación y condición física con información clara y basada en evidencia.
+    {audiencia}
+
+    ## Estilo creativo
+
+    {estilo_creativo}
+
+    ## Objetivo
+
+    Crear contenido útil, verificable y apropiado para la plataforma y la audiencia indicadas.
 
     ## Regla principal
 
@@ -57,16 +86,32 @@ def proyecto_yaml(
     uuid: str,
     tema: str,
     fecha: str,
+    *,
+    plataforma: str = "YouTube Shorts",
+    duracion_segundos: int = 45,
+    audiencia: str = "público general",
+    estilo_creativo: str = "educativo, claro y dinámico",
 ) -> dict:
     return {
         "id": project_id,
         "uuid": uuid,
         "tema": tema,
-        "nicho": "alimentacion_ejercicio_salud",
         "estado": "investigacion",
+        "stage_actual": "investigacion",
+        "ultimo_stage_validado": "",
         "fecha_creacion": fecha,
         "ultima_modificacion": fecha,
         "version": 1,
+        "solicitud_operativa": {
+            "schema_name": "cips.fao.operational_request",
+            "schema_version": "1.0",
+            "topic": tema,
+            "platform": plataforma,
+            "duration_seconds": duracion_segundos,
+            "audience": audiencia,
+            "creative_style": estilo_creativo,
+            "publication_performed": False,
+        },
         "pipeline": {
             "00_tema": "completado",
             "01_investigacion": "pendiente",
@@ -80,13 +125,19 @@ def proyecto_yaml(
     }
 
 
-def memoria_yaml() -> dict:
+def memoria_yaml(
+    *,
+    plataforma: str = "YouTube Shorts",
+    duracion_segundos: int = 45,
+    audiencia: str = "público general",
+    estilo_creativo: str = "educativo, claro y dinámico",
+) -> dict:
     return {
-        "plataforma": "pendiente",
-        "duracion": "pendiente",
-        "tono": "claro, cercano, confiable",
-        "publico": "personas interesadas en alimentación, ejercicio y salud",
-        "objetivo": "educar, generar confianza y monetizar",
+        "plataforma": plataforma,
+        "duracion": duracion_segundos,
+        "tono": estilo_creativo,
+        "publico": audiencia,
+        "objetivo": "producir contenido confiable y apropiado para la solicitud",
         "ultimo_prompt": "",
         "ultima_respuesta": "",
         "proximo_paso": "investigacion",

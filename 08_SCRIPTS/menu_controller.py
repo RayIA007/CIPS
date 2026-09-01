@@ -18,13 +18,19 @@ from rich.console import Console
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR / "11_MEDIA_PRODUCTION"))
 
-from media_pipeline import ejecutar_media_production
 from logger import Logger
 from project_manager import ProjectManager
 from pipeline_engine import PipelineEngine
 from validator_engine import Validator
 from knowledge_module_builder import KnowledgeModuleBuilder
 from runtime_constants import STAGES
+
+
+def ejecutar_media_production(proyecto_dir: Path) -> bool:
+    """Carga la producción heredada únicamente cuando el operador la ejecuta."""
+    from media_pipeline import ejecutar_media_production as ejecutar
+
+    return ejecutar(proyecto_dir)
 
 
 class MenuController:
@@ -91,9 +97,47 @@ class MenuController:
             self.pause()
             return
 
+        plataforma = input(
+            "\nPlataforma [YouTube Shorts]:\n\n> "
+        ).strip() or "YouTube Shorts"
+
+        duracion_texto = input(
+            "\nDuración objetivo en segundos [45]:\n\n> "
+        ).strip() or "45"
+
+        audiencia = input(
+            "\nAudiencia [público general]:\n\n> "
+        ).strip() or "público general"
+
+        estilo_creativo = input(
+            "\nEstilo creativo [educativo, claro y dinámico]:\n\n> "
+        ).strip() or "educativo, claro y dinámico"
+
+        try:
+            duracion_segundos = int(duracion_texto)
+        except ValueError:
+            self.console.print(
+                "\n[red]La duración debe ser un número entero de segundos.[/red]"
+            )
+            self.pause()
+            return
+
+        if not 1 <= duracion_segundos <= 3600:
+            self.console.print(
+                "\n[red]La duración debe estar entre 1 y 3600 segundos.[/red]"
+            )
+            self.pause()
+            return
+
         try:
             # 1. Crear workspace del proyecto
-            project = self.project_manager.create_project(tema)
+            project = self.project_manager.create_project(
+                tema,
+                plataforma=plataforma,
+                duracion_segundos=duracion_segundos,
+                audiencia=audiencia,
+                estilo_creativo=estilo_creativo,
+            )
             project_path = Path(project['path'])
 
             Logger.info(f"Proyecto iniciado: {project['id']} - Tema: {project['tema']}")
@@ -102,11 +146,25 @@ class MenuController:
                 f"\n[cyan][+] Directorio creado:[/cyan] {project_path.resolve()}"
             )
             self.console.print(
+                "[cyan][+] Checkpoint inicial guardado. "
+                "El proyecto puede reanudarse desde 'Continuar Proyecto'.[/cyan]"
+            )
+            self.console.print(
                 "\n[bold yellow][*] Ejecutando pipeline automático (Fase Editorial + Media Production)...[/bold yellow]\n"
+            )
+
+            self.project_manager.checkpoint_project(
+                project_path,
+                label="runtime_started",
+                metadata={
+                    "lifecycle_state": "editorial_in_progress",
+                    "publication_performed": False,
+                },
             )
 
             # 2. Bucle automático pasando por todos los stages
             pipeline_failed = False
+            pipeline_paused = False
             stages_multimedia = {"narracion", "voz", "imagenes", "subtitulos", "ensamblado", "control_calidad"}
 
             for stage in STAGES:
@@ -116,13 +174,25 @@ class MenuController:
                 # SI ES UN STAGE EDITORIAL (Texto):
                 if stage not in stages_multimedia:
                     self.console.print(f"  [bold white]--> Ejecutando Stage Editorial:[/bold white] [cyan]{stage.upper()}[/cyan]...")
-                    result = self.pipeline_engine.execute()
+                    result = self.pipeline_engine.execute(
+                        project_path=project_path
+                    )
                     if not result.success:
                         self.console.print(
                             f"\n[bold red][X] Error durante la ejecución del stage {stage}:[/bold red] {result.message}"
                         )
                         Logger.error(f"Fallo en stage {stage}: {result.message}")
                         pipeline_failed = True
+                        break
+                    if result.metadata.get("requires_user_action"):
+                        self.console.print(
+                            "\n[bold yellow]El proyecto quedó en pausa porque "
+                            "el modo manual requiere una respuesta externa.[/bold yellow]"
+                        )
+                        self.console.print(
+                            "Usa 'Continuar Proyecto' cuando la respuesta esté disponible."
+                        )
+                        pipeline_paused = True
                         break
 
                 # SI LLEGAMOS A LA FASE MULTIMEDIA:
@@ -133,9 +203,39 @@ class MenuController:
                         pipeline_failed = True
                     # Una vez ejecutada la producción multimedia completa, salimos del bucle hacia la revisión
                     break
-                        
+
+            if pipeline_failed or pipeline_paused:
+                self.project_manager.checkpoint_project(
+                    project_path,
+                    label=(
+                        "runtime_paused"
+                        if pipeline_paused
+                        else "runtime_failed"
+                    ),
+                    metadata={
+                        "lifecycle_state": "editorial_in_progress",
+                        "requires_user_action": pipeline_paused,
+                        "publication_performed": False,
+                    },
+                )
+                if pipeline_failed:
+                    self.console.print(
+                        "\n[bold yellow]El proyecto conserva su checkpoint. "
+                        "Puedes reintentarlo desde 'Continuar Proyecto'.[/bold yellow]"
+                    )
+                self.pause()
+                return
+
             # Cambiar estado a READY_FOR_REVIEW al concluir la producción del video
             self.update_production_status(project_path, "READY_FOR_REVIEW")
+            self.project_manager.checkpoint_project(
+                project_path,
+                label="ready_for_review",
+                metadata={
+                    "lifecycle_state": "ready_for_review",
+                    "publication_performed": False,
+                },
+            )
 
             # --------------------------------------------------
             # INTERACCIÓN 2: Revisión final única
@@ -164,14 +264,41 @@ class MenuController:
 
             if opcion_review == "1":
                 self.update_production_status(project_path, "APPROVED")
-                self.console.print("\n[bold green][✔] Producción APROBADA y lista para publicar.[/bold green]")
+                self.project_manager.checkpoint_project(
+                    project_path,
+                    label="approved",
+                    metadata={
+                        "lifecycle_state": "approved",
+                        "publication_performed": False,
+                    },
+                )
+                self.console.print(
+                    "\n[bold green][✔] Producción APROBADA. "
+                    "La publicación no fue realizada.[/bold green]"
+                )
                 Logger.info(f"Proyecto {project['id']} APROBADO por el usuario.")
             elif opcion_review == "2":
                 self.update_production_status(project_path, "REJECTED")
+                self.project_manager.checkpoint_project(
+                    project_path,
+                    label="changes_requested",
+                    metadata={
+                        "lifecycle_state": "changes_requested",
+                        "publication_performed": False,
+                    },
+                )
                 self.console.print("\n[bold yellow][↻] Producción RECHAZADA. Marcada para rehacer.[/bold yellow]")
                 Logger.info(f"Proyecto {project['id']} marcado para REHACER.")
             else:
                 self.update_production_status(project_path, "CANCELLED")
+                self.project_manager.checkpoint_project(
+                    project_path,
+                    label="cancelled",
+                    metadata={
+                        "lifecycle_state": "cancelled",
+                        "publication_performed": False,
+                    },
+                )
                 self.console.print("\n[bold red][✖] Producción CANCELADA.[/bold red]")
                 Logger.info(f"Proyecto {project['id']} CANCELADO por el usuario.")
 
@@ -186,7 +313,62 @@ class MenuController:
     def continue_project_runtime(self):
 
         try:
-            result = self.pipeline_engine.execute()
+            projects = self.project_manager.list_project_paths(
+                resumable_only=True
+            )
+            if not projects:
+                projects = self.project_manager.list_project_paths()
+
+            if not projects:
+                self.console.print(
+                    "\n[yellow]No existe ningún proyecto para continuar.[/yellow]"
+                )
+                self.pause()
+                return
+
+            self.console.print(
+                "\n[bold cyan]Proyectos disponibles para continuar[/bold cyan]\n"
+            )
+            for index, path in enumerate(projects, start=1):
+                project = self.project_manager.load_project(path)
+                self.console.print(
+                    f"  [cyan]{index}.[/cyan] {project.project_id} — "
+                    f"{project.tema} — stage: {project.stage_actual}"
+                )
+
+            selection = input(
+                f"\nSelecciona un proyecto [último: {len(projects)}]:\n\n> "
+            ).strip()
+            if selection:
+                try:
+                    selected_index = int(selection)
+                except ValueError:
+                    selected_index = 0
+            else:
+                selected_index = len(projects)
+
+            if not 1 <= selected_index <= len(projects):
+                self.console.print(
+                    "\n[red]La selección del proyecto no es válida.[/red]"
+                )
+                self.pause()
+                return
+
+            project_path = projects[selected_index - 1]
+            selected_project = self.project_manager.load_project(project_path)
+            self.project_manager.checkpoint_project(
+                project_path,
+                label="resume_requested",
+                metadata={
+                    "lifecycle_state": "editorial_in_progress",
+                    "resumed_stage": selected_project.stage_actual,
+                    "publication_performed": False,
+                },
+            )
+
+            result = self.pipeline_engine.execute(
+                project_path=project_path
+            )
 
             if not result.success:
                 self.console.print(
@@ -197,14 +379,47 @@ class MenuController:
                 for error in result.errors:
                     self.console.print(f"- {error}")
 
+                self.project_manager.checkpoint_project(
+                    project_path,
+                    label="resume_failed",
+                    metadata={
+                        "lifecycle_state": "editorial_in_progress",
+                        "publication_performed": False,
+                    },
+                )
+
                 self.pause()
                 return
+
+            self.project_manager.checkpoint_project(
+                project_path,
+                label="runtime_step_completed",
+                metadata={
+                    "lifecycle_state": "editorial_in_progress",
+                    "completed_stage": result.metadata.get(
+                        "completed_stage",
+                        "",
+                    ),
+                    "next_stage": result.metadata.get(
+                        "next_stage",
+                        selected_project.stage_actual,
+                    ),
+                    "requires_user_action": result.metadata.get(
+                        "requires_user_action",
+                        False,
+                    ),
+                    "publication_performed": False,
+                },
+            )
 
             self.console.print(
                 "\n[bold green]Runtime ejecutado correctamente.[/bold green]"
             )
 
             self.console.print(result.message)
+            self.console.print(
+                f"Proyecto reanudado: [cyan]{project_path.name}[/cyan]"
+            )
 
             prompt_path = result.metadata.get("prompt_path")
 
