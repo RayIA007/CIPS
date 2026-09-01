@@ -6,7 +6,10 @@ Plantillas base para crear proyectos de contenido.
 from textwrap import dedent
 
 
-def template_markdown(title: str, body: str = "Pendiente") -> str:
+def template_markdown(
+    title: str,
+    body: str = "El Runtime completará este archivo automáticamente.",
+) -> str:
     return dedent(f"""\
     # {title}
 
@@ -145,11 +148,11 @@ def memoria_yaml(
 
 
 MARKDOWN_FILES = {
-    "01_INVESTIGACION.md": "# Investigación\n\nPendiente\n",
-    "02_VERIFICACION.md": "# Verificación Científica\n\nPendiente\n",
-    "03_GUION.md": "# Guion\n\nPendiente\n",
-    "04_STORYBOARD.md": "# Storyboard\n\nPendiente\n",
-    "05_SEO.md": "# SEO\n\nPendiente\n",
-    "06_PUBLICACION.md": "# Publicación\n\nPendiente\n",
-    "07_FINAL.md": "# Contenido Final\n\nPendiente\n",
+    "01_INVESTIGACION.md": "# Investigación\n\nEl Runtime sincronizará aquí el entregable validado.\n",
+    "02_VERIFICACION.md": "# Verificación Científica\n\nEl Runtime sincronizará aquí el entregable validado.\n",
+    "03_GUION.md": "# Guion\n\nEl Runtime sincronizará aquí el entregable validado.\n",
+    "04_STORYBOARD.md": "# Storyboard\n\nEl Runtime sincronizará aquí el entregable validado.\n",
+    "05_SEO.md": "# SEO\n\nEl Runtime sincronizará aquí el entregable validado.\n",
+    "06_PUBLICACION.md": "# Publicación\n\nEl Runtime sincronizará aquí el entregable validado.\n",
+    "07_FINAL.md": "# Contenido Final\n\nLa finalización posterior generará este artefacto; no se ha publicado contenido.\n",
 }

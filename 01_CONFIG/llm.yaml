@@ -127,6 +127,9 @@ stage_preferences:
   storyboard:
     provider: gemini
     model: gemini-3.5-flash
+  narracion:
+    provider: gemini
+    model: gemini-3.5-flash
   prompts_imagen:
     provider: gemini
     model: gemini-3.5-flash

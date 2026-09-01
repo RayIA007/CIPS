@@ -95,3 +95,18 @@ stages:
       - KM-006
       - KM-007
       - KM-008
+
+  narracion:
+
+    description: >
+      Convertir el guion y storyboard verificados en texto
+      pronunciable ajustado a la solicitud operativa.
+
+    required:
+      - KM-000
+      - KM-002
+      - KM-003
+      - KM-004
+      - KM-006
+      - KM-007
+      - KM-008

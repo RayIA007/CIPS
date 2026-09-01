@@ -27,8 +27,9 @@ STAGES: Final[list[str]] = [
     "storyboard",
     "seo",
     "publicacion",
-    # Fase Media Production
+    # Entregable editorial pronunciable
     "narracion",
+    # Fase Media Production física
     "voz",
     "imagenes",
     "subtitulos",

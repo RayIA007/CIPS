@@ -30,6 +30,8 @@ import time
 
 from context_compressor import ContextCompressor
 from context_engine import ContextEngine
+from editorial_context import EditorialContextEngine
+from editorial_validator import EditorialValidatorEngine
 from export_engine import ExportEngine
 from final_project_builder import FinalProjectBuilder
 from finalization_engine import FinalizationEngine
@@ -151,6 +153,7 @@ class PipelineEngine:
                 KnowledgeResolver(),
                 ContextCompressor(),
                 ContextEngine(),
+                EditorialContextEngine(),
                 PromptEngine(),
             ]
         )
@@ -160,6 +163,7 @@ class PipelineEngine:
         self.post_llm_runner = PipelineRunner(
             components=[
                 ValidatorEngine(),
+                EditorialValidatorEngine(),
                 self.memory_engine,
             ]
         )

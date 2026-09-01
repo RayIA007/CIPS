@@ -165,7 +165,9 @@ class MenuController:
             # 2. Bucle automático pasando por todos los stages
             pipeline_failed = False
             pipeline_paused = False
-            stages_multimedia = {"narracion", "voz", "imagenes", "subtitulos", "ensamblado", "control_calidad"}
+            # FAO.3 conserva ``narracion`` como entregable editorial generado
+            # por el proveedor LLM. La producción física comienza en ``voz``.
+            stages_multimedia = {"voz", "imagenes", "subtitulos", "ensamblado", "control_calidad"}
 
             for stage in STAGES:
                 if stage == "final":
@@ -197,6 +199,21 @@ class MenuController:
 
                 # SI LLEGAMOS A LA FASE MULTIMEDIA:
                 else:
+                    editorial_package = (
+                        project_path / "state" / "editorial_package.json"
+                    )
+                    if not editorial_package.is_file():
+                        self.console.print(
+                            "\n[bold red][X] La producción multimedia quedó "
+                            "bloqueada: falta el paquete editorial verificable "
+                            "de FAO.3.[/bold red]"
+                        )
+                        pipeline_failed = True
+                        break
+                    self.console.print(
+                        "  [bold green][OK] Paquete editorial FAO.3 completo "
+                        "y verificable.[/bold green]"
+                    )
                     self.console.print(f"  [bold white]--> Ejecutando Fase Multimedia (Voz, Imágenes, Ensamblado)...[/bold white]")
                     éxito_media = ejecutar_media_production(project_path)
                     if not éxito_media:

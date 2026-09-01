@@ -28,6 +28,7 @@ Compatibilidad:
 from pathlib import Path
 from typing import Any
 
+from editorial_contract import render_traceability_contract
 from runtime_component import RuntimeComponent
 from runtime_context import RuntimeContext
 from runtime_models import (
@@ -100,6 +101,10 @@ class PromptEngine(RuntimeComponent):
         "publicacion": (
             "Preparar el paquete editorial final listo para "
             "publicación en la plataforma correspondiente."
+        ),
+        "narracion": (
+            "Convertir el guion y storyboard verificados en una narración "
+            "textual natural, pronunciable y ajustada a la duración solicitada."
         ),
         "final": (
             "Consolidar los entregables validados del proyecto "
@@ -174,7 +179,11 @@ class PromptEngine(RuntimeComponent):
                 project=project,
                 objective=objective,
                 context=context_object,
-                output_format="Markdown",
+                output_format=(
+                    "texto plano UTF-8"
+                    if project.stage_actual == "narracion"
+                    else "Markdown"
+                ),
                 restrictions=restrictions,
                 metadata={
                     "component": self.component_name,
@@ -555,13 +564,19 @@ class PromptEngine(RuntimeComponent):
             for item in prompt.restrictions
         )
 
-        required_structure = (
-            self._render_required_headings(
-                stage_contract[
-                    "required_headings"
-                ]
+        if prompt.project.stage_actual == "narracion":
+            required_structure = (
+                "No uses encabezados. Entrega únicamente párrafos de locución "
+                "en texto plano."
             )
-        )
+        else:
+            required_structure = (
+                self._render_required_headings(
+                    stage_contract[
+                        "required_headings"
+                    ]
+                )
+            )
 
         recommended_structure = (
             self._render_recommended_headings(
@@ -569,6 +584,15 @@ class PromptEngine(RuntimeComponent):
                     "recommended_headings"
                 ]
             )
+        )
+
+        editorial_contract_applied = bool(
+            prompt.context.metadata.get("editorial_context_applied", False)
+        )
+        editorial_contract = (
+            render_traceability_contract(prompt.project.stage_actual)
+            if editorial_contract_applied
+            else "- Se conserva el contrato histórico de este proyecto."
         )
 
         return f"""# PROMPT CIPS
@@ -628,6 +652,16 @@ Debe cumplir todos estos requisitos:
 
 Los encabezados recomendados mejoran la calidad y la puntuación
 de la respuesta, pero no sustituyen a los obligatorios.
+
+---
+
+## Contrato editorial verificable FAO.3
+
+{editorial_contract}
+
+La solicitud operativa y los entregables aprobados incluidos en el contexto
+son autoritativos. No contradigas sus campos ni introduzcas afirmaciones que
+no puedan rastrearse hasta ese material.
 
 ---
 
