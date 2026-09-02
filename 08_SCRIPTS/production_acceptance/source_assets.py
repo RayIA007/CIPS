@@ -478,7 +478,15 @@ class PM9SourceAssetBuilder:
         """
 
         types = tuple(scene.asset_request.asset_type for scene in self.manifest.scenes)
-        if all(asset_type is AssetType.STOCK_IMAGE for asset_type in types):
+        if all(
+            asset_type
+            in {
+                AssetType.STOCK_IMAGE,
+                AssetType.MOTION_GRAPHIC,
+                AssetType.TEXT_GRAPHIC,
+            }
+            for asset_type in types
+        ):
             return False
         legacy = (
             AssetType.STOCK_VIDEO,
@@ -492,8 +500,9 @@ class PM9SourceAssetBuilder:
         ):
             return True
         raise SourceAssetBuildError(
-            "El builder local sólo admite visuales stock_image para proyectos "
-            "nuevos; otros visuales deben resolverse mediante PM8."
+            "El builder local sólo admite stock_image o visuales "
+            "renderer-native para proyectos nuevos; otros visuales deben "
+            "resolverse mediante PM8."
         )
 
     def _expected_local_entry_count(self) -> int:

@@ -18,6 +18,7 @@ from rich.console import Console
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR / "11_MEDIA_PRODUCTION"))
 
+from fao_pm9_unification import FAOPM9UnificationEngine
 from logger import Logger
 from project_manager import ProjectManager
 from pipeline_engine import PipelineEngine
@@ -44,6 +45,7 @@ class MenuController:
 
         self.project_manager = ProjectManager()
         self.pipeline_engine = PipelineEngine()
+        self.fao_pm9_unification = FAOPM9UnificationEngine()
         self.validator = Validator()
         self.knowledge_builder = KnowledgeModuleBuilder()
 
@@ -66,6 +68,53 @@ class MenuController:
                     json.dump(data, f, indent=4, ensure_ascii=False)
             except Exception as e:
                 Logger.error(f"Error actualizando estado en production.json: {e}")
+
+    @staticmethod
+    def _is_fao_project(project_path: Path) -> bool:
+        return (project_path / "operational_request.json").is_file()
+
+    def _prepare_fao_project(self, project_path: Path):
+        """Ejecuta FAO.5 y detiene el flujo antes de cualquier render real."""
+
+        self.console.print(
+            "  [bold white]--> Unificando con PM9:[/bold white] "
+            "inventario, assets, audio, subtítulos y preparación..."
+        )
+        result = self.fao_pm9_unification.prepare(project_path)
+        self.update_production_status(
+            project_path,
+            "READY_FOR_RENDER_AUTHORIZATION",
+        )
+        self.project_manager.checkpoint_project(
+            project_path,
+            label="ready_for_render_authorization",
+            metadata={
+                "lifecycle_state": "ready_for_render_authorization",
+                **result.metadata(),
+            },
+        )
+        self.console.print(
+            "\n[bold green][OK] FAO.5 completó la preparación PM9.[/bold green]"
+        )
+        self.console.print(
+            f"Proveedor preparado: [cyan]{result.provider}[/cyan]"
+        )
+        self.console.print(
+            "Costo previo real: "
+            f"[cyan]USD {result.total_actual_cost_usd:.2f}[/cyan]"
+        )
+        self.console.print(
+            "Créditos estimados para un render futuro: "
+            f"[cyan]{result.estimated_render_credits}[/cyan]"
+        )
+        self.console.print(
+            f"Evidencia: [cyan]{result.evidence_path.resolve()}[/cyan]"
+        )
+        self.console.print(
+            "[bold yellow]No se ejecutó ningún render, no inició F7 y "
+            "no se publicó contenido.[/bold yellow]"
+        )
+        return result
 
     # --------------------------------------------------
     # PROYECTOS (Flujo Automatizado ENTREGABLE 001)
@@ -165,6 +214,7 @@ class MenuController:
             # 2. Bucle automático pasando por todos los stages
             pipeline_failed = False
             pipeline_paused = False
+            production_prepared = False
             # FAO.3 conserva ``narracion`` como entregable editorial generado
             # por el proveedor LLM. La producción física comienza en ``voz``.
             stages_multimedia = {"voz", "imagenes", "subtitulos", "ensamblado", "control_calidad"}
@@ -214,10 +264,22 @@ class MenuController:
                         "  [bold green][OK] Paquete editorial FAO.3 completo "
                         "y verificable.[/bold green]"
                     )
-                    self.console.print(f"  [bold white]--> Ejecutando Fase Multimedia (Voz, Imágenes, Ensamblado)...[/bold white]")
-                    éxito_media = ejecutar_media_production(project_path)
-                    if not éxito_media:
-                        pipeline_failed = True
+                    if self._is_fao_project(project_path):
+                        try:
+                            self._prepare_fao_project(project_path)
+                            production_prepared = True
+                        except Exception as error:
+                            Logger.error(f"FAO.5 no pudo preparar PM9: {error}")
+                            self.console.print(
+                                "\n[bold red][X] FAO.5 no pudo completar la "
+                                f"preparación PM9:[/bold red] {error}"
+                            )
+                            pipeline_failed = True
+                    else:
+                        self.console.print(f"  [bold white]--> Ejecutando Fase Multimedia (Voz, Imágenes, Ensamblado)...[/bold white]")
+                        éxito_media = ejecutar_media_production(project_path)
+                        if not éxito_media:
+                            pipeline_failed = True
                     # Una vez ejecutada la producción multimedia completa, salimos del bucle hacia la revisión
                     break
 
@@ -240,6 +302,10 @@ class MenuController:
                         "\n[bold yellow]El proyecto conserva su checkpoint. "
                         "Puedes reintentarlo desde 'Continuar Proyecto'.[/bold yellow]"
                     )
+                self.pause()
+                return
+
+            if production_prepared:
                 self.pause()
                 return
 
@@ -382,6 +448,36 @@ class MenuController:
                     "publication_performed": False,
                 },
             )
+
+            if (
+                self._is_fao_project(project_path)
+                and selected_project.stage_actual
+                in {
+                    "voz",
+                    "imagenes",
+                    "subtitulos",
+                    "ensamblado",
+                    "control_calidad",
+                }
+            ):
+                try:
+                    self._prepare_fao_project(project_path)
+                except Exception as error:
+                    Logger.error(f"FAO.5 no pudo reanudar PM9: {error}")
+                    self.project_manager.checkpoint_project(
+                        project_path,
+                        label="resume_failed",
+                        metadata={
+                            "lifecycle_state": "production_preparation_failed",
+                            "publication_performed": False,
+                        },
+                    )
+                    self.console.print(
+                        "\n[red]No se pudo completar la preparación PM9.[/red]"
+                    )
+                    self.console.print(str(error))
+                self.pause()
+                return
 
             result = self.pipeline_engine.execute(
                 project_path=project_path
