@@ -45,6 +45,10 @@ from metrics_engine import MetricsEngine
 from pipeline_runner import PipelineRunner
 from project_manager import ProjectManager
 from prompt_engine import PromptEngine
+from production_derivation import (
+    ProductionDerivationEngine,
+    ProductionDerivationResult,
+)
 from production_media_router import ProductionMediaRouter
 from production_final_review import ProductionFinalReviewBridge
 from runtime_constants import (
@@ -117,6 +121,7 @@ class PipelineEngine:
         self.metrics_engine = MetricsEngine()
         self.export_engine = ExportEngine()
         self.telemetry_engine = TelemetryEngine()
+        self.production_derivation = ProductionDerivationEngine()
         self.production_media_router = ProductionMediaRouter()
         self.production_final_review = ProductionFinalReviewBridge()
 
@@ -904,6 +909,36 @@ class PipelineEngine:
             completed_stage
         )
 
+        production_derivation: ProductionDerivationResult | None = None
+        if (
+            completed_stage == "narracion"
+            and (project.path / "operational_request.json").is_file()
+        ):
+            try:
+                production_derivation = (
+                    self.production_derivation.derive_and_persist(
+                        project.path
+                    )
+                )
+            except Exception as error:
+                return EngineResult.fail(
+                    message=(
+                        "La narración fue validada, pero FAO.4 no pudo "
+                        "derivar los insumos de producción. El proyecto "
+                        "permanecerá en 'narracion'."
+                    ),
+                    errors=[str(error)],
+                    warnings=list(runtime_context.warnings),
+                    metadata={
+                        **self._base_metadata(project),
+                        "completed_stage": completed_stage,
+                        "next_stage": next_stage,
+                        "production_derivation_required": True,
+                        "production_derivation_failed": True,
+                        "publication_performed": False,
+                    },
+                )
+
         finalization_result = None
 
         if next_stage == FINAL_STAGE:
@@ -960,6 +995,11 @@ class PipelineEngine:
             "response_path": str(response_path),
         }
 
+        if production_derivation is not None:
+            result_data["production_derivation"] = (
+                production_derivation.metadata()
+            )
+
         result_metadata = {
             **self._base_metadata(project),
             "completed_stage": completed_stage,
@@ -998,6 +1038,16 @@ class PipelineEngine:
             "validation_approved": True,
         }
 
+        if production_derivation is not None:
+            result_metadata.update(
+                production_derivation.metadata()
+            )
+            result_metadata["production_derivation_complete"] = True
+            result_metadata["executed_components"] = [
+                *result_metadata["executed_components"],
+                self.production_derivation.component_name,
+            ]
+
         if finalization_result is not None:
             result_data[
                 "final_project"
@@ -1011,6 +1061,12 @@ class PipelineEngine:
             f"Stage '{completed_stage}' validado. "
             f"Nuevo Stage: '{next_stage}'."
         )
+
+        if production_derivation is not None:
+            message += (
+                " FAO.4 derivó y validó el ProductionManifest, la "
+                "dirección creativa y la configuración de aceptación."
+            )
 
         if finalization_result is not None:
             message += (
