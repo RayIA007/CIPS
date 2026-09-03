@@ -206,6 +206,7 @@ class VisualAssetFulfillmentService:
                     "height_px": record.metadata.get("height_px"),
                     "aspect_ratio": record.metadata.get("aspect_ratio"),
                     "prompt_permitted": record.metadata.get("prompt_permitted"),
+                    "selected_title": record.metadata.get("selected_title"),
                     "actual_cost_usd": entry.actual_cost_usd,
                     "selected_from_alternative": (
                         record.selected_from_alternative

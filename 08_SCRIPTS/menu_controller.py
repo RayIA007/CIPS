@@ -19,6 +19,10 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR / "11_MEDIA_PRODUCTION"))
 
 from fao_pm9_unification import FAOPM9UnificationEngine
+from fao_quality_recovery import (
+    FAOQualityRecoveryBlockedError,
+    FAOQualityRecoveryEngine,
+)
 from logger import Logger
 from project_manager import ProjectManager
 from pipeline_engine import PipelineEngine
@@ -46,6 +50,7 @@ class MenuController:
         self.project_manager = ProjectManager()
         self.pipeline_engine = PipelineEngine()
         self.fao_pm9_unification = FAOPM9UnificationEngine()
+        self.fao_quality_recovery = FAOQualityRecoveryEngine()
         self.validator = Validator()
         self.knowledge_builder = KnowledgeModuleBuilder()
 
@@ -74,13 +79,40 @@ class MenuController:
         return (project_path / "operational_request.json").is_file()
 
     def _prepare_fao_project(self, project_path: Path):
-        """Ejecuta FAO.5 y detiene el flujo antes de cualquier render real."""
+        """Ejecuta FAO.5/FAO.6 y detiene el flujo antes de cualquier render."""
 
         self.console.print(
             "  [bold white]--> Unificando con PM9:[/bold white] "
             "inventario, assets, audio, subtítulos y preparación..."
         )
         result = self.fao_pm9_unification.prepare(project_path)
+        self.console.print(
+            "  [bold white]--> Verificando FAO.6:[/bold white] "
+            "fuentes, calidad editorial, visual, acústica y técnica..."
+        )
+        try:
+            quality = self.fao_quality_recovery.evaluate(project_path)
+        except FAOQualityRecoveryBlockedError as error:
+            self.update_production_status(project_path, "QUALITY_GATE_BLOCKED")
+            self.project_manager.checkpoint_project(
+                project_path,
+                label="quality_gate_blocked",
+                metadata={
+                    "lifecycle_state": "quality_gate_blocked",
+                    **result.metadata(),
+                    **error.result.metadata(),
+                },
+            )
+            self.console.print(
+                "\n[bold red][X] FAO.6 bloqueó el render de forma segura.[/bold red]"
+            )
+            self.console.print(error.operator_message)
+            for step in error.recovery_steps:
+                self.console.print(f"- {step}")
+            self.console.print(
+                f"Evidencia: [cyan]{error.result.evidence_path.resolve()}[/cyan]"
+            )
+            raise
         self.update_production_status(
             project_path,
             "READY_FOR_RENDER_AUTHORIZATION",
@@ -91,10 +123,12 @@ class MenuController:
             metadata={
                 "lifecycle_state": "ready_for_render_authorization",
                 **result.metadata(),
+                **quality.metadata(),
             },
         )
         self.console.print(
-            "\n[bold green][OK] FAO.5 completó la preparación PM9.[/bold green]"
+            "\n[bold green][OK] FAO.5 preparó PM9 y FAO.6 aprobó "
+            "todos los gates de calidad.[/bold green]"
         )
         self.console.print(
             f"Proveedor preparado: [cyan]{result.provider}[/cyan]"
@@ -109,6 +143,9 @@ class MenuController:
         )
         self.console.print(
             f"Evidencia: [cyan]{result.evidence_path.resolve()}[/cyan]"
+        )
+        self.console.print(
+            f"Calidad FAO.6: [cyan]{quality.evidence_path.resolve()}[/cyan]"
         )
         self.console.print(
             "[bold yellow]No se ejecutó ningún render, no inició F7 y "
@@ -269,9 +306,12 @@ class MenuController:
                             self._prepare_fao_project(project_path)
                             production_prepared = True
                         except Exception as error:
-                            Logger.error(f"FAO.5 no pudo preparar PM9: {error}")
+                            Logger.error(f"FAO.5/FAO.6 no pudo preparar PM9: {error}")
+                            if isinstance(error, FAOQualityRecoveryBlockedError):
+                                self.pause()
+                                return
                             self.console.print(
-                                "\n[bold red][X] FAO.5 no pudo completar la "
+                                "\n[bold red][X] FAO.5/FAO.6 no pudo completar la "
                                 f"preparación PM9:[/bold red] {error}"
                             )
                             pipeline_failed = True
@@ -463,19 +503,20 @@ class MenuController:
                 try:
                     self._prepare_fao_project(project_path)
                 except Exception as error:
-                    Logger.error(f"FAO.5 no pudo reanudar PM9: {error}")
-                    self.project_manager.checkpoint_project(
-                        project_path,
-                        label="resume_failed",
-                        metadata={
-                            "lifecycle_state": "production_preparation_failed",
-                            "publication_performed": False,
-                        },
-                    )
-                    self.console.print(
-                        "\n[red]No se pudo completar la preparación PM9.[/red]"
-                    )
-                    self.console.print(str(error))
+                    Logger.error(f"FAO.5/FAO.6 no pudo reanudar PM9: {error}")
+                    if not isinstance(error, FAOQualityRecoveryBlockedError):
+                        self.project_manager.checkpoint_project(
+                            project_path,
+                            label="resume_failed",
+                            metadata={
+                                "lifecycle_state": "production_preparation_failed",
+                                "publication_performed": False,
+                            },
+                        )
+                        self.console.print(
+                            "\n[red]No se pudo completar la preparación PM9.[/red]"
+                        )
+                        self.console.print(str(error))
                 self.pause()
                 return
 

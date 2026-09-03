@@ -22,6 +22,10 @@ from fao_pm9_unification import (  # noqa: E402
     FAOPM9UnificationBlockedError,
     FAOPM9UnificationEngine,
 )
+from fao_quality_recovery import (  # noqa: E402
+    FAOQualityRecoveryBlockedError,
+    FAOQualityRecoveryResult,
+)
 from menu_controller import MenuController  # noqa: E402
 from production_acceptance import (  # noqa: E402
     FullProductionAcceptance,
@@ -303,6 +307,58 @@ class _BridgeStub:
         return _BridgeResultStub(project_path)
 
 
+class _QualityResultStub:
+    def __init__(self, project: Path) -> None:
+        self.evidence_path = project / "state" / "fao_quality_recovery.json"
+        self.evidence_path.write_text("{}", encoding="utf-8")
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "quality_approved": True,
+            "quality_passed_gates": [
+                "factual",
+                "editorial",
+                "visual",
+                "acoustic",
+                "technical",
+            ],
+            "render_performed": False,
+            "f7_review_performed": False,
+            "publication_performed": False,
+        }
+
+
+class _QualityStub:
+    def __init__(self) -> None:
+        self.project_paths: list[Path] = []
+
+    def evaluate(self, project_path: Path) -> _QualityResultStub:
+        self.project_paths.append(project_path)
+        return _QualityResultStub(project_path)
+
+
+class _QualityBlockingStub:
+    def evaluate(self, project_path: Path) -> None:
+        evidence = project_path / "state" / "fao_quality_recovery.json"
+        evidence.write_text("{}", encoding="utf-8")
+        raise FAOQualityRecoveryBlockedError(
+            FAOQualityRecoveryResult(
+                project_path=project_path,
+                evidence_path=evidence,
+                approved=False,
+                input_fingerprint="a" * 64,
+                passed_gates=("editorial", "visual", "acoustic"),
+                blocking_codes=("technical_public_delivery_unavailable",),
+                operator_message="Los assets públicos todavía no están disponibles.",
+                recovery_steps=("Vuelve a usar Continuar Proyecto.",),
+                retryable=True,
+                source_network_calls=2,
+                delivery_network_calls=1,
+                reused_existing=False,
+            )
+        )
+
+
 def test_official_new_project_routes_fao_media_to_pm9_and_stops_before_review(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -311,10 +367,12 @@ def test_official_new_project_routes_fao_media_to_pm9_and_stops_before_review(
     monkeypatch.setattr(project_manager_module, "PROJECTS_DIR", projects_dir)
     manager = ProjectManager()
     bridge = _BridgeStub()
+    quality = _QualityStub()
     controller = MenuController()
     controller.project_manager = manager
     controller.pipeline_engine = _AdvancingEditorialPipeline(manager)
     controller.fao_pm9_unification = bridge
+    controller.fao_quality_recovery = quality
     controller.pause = lambda: None
     answers = iter(
         [
@@ -338,6 +396,7 @@ def test_official_new_project_routes_fao_media_to_pm9_and_stops_before_review(
 
     project = projects_dir / "PROYECTO_0001"
     assert bridge.project_paths == [project]
+    assert quality.project_paths == [project]
     production = json.loads((project / "production.json").read_text(encoding="utf-8"))
     assert production["status"] == "READY_FOR_RENDER_AUTHORIZATION"
     state = json.loads(
@@ -366,9 +425,11 @@ def test_continue_project_at_media_stage_reuses_same_fao5_bridge(
         )
         project = manager.load_project(project_path)
     bridge = _BridgeStub()
+    quality = _QualityStub()
     controller = MenuController()
     controller.project_manager = manager
     controller.fao_pm9_unification = bridge
+    controller.fao_quality_recovery = quality
     controller.pause = lambda: None
     controller.pipeline_engine.execute = lambda **kwargs: pytest.fail(
         "La reanudación FAO multimedia debe usar el puente PM9."
@@ -378,6 +439,7 @@ def test_continue_project_at_media_stage_reuses_same_fao5_bridge(
     controller.continue_project_runtime()
 
     assert bridge.project_paths == [project_path]
+    assert quality.project_paths == [project_path]
     state = json.loads(
         (project_path / "state" / "production_state.json").read_text(
             encoding="utf-8"
@@ -385,3 +447,41 @@ def test_continue_project_at_media_stage_reuses_same_fao5_bridge(
     )
     labels = [snapshot["label"] for snapshot in state["snapshots"]]
     assert labels[-2:] == ["resume_requested", "ready_for_render_authorization"]
+
+
+def test_official_flow_preserves_fao6_blocked_checkpoint_for_operator_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    projects_dir = tmp_path / "04_PROYECTOS"
+    monkeypatch.setattr(project_manager_module, "PROJECTS_DIR", projects_dir)
+    manager = ProjectManager()
+    controller = MenuController()
+    controller.project_manager = manager
+    controller.pipeline_engine = _AdvancingEditorialPipeline(manager)
+    controller.fao_pm9_unification = _BridgeStub()
+    controller.fao_quality_recovery = _QualityBlockingStub()
+    controller.pause = lambda: None
+    answers = iter(
+        [
+            "Tema con entrega remota pendiente",
+            "YouTube Shorts",
+            "45",
+            "público general",
+            "educativo y visual",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    controller.new_project()
+
+    project = projects_dir / "PROYECTO_0001"
+    production = json.loads((project / "production.json").read_text(encoding="utf-8"))
+    state = json.loads(
+        (project / "state" / "production_state.json").read_text(encoding="utf-8")
+    )
+    assert production["status"] == "QUALITY_GATE_BLOCKED"
+    assert state["snapshots"][-1]["label"] == "quality_gate_blocked"
+    assert state["snapshots"][-1]["metadata"]["retryable"] is True
+    assert state["snapshots"][-1]["metadata"]["render_performed"] is False
+    assert state["snapshots"][-1]["metadata"]["publication_performed"] is False
